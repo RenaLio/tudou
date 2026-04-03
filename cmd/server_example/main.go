@@ -48,8 +48,8 @@ func main() {
 		"demo",
 		[]types.Ability{
 			types.AbilityChat,
-			//types.AbilityClaudeMessages,
-			types.AbilityChatCompletions,
+			types.AbilityClaudeMessages,
+			//types.AbilityChatCompletions,
 			//types.AbilityResponses,
 		},
 	)
