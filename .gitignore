@@ -30,4 +30,5 @@ go.work.sum
 .go_cache/
 .idea/
 .vscode/
+ai_docs/
 
