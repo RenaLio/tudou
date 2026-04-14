@@ -35,7 +35,7 @@ type ConfigValue struct {
 }
 
 // Value 实现 driver.Valuer 接口
-func (v *ConfigValue) Value() (driver.Value, error) {
+func (v ConfigValue) Value() (driver.Value, error) {
 	return json.Marshal(v.ValueData)
 }
 

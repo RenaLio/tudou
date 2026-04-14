@@ -11,6 +11,9 @@ type Config struct {
 		JWT struct {
 			Secret string `mapstructure:"secret"`
 		} `mapstructure:"jwt"`
+		Sid struct {
+			Id int64 `mapstructure:"id"`
+		} `mapstructure:"sid"`
 	} `mapstructure:"security"`
 	Data struct {
 		DB struct {

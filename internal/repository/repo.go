@@ -3,8 +3,9 @@ package repository
 import (
 	"context"
 
-	"github.com/RenaLio/tudou/internal/cache"
 	"github.com/RenaLio/tudou/internal/pkg/log"
+	"github.com/RenaLio/tudou/internal/pkg/sid"
+	"github.com/RenaLio/tudou/pkg/cache"
 	"gorm.io/gorm"
 )
 
@@ -20,17 +21,20 @@ type Repository struct {
 	db     *gorm.DB
 	logger *log.Logger
 	cache  *cache.JsonCache
+	sid    *sid.Sid
 }
 
 func NewRepository(
 	logger *log.Logger,
 	db *gorm.DB,
 	cache *cache.JsonCache,
+	sid *sid.Sid,
 ) *Repository {
 	return &Repository{
 		db:     db,
 		cache:  cache,
 		logger: logger,
+		sid:    sid,
 	}
 }
 
@@ -61,4 +65,12 @@ func (r *Repository) Transaction(ctx context.Context, fn func(ctx context.Contex
 		ctx = context.WithValue(ctx, ctxTxKey, tx)
 		return fn(ctx)
 	})
+}
+
+func (r *Repository) Log(ctx context.Context) *log.Logger {
+	return r.logger.FromContext(ctx)
+}
+
+func (r *Repository) NextID() int64 {
+	return r.sid.GenInt64()
 }

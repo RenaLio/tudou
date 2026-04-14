@@ -2,7 +2,6 @@ package models
 
 import (
 	"database/sql/driver"
-
 	"strings"
 	"time"
 
@@ -33,7 +32,7 @@ type Channel struct {
 
 	//MaxConnections int                   `gorm:"column:max_connections;type:int;default:0;comment:最大连接数" json:"maxConnections"`
 	// 关联关系
-	Groups []ChannelGroup `gorm:"many2many:group_channels;" json:"groups,omitempty"`
+	Groups []ChannelGroup `gorm:"many2many:group_channels;foreignKey:ID;joinForeignKey:ChannelID;References:ID;joinReferences:GroupID" json:"groups,omitempty"`
 	Stats  *ChannelStats  `gorm:"foreignKey:ChannelID;references:ID" json:"stats,omitempty"`
 }
 
@@ -111,7 +110,7 @@ type ChannelSettings struct {
 }
 
 // Value 实现 driver.Valuer 接口
-func (s *ChannelSettings) Value() (driver.Value, error) {
+func (s ChannelSettings) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 
@@ -135,7 +134,7 @@ type ChannelExtra struct {
 }
 
 // Value 实现 driver.Valuer 接口
-func (e *ChannelExtra) Value() (driver.Value, error) {
+func (e ChannelExtra) Value() (driver.Value, error) {
 	return json.Marshal(e)
 }
 

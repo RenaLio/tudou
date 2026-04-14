@@ -8,6 +8,8 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/goccy/go-json v0.10.6
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/google/wire v0.7.0
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/viper v1.21.0
 	github.com/tidwall/gjson v1.18.0

@@ -27,7 +27,7 @@ type RequestExtra struct {
 }
 
 // Value 实现 driver.Valuer 接口
-func (e *RequestExtra) Value() (driver.Value, error) {
+func (e RequestExtra) Value() (driver.Value, error) {
 	return json.Marshal(e)
 }
 
@@ -48,7 +48,7 @@ type Pricing struct {
 	PerRequestPrice  float64 `json:"perRequestPrice,omitempty"`  // 按次计费价格 (per request)
 }
 
-func (p *Pricing) Value() (driver.Value, error) {
+func (p Pricing) Value() (driver.Value, error) {
 	return json.Marshal(p)
 }
 
@@ -67,7 +67,7 @@ type ProviderDetail struct {
 	// 其他字段...
 }
 
-func (p *ProviderDetail) Value() (driver.Value, error) {
+func (p ProviderDetail) Value() (driver.Value, error) {
 	return json.Marshal(p)
 }
 

@@ -29,7 +29,7 @@ type TokenSettings struct {
 }
 
 // Value 实现 driver.Valuer 接口
-func (s *TokenSettings) Value() (driver.Value, error) {
+func (s TokenSettings) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 

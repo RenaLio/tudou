@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/allegro/bigcache/v3" // 注意：建议使用 v3 版本
+	"github.com/allegro/bigcache/v3"
 	"github.com/goccy/go-json"
 )
 

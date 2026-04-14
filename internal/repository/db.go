@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/RenaLio/tudou/internal/cache"
 	"github.com/RenaLio/tudou/internal/config"
 	"github.com/RenaLio/tudou/internal/pkg/log"
 	"github.com/RenaLio/tudou/internal/pkg/zapgorm"
+	"github.com/RenaLio/tudou/pkg/cache"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -42,7 +42,7 @@ func NewDB(conf *config.Config, logger *log.Logger) *gorm.DB {
 
 func initSqlite(dsn string, dbLogger gormlogger.Interface) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		Logger:                                   dbLogger,
+		//Logger:                                   dbLogger,
 		PrepareStmt:                              true,
 		DisableForeignKeyConstraintWhenMigrating: true,
 		SkipDefaultTransaction:                   true,

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/RenaLio/tudou/internal/models"
 	"github.com/bwmarrin/snowflake"
 	"gorm.io/gorm"
 )
@@ -57,13 +56,14 @@ func (d *OperationDetail) Value() (driver.Value, error) {
 }
 
 // Scan 实现 sql.Scanner 接口
-func (d *OperationDetail) Scan(value interface{}) error {
-	if value == nil {
-		*d = OperationDetail{}
-		return nil
-	}
-	return models.unmarshalJSONValue(value, d)
-}
+//func (d *OperationDetail) Scan(value interface{}) error {
+//	if value == nil {
+//		*d = OperationDetail{}
+//		return nil
+//	}
+//
+//	return models.unmarshalJSONValue(value, d)
+//}
 
 // OperationLog 操作日志模型
 type OperationLog struct {

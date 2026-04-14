@@ -19,7 +19,7 @@ type ChannelGroup struct {
 	DeletedAt           soft_delete.DeletedAt `gorm:"column:deleted_at;type:bigint;index:idx_group_deleted_at" json:"-"`
 
 	// 关联关系
-	Channels []Channel `gorm:"many2many:group_channels;" json:"channels,omitempty"`
+	Channels []Channel `gorm:"many2many:group_channels;foreignKey:ID;joinForeignKey:GroupID;References:ID;joinReferences:ChannelID" json:"channels,omitempty"`
 	Tokens   []Token   `gorm:"foreignKey:GroupID" json:"tokens,omitempty"`
 }
 

@@ -1,0 +1,31 @@
+env: dev
+debug: true
+http:
+  host: 0.0.0.0
+  port: 8080
+security:
+  jwt:
+    secret: lX9@mN3#aD2*uN5&
+  sid:
+    id: 1
+
+data:
+  db:
+    user:
+      driver: sqlite
+      dsn:  storage/tudou.db?_busy_timeout=5000&_journal_mode=WAL&_synchronous=NORMAL&_cache_size=-10000&_temp_store=MEMORY&_pragmas_cache_size=1000
+      #      driver: mysql
+      #      dsn: root:123456@tcp(localhost:3306)/cpa_mgt
+
+log:
+  log_level: debug
+  mode: both            # console or file or both
+  file_encoding: json
+  console_encoding: console
+  log_path: "./storage/logs"
+  error_log_name: "error.log"
+  log_file_name: "server.log"
+  max_backups: 30
+  max_age: 7
+  max_size: 1024
+  compress: true

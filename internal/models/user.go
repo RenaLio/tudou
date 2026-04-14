@@ -37,7 +37,7 @@ type UserSettings struct {
 }
 
 // Value 实现 driver.Valuer 接口
-func (s *UserSettings) Value() (driver.Value, error) {
+func (s UserSettings) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 

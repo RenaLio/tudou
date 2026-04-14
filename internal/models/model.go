@@ -124,7 +124,7 @@ type ModelPricing struct {
 }
 
 // Value 实现 driver.Valuer 接口
-func (p *ModelPricing) Value() (driver.Value, error) {
+func (p ModelPricing) Value() (driver.Value, error) {
 	return json.Marshal(p)
 }
 
@@ -147,7 +147,7 @@ type ModelCapabilities struct {
 }
 
 // Value 实现 driver.Valuer 接口
-func (c *ModelCapabilities) Value() (driver.Value, error) {
+func (c ModelCapabilities) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
@@ -164,7 +164,7 @@ type AIModelExtra struct {
 	SyncModelInfoPath string `json:"syncModelInfoPath,omitempty"` // 格式：@提供商/模型id，用于向类似models.dev Web API同步模型信息
 }
 
-func (e *AIModelExtra) Value() (driver.Value, error) {
+func (e AIModelExtra) Value() (driver.Value, error) {
 	return json.Marshal(e)
 }
 
