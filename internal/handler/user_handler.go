@@ -2,9 +2,9 @@ package handler
 
 import (
 	"errors"
-	"net/http"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
+	"github.com/RenaLio/tudou/internal/middleware"
 	"github.com/RenaLio/tudou/internal/service"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -23,28 +23,17 @@ func NewUserHandler(base *Handler, userService service.UserService) *UserHandler
 }
 
 func (h *UserHandler) RegisterRoutes(r gin.IRouter) {
-	users := r.Group("/users")
-	users.POST("", h.CreateUser)
-	users.POST("/login", h.Login)
-	users.GET("", h.ListUsers)
-	users.GET("/:id", h.GetUserByID)
-	users.PUT("/:id", h.UpdateUser)
-	users.PATCH("/:id/status", h.SetUserStatus)
-	users.PATCH("/:id/password", h.UpdateUserPassword)
-	users.DELETE("/:id", h.DeleteUser)
-}
-
-func (h *UserHandler) CreateUser(ctx *gin.Context) {
-	var req v1.CreateUserRequest
-	if !h.BindJSON(ctx, &req) {
-		return
+	self := r.Group("/self")
+	self.Use(middleware.RequireAuth(h.Service.JWT()))
+	{
+		self.GET("", h.GetUserByID)
+		self.PUT("", h.UpdateUser)
+		self.PATCH("/password", h.UpdateUserPassword)
 	}
-	resp, err := h.UserService.Create(ctx.Request.Context(), req)
-	if err != nil {
-		HandleServiceError(ctx, err)
-		return
+	users := r.Group("/user")
+	{
+		users.POST("/login", h.Login)
 	}
-	v1.Success(ctx, resp)
 }
 
 func (h *UserHandler) Login(ctx *gin.Context) {
@@ -64,22 +53,10 @@ func (h *UserHandler) Login(ctx *gin.Context) {
 	v1.Success(ctx, resp)
 }
 
-func (h *UserHandler) ListUsers(ctx *gin.Context) {
-	var req v1.ListUsersRequest
-	if !h.BindQuery(ctx, &req) {
-		return
-	}
-	resp, err := h.UserService.List(ctx.Request.Context(), req)
-	if err != nil {
-		HandleServiceError(ctx, err)
-		return
-	}
-	v1.Success(ctx, resp)
-}
-
 func (h *UserHandler) GetUserByID(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
+	id := GetUserIdFromCtx(ctx)
+	if id <= 0 {
+		v1.Fail(ctx, v1.ErrUnauthorized.WithMessage("user not found"), nil)
 		return
 	}
 	resp, err := h.UserService.GetByID(ctx.Request.Context(), id, true)
@@ -95,8 +72,9 @@ func (h *UserHandler) GetUserByID(ctx *gin.Context) {
 }
 
 func (h *UserHandler) UpdateUser(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
+	id := GetUserIdFromCtx(ctx)
+	if id <= 0 {
+		v1.Fail(ctx, v1.ErrUnauthorized.WithMessage("user not found"), nil)
 		return
 	}
 	var req v1.UpdateUserRequest
@@ -115,26 +93,10 @@ func (h *UserHandler) UpdateUser(ctx *gin.Context) {
 	v1.Success(ctx, resp)
 }
 
-func (h *UserHandler) SetUserStatus(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
-		return
-	}
-	var req v1.SetUserStatusRequest
-	if !h.BindJSON(ctx, &req) {
-		return
-	}
-	resp, err := h.UserService.UpdateStatus(ctx.Request.Context(), id, req)
-	if err != nil {
-		HandleServiceError(ctx, err)
-		return
-	}
-	v1.Success(ctx, resp)
-}
-
 func (h *UserHandler) UpdateUserPassword(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
+	id := GetUserIdFromCtx(ctx)
+	if id <= 0 {
+		v1.Fail(ctx, v1.ErrUnauthorized.WithMessage("user not found"), nil)
 		return
 	}
 	var req v1.UpdateUserPasswordRequest
@@ -146,16 +108,4 @@ func (h *UserHandler) UpdateUserPassword(ctx *gin.Context) {
 		return
 	}
 	v1.Success(ctx, map[string]any{"id": id})
-}
-
-func (h *UserHandler) DeleteUser(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
-		return
-	}
-	if err := h.UserService.Delete(ctx.Request.Context(), id); err != nil {
-		HandleServiceError(ctx, err)
-		return
-	}
-	ctx.Status(http.StatusNoContent)
 }

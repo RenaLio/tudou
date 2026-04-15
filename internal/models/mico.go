@@ -10,6 +10,10 @@ const (
 	pricingTokenUnit int64 = 1_000_000
 )
 
+func GetMoneyMicrosPerUnit() int64 {
+	return moneyMicrosPerUnit
+}
+
 func moneyFloatToMicros(amount float64) int64 {
 	return int64(math.Round(amount * float64(moneyMicrosPerUnit)))
 }

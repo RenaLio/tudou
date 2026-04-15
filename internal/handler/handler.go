@@ -78,6 +78,24 @@ func HandleNotFound(ctx *gin.Context) {
 }
 
 func GetUserIdFromCtx(ctx *gin.Context) int64 {
+	if v, exists := ctx.Get(constants.UserIdKey()); exists {
+		switch userID := v.(type) {
+		case int64:
+			if userID > 0 {
+				return userID
+			}
+		case int:
+			if userID > 0 {
+				return int64(userID)
+			}
+		case string:
+			parsed, err := strconv.ParseInt(userID, 10, 64)
+			if err == nil && parsed > 0 {
+				return parsed
+			}
+		}
+	}
+
 	v, exists := ctx.Get(constants.ClaimsKey())
 	if !exists {
 		return 0

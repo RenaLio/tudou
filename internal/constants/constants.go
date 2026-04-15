@@ -19,3 +19,9 @@ var traceIdKey ctxKeyType = struct{}{}
 func TraceIdKey() ctxKeyType {
 	return traceIdKey
 }
+
+var requestIdKey = traceIdKey
+
+func RequestIdKey() ctxKeyType {
+	return requestIdKey
+}

@@ -1,7 +1,6 @@
 package jwt
 
 import (
-	"errors"
 	"strings"
 	"time"
 
@@ -45,10 +44,10 @@ func (j *JWT) GenToken(userId string, expiresAt time.Time) (string, error) {
 }
 
 func (j *JWT) ParseToken(tokenString string) (*MyCustomClaims, error) {
-	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
-	if strings.TrimSpace(tokenString) == "" {
-		return nil, errors.New("token is empty")
-	}
+	tokenString = strings.TrimPrefix(tokenString, "Bearer")
+	tokenString = strings.TrimPrefix(tokenString, "bearer")
+	tokenString = strings.TrimSpace(tokenString)
+
 	token, err := jwt.ParseWithClaims(tokenString, &MyCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return j.key, nil
 	})

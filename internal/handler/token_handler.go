@@ -24,7 +24,7 @@ func NewTokenHandler(base *Handler, tokenService service.TokenService) *TokenHan
 }
 
 func (h *TokenHandler) RegisterRoutes(r gin.IRouter) {
-	tokens := r.Group("/tokens")
+	tokens := r.Group("/token")
 	tokens.POST("", h.CreateToken)
 	tokens.GET("", h.ListTokens)
 	tokens.GET("/:id", h.GetTokenByID)
@@ -39,6 +39,11 @@ func (h *TokenHandler) CreateToken(ctx *gin.Context) {
 	if !h.BindJSON(ctx, &req) {
 		return
 	}
+	userId := GetUserIdFromCtx(ctx)
+	if userId <= 0 {
+		v1.Fail(ctx, v1.ErrUnauthorized.WithMessage("user not found"), nil)
+	}
+	req.UserID = userId
 	resp, err := h.TokenService.Create(ctx.Request.Context(), req)
 	if err != nil {
 		HandleServiceError(ctx, err)

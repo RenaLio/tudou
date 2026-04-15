@@ -3,6 +3,7 @@ package router
 import (
 	"errors"
 
+	"github.com/RenaLio/tudou/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,6 +20,9 @@ func RegisterHTTPRoutes(engine *gin.Engine, deps *Deps) error {
 	if deps.UserHandler == nil {
 		return errors.New("user handler is nil")
 	}
+	if deps.UserHandler.Service == nil {
+		return errors.New("base service is nil")
+	}
 	if deps.ChannelHandler == nil {
 		return errors.New("channel handler is nil")
 	}
@@ -33,6 +37,7 @@ func RegisterHTTPRoutes(engine *gin.Engine, deps *Deps) error {
 	}
 
 	apiV1Group := engine.Group("/api/v1")
+	apiV1Group.Use(middleware.RequestID(deps.Logger))
 	{
 		deps.ChannelHandler.RegisterRoutes(apiV1Group)
 		deps.ModelHandler.RegisterRoutes(apiV1Group)

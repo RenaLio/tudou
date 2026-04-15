@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math/rand/v2"
 	"strings"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
@@ -183,9 +184,9 @@ func (s *tokenService) Exists(ctx context.Context, id int64) (bool, error) {
 }
 
 func (s *tokenService) buildTokenByCreateReq(req v1.CreateTokenRequest) (*models.Token, error) {
-	tokenValue := strings.TrimSpace(req.Token)
+	tokenValue := GenToken(req.UserID, req.GroupID)
 	if req.UserID <= 0 || req.GroupID <= 0 || tokenValue == "" {
-		return nil, errors.New("userID/groupID/token are required")
+		return nil, errors.New("userID/groupID are required")
 	}
 	id := s.NextID()
 	if id <= 0 {
@@ -205,10 +206,10 @@ func (s *tokenService) buildTokenByCreateReq(req v1.CreateTokenRequest) (*models
 	} else {
 		token.Status = *req.Status
 	}
-	if req.LimitMicros == nil {
+	if req.Limit == nil {
 		token.LimitMicros = -1
 	} else {
-		token.LimitMicros = *req.LimitMicros
+		token.LimitMicros = int64((*req.Limit) * float64(models.GetMoneyMicrosPerUnit()))
 	}
 	if req.LoadBalanceStrategy == nil {
 		token.LoadBalanceStrategy = models.LoadBalanceStrategyPerformance
@@ -315,4 +316,23 @@ func toTokenWithRelationsResponse(token *models.Token) v1.TokenWithRelationsResp
 		resp.Stats = &stats
 	}
 	return resp
+}
+
+func GenToken(userId int64, groupId int64) string {
+
+	return RandomStringId(32)
+}
+
+func RandomStringId(length int) string {
+
+	//const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+	b := make([]byte, length)
+
+	for i := range b {
+		b[i] = charset[rand.IntN(len(charset))]
+	}
+
+	return string(b)
 }

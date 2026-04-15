@@ -9,6 +9,7 @@ import (
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/models"
 	"github.com/RenaLio/tudou/internal/repository"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -184,7 +185,11 @@ func (s *userService) UpdatePassword(ctx context.Context, id int64, req v1.Updat
 	if password == "" {
 		return errors.New("password is required")
 	}
-	return s.repo.UpdatePassword(ctx, id, password)
+	passwordHash, err := hashUserPassword(password)
+	if err != nil {
+		return err
+	}
+	return s.repo.UpdatePassword(ctx, id, passwordHash)
 }
 
 func (s *userService) Delete(ctx context.Context, id int64) error {
@@ -228,7 +233,8 @@ func (s *userService) ParseUserIDFromToken(ctx context.Context, token string) (i
 
 func (s *userService) Login(ctx context.Context, req v1.UserLoginRequest, clientIP string) (*v1.UserLoginResponse, error) {
 	username := strings.TrimSpace(req.Username)
-	if username == "" || strings.TrimSpace(req.Password) == "" {
+	password := strings.TrimSpace(req.Password)
+	if username == "" || password == "" {
 		return nil, errors.New("username/password are required")
 	}
 	user, err := s.repo.GetByUsername(ctx, username)
@@ -238,7 +244,7 @@ func (s *userService) Login(ctx context.Context, req v1.UserLoginRequest, client
 		}
 		return nil, err
 	}
-	if user.Password != req.Password {
+	if !verifyUserPassword(user.Password, password) {
 		return nil, errors.New("invalid username or password")
 	}
 
@@ -273,6 +279,10 @@ func (s *userService) buildUserByCreateReq(req v1.CreateUserRequest) (*models.Us
 	if username == "" || password == "" {
 		return nil, errors.New("username/password are required")
 	}
+	passwordHash, err := hashUserPassword(password)
+	if err != nil {
+		return nil, err
+	}
 	id := s.NextID()
 	if id <= 0 {
 		return nil, errors.New("failed to generate id by sid")
@@ -280,7 +290,7 @@ func (s *userService) buildUserByCreateReq(req v1.CreateUserRequest) (*models.Us
 	user := &models.User{
 		ID:       id,
 		Username: username,
-		Password: password,
+		Password: passwordHash,
 		Email:    strings.TrimSpace(req.Email),
 		Phone:    strings.TrimSpace(req.Phone),
 		Nickname: strings.TrimSpace(req.Nickname),
@@ -298,6 +308,22 @@ func (s *userService) buildUserByCreateReq(req v1.CreateUserRequest) (*models.Us
 		user.Role = *req.Role
 	}
 	return user, nil
+}
+
+func hashUserPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+func verifyUserPassword(storedPassword, plainPassword string) bool {
+	storedPassword = strings.TrimSpace(storedPassword)
+	if storedPassword == "" {
+		return false
+	}
+	return bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(plainPassword)) == nil
 }
 
 func patchUserByUpdateReq(user *models.User, req v1.UpdateUserRequest) {

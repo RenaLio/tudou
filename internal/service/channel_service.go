@@ -26,13 +26,15 @@ type ChannelService interface {
 
 type channelService struct {
 	*Service
-	repo repository.ChannelRepo
+	repo      repository.ChannelRepo
+	modelRepo repository.AIModelRepo
 }
 
-func NewChannelService(base *Service, repo repository.ChannelRepo) ChannelService {
+func NewChannelService(base *Service, repo repository.ChannelRepo, modelRepo repository.AIModelRepo) ChannelService {
 	return &channelService{
-		Service: base,
-		repo:    repo,
+		Service:   base,
+		repo:      repo,
+		modelRepo: modelRepo,
 	}
 }
 
@@ -42,19 +44,16 @@ func (s *channelService) Create(ctx context.Context, req v1.CreateChannelRequest
 		return nil, err
 	}
 
-	if len(req.GroupIDs) == 0 {
-		if err = s.repo.Create(ctx, channel); err != nil {
-			return nil, err
-		}
-		resp := toChannelResponse(channel)
-		return &resp, nil
-	}
-
 	if err = s.Transaction(ctx, func(txCtx context.Context) error {
 		if txErr := s.repo.Create(txCtx, channel); txErr != nil {
 			return txErr
 		}
-		return s.repo.ReplaceGroups(txCtx, channel.ID, req.GroupIDs)
+		if len(req.GroupIDs) > 0 {
+			if txErr := s.repo.ReplaceGroups(txCtx, channel.ID, req.GroupIDs); txErr != nil {
+				return txErr
+			}
+		}
+		return s.ensureModelsExist(txCtx, channel)
 	}); err != nil {
 		return nil, err
 	}
@@ -341,4 +340,74 @@ func toChannelResponse(channel *models.Channel) v1.ChannelResponse {
 		UpdatedAt:   channel.UpdatedAt,
 		GroupIDs:    groupIDs,
 	}
+}
+
+// ensureModelsExist 从 channel 支持的模型列表中提取所有模型名，
+// 对数据库中不存在的模型批量创建 AIModel 记录。
+func (s *channelService) ensureModelsExist(ctx context.Context, channel *models.Channel) error {
+	if channel == nil {
+		return nil
+	}
+	modelMap := channel.Models()
+	if len(modelMap) == 0 {
+		return nil
+	}
+
+	// 收集去重的模型名（包括调用名和上游名）
+	seen := make(map[string]struct{}, len(modelMap)*2)
+	names := make([]string, 0, len(modelMap)*2)
+	addModelName := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	for callModel, upstreamModel := range modelMap {
+		addModelName(callModel)
+		addModelName(upstreamModel)
+	}
+	if len(names) == 0 {
+		return nil
+	}
+
+	// 查出已存在的模型名
+	existingNames, err := s.modelRepo.GetExistingNames(ctx, names)
+	if err != nil {
+		return err
+	}
+	existSet := make(map[string]struct{}, len(existingNames))
+	for _, name := range existingNames {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		existSet[name] = struct{}{}
+	}
+
+	// 筛选出需要创建的
+	toCreate := make([]*models.AIModel, 0, len(names)-len(existingNames))
+	for _, name := range names {
+		if _, ok := existSet[name]; ok {
+			continue
+		}
+		id := s.NextID()
+		if id <= 0 {
+			return errors.New("failed to generate id by sid")
+		}
+		toCreate = append(toCreate, &models.AIModel{
+			ID:        id,
+			Name:      name,
+			Type:      models.ModelTypeChat,
+			IsEnabled: true,
+		})
+	}
+	if len(toCreate) == 0 {
+		return nil
+	}
+	return s.modelRepo.BatchCreate(ctx, toCreate)
 }

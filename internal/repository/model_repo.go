@@ -22,6 +22,7 @@ type AIModelRepo interface {
 	BatchCreate(ctx context.Context, modelsList []*models.AIModel) error
 	GetByID(ctx context.Context, id int64) (*models.AIModel, error)
 	GetByName(ctx context.Context, name string) (*models.AIModel, error)
+	GetExistingNames(ctx context.Context, names []string) ([]string, error)
 	List(ctx context.Context, opt AIModelListOption) ([]*models.AIModel, int64, error)
 	Update(ctx context.Context, model *models.AIModel) error
 	SetEnabled(ctx context.Context, id int64, enabled bool) error
@@ -52,6 +53,17 @@ func (r *aiModelRepo) GetByID(ctx context.Context, id int64) (*models.AIModel, e
 
 func (r *aiModelRepo) GetByName(ctx context.Context, name string) (*models.AIModel, error) {
 	return GetByKey[models.AIModel](ctx, "name", name, r.DB(ctx))
+}
+
+func (r *aiModelRepo) GetExistingNames(ctx context.Context, names []string) ([]string, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	var existing []string
+	if err := r.DB(ctx).Model(&models.AIModel{}).Where("name IN ?", names).Pluck("name", &existing).Error; err != nil {
+		return nil, err
+	}
+	return existing, nil
 }
 
 func (r *aiModelRepo) List(ctx context.Context, opt AIModelListOption) ([]*models.AIModel, int64, error) {

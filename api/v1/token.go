@@ -7,12 +7,11 @@ import (
 )
 
 type CreateTokenRequest struct {
-	UserID              int64                       `json:"userID,string" binding:"required"`
+	UserID              int64                       `json:"-"`
 	GroupID             int64                       `json:"groupID,string" binding:"required"`
-	Token               string                      `json:"token" binding:"required"`
 	Name                string                      `json:"name"`
 	Status              *models.TokenStatus         `json:"status,omitempty"`
-	LimitMicros         *int64                      `json:"limitMicros,omitempty"`
+	Limit               *float64                    `json:"limit,omitempty"`
 	ExpiresAt           *time.Time                  `json:"expiresAt,omitempty"`
 	LoadBalanceStrategy *models.LoadBalanceStrategy `json:"loadBalanceStrategy,omitempty"`
 	Settings            models.TokenSettings        `json:"settings"`
