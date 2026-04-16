@@ -89,14 +89,10 @@ func (s *aiModelService) GetByName(ctx context.Context, name string) (*v1.AIMode
 
 func (s *aiModelService) List(ctx context.Context, req v1.ListAIModelsRequest) (*v1.ListResponse[v1.AIModelResponse], error) {
 	opt := repository.AIModelListOption{
-		Page:      req.Page,
-		PageSize:  req.PageSize,
-		OrderBy:   req.OrderBy,
-		Keyword:   req.Keyword,
-		IsEnabled: req.IsEnabled,
-	}
-	if req.Type != "" {
-		opt.Type = models.ModelType(req.Type)
+		Page:     req.Page,
+		PageSize: req.PageSize,
+		OrderBy:  req.OrderBy,
+		Keyword:  req.Keyword,
 	}
 
 	items, total, err := s.repo.List(ctx, opt)
@@ -161,25 +157,16 @@ func (s *aiModelService) buildModelByCreateReq(req v1.CreateAIModelRequest) (*mo
 		return nil, errors.New("failed to generate id by sid")
 	}
 	model := &models.AIModel{
-		ID:           id,
-		Name:         name,
-		Type:         req.Type,
-		Description:  strings.TrimSpace(req.Description),
-		Pricing:      req.Pricing,
-		Capabilities: req.Capabilities,
-		PricingType:  req.PricingType,
-		Extra:        req.Extra,
-	}
-	if model.Type == "" {
-		model.Type = models.ModelTypeChat
+		ID:          id,
+		Name:        name,
+		Type:        models.ModelTypeChat,
+		Description: strings.TrimSpace(req.Description),
+		Pricing:     req.Pricing,
+		PricingType: req.PricingType,
+		IsEnabled:   true,
 	}
 	if model.PricingType == "" {
 		model.PricingType = models.ModelPricingTypeTokens
-	}
-	if req.IsEnabled == nil {
-		model.IsEnabled = true
-	} else {
-		model.IsEnabled = *req.IsEnabled
 	}
 	return model, nil
 }
@@ -191,26 +178,14 @@ func patchModelByUpdateReq(model *models.AIModel, req v1.UpdateAIModelRequest) {
 	if req.Name != nil {
 		model.Name = strings.TrimSpace(*req.Name)
 	}
-	if req.Type != nil {
-		model.Type = *req.Type
-	}
 	if req.Description != nil {
 		model.Description = strings.TrimSpace(*req.Description)
 	}
 	if req.Pricing != nil {
 		model.Pricing = *req.Pricing
 	}
-	if req.Capabilities != nil {
-		model.Capabilities = *req.Capabilities
-	}
 	if req.PricingType != nil {
 		model.PricingType = *req.PricingType
-	}
-	if req.IsEnabled != nil {
-		model.IsEnabled = *req.IsEnabled
-	}
-	if req.Extra != nil {
-		model.Extra = *req.Extra
 	}
 }
 

@@ -30,7 +30,7 @@ type UpdateChannelRequest struct {
 	BaseURL        *string                 `json:"baseURL,omitempty"`
 	APIKey         *string                 `json:"apiKey,omitempty"`
 	Weight         *int                    `json:"weight,omitempty"`
-	Status         *int                    `json:"status,omitempty"`
+	Status         *models.ChannelStatus   `json:"status,omitempty"`
 	Remark         *string                 `json:"remark,omitempty"`
 	Tag            *string                 `json:"tag,omitempty"`
 	Model          *string                 `json:"model,omitempty"`
@@ -44,7 +44,7 @@ type UpdateChannelRequest struct {
 }
 
 type SetChannelStatusRequest struct {
-	Status *int `json:"status" binding:"required"`
+	Status *models.ChannelStatus `json:"status" binding:"required"`
 }
 
 type ReplaceChannelGroupsRequest struct {
@@ -52,16 +52,16 @@ type ReplaceChannelGroupsRequest struct {
 }
 
 type ListChannelsRequest struct {
-	Page          int    `form:"page"`
-	PageSize      int    `form:"pageSize"`
-	OrderBy       string `form:"orderBy"`
-	Keyword       string `form:"keyword"`
-	GroupID       int64  `form:"-"`
-	GroupStringID string `form:"groupID"`
-	Type          string `form:"type"`
-	Status        *int   `form:"status"`
-	OnlyAvailable bool   `form:"onlyAvailable"`
-	PreloadGroups bool   `form:"preloadGroups"`
+	Page          int                   `form:"page"`
+	PageSize      int                   `form:"pageSize"`
+	OrderBy       string                `form:"orderBy"`
+	Keyword       string                `form:"keyword"`
+	GroupID       int64                 `form:"-"`
+	GroupStringID string                `form:"groupID"`
+	Type          string                `form:"type"`
+	Status        *models.ChannelStatus `form:"status"`
+	OnlyAvailable bool                  `form:"onlyAvailable"`
+	PreloadGroups bool                  `form:"preloadGroups"`
 }
 
 type ChannelResponse struct {
@@ -71,7 +71,7 @@ type ChannelResponse struct {
 	BaseURL     string                 `json:"baseURL"`
 	APIKey      string                 `json:"apiKey"`
 	Weight      int                    `json:"weight"`
-	Status      int                    `json:"status"`
+	Status      models.ChannelStatus   `json:"status"`
 	Remark      string                 `json:"remark"`
 	Tag         string                 `json:"tag"`
 	Model       string                 `json:"model"`

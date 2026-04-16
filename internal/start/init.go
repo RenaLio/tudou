@@ -11,29 +11,50 @@ import (
 	"gorm.io/gorm"
 )
 
-func InitApp(m *server.Migrate, userService service.UserService) error {
+func InitApp(m *server.Migrate, userService service.UserService, channelGroupService service.ChannelGroupService) error {
 	ctx := context.Background()
 	if err := m.Start(ctx); err != nil {
 		return err
 	}
 
+	// 初始化默认用户
 	const adminUsername = "admin"
 	_, err := userService.GetByUsername(ctx, adminUsername)
 	if err == nil {
+		// admin 用户已存在，跳过创建
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
+		role := models.UserRoleAdmin
+		status := models.UserStatusEnabled
+		_, err = userService.Create(ctx, v1.CreateUserRequest{
+			Username: adminUsername,
+			Password: "admin",
+			Role:     &role,
+			Status:   &status,
+			Nickname: adminUsername,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
+	// 初始化默认分组
+	const defaultGroupName = "default"
+	_, err = channelGroupService.GetByName(ctx, defaultGroupName)
+	if err == nil {
+		// default 分组已存在，跳过创建
 		return nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
-	role := models.UserRoleAdmin
-	status := models.UserStatusEnabled
-	_, err = userService.Create(ctx, v1.CreateUserRequest{
-		Username: adminUsername,
-		Password: "admin",
-		Role:     &role,
-		Status:   &status,
-		Nickname: adminUsername,
+	strategy := models.LoadBalanceStrategyWeighted
+	_, err = channelGroupService.Create(ctx, v1.CreateChannelGroupRequest{
+		Name:                defaultGroupName,
+		NameRemark:          "默认分组",
+		LoadBalanceStrategy: &strategy,
 	})
 	return err
 }

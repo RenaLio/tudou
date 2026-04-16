@@ -7,25 +7,17 @@ import (
 )
 
 type CreateAIModelRequest struct {
-	Name         string                   `json:"name" binding:"required"`
-	Type         models.ModelType         `json:"type"`
-	Description  string                   `json:"description"`
-	Pricing      models.ModelPricing      `json:"pricing"`
-	Capabilities models.ModelCapabilities `json:"capabilities"`
-	PricingType  models.ModelPricingType  `json:"pricingType"`
-	IsEnabled    *bool                    `json:"isEnabled,omitempty"`
-	Extra        models.AIModelExtra      `json:"extra"`
+	Name        string                  `json:"name" binding:"required"`
+	Description string                  `json:"description"`
+	Pricing     models.ModelPricing     `json:"pricing"`
+	PricingType models.ModelPricingType `json:"pricingType"`
 }
 
 type UpdateAIModelRequest struct {
-	Name         *string                   `json:"name,omitempty"`
-	Type         *models.ModelType         `json:"type,omitempty"`
-	Description  *string                   `json:"description,omitempty"`
-	Pricing      *models.ModelPricing      `json:"pricing,omitempty"`
-	Capabilities *models.ModelCapabilities `json:"capabilities,omitempty"`
-	PricingType  *models.ModelPricingType  `json:"pricingType,omitempty"`
-	IsEnabled    *bool                     `json:"isEnabled,omitempty"`
-	Extra        *models.AIModelExtra      `json:"extra,omitempty"`
+	Name        *string                  `json:"name,omitempty"`
+	Description *string                  `json:"description,omitempty"`
+	Pricing     *models.ModelPricing     `json:"pricing,omitempty"`
+	PricingType *models.ModelPricingType `json:"pricingType,omitempty"`
 }
 
 type SetAIModelEnabledRequest struct {
@@ -33,12 +25,10 @@ type SetAIModelEnabledRequest struct {
 }
 
 type ListAIModelsRequest struct {
-	Page      int    `form:"page"`
-	PageSize  int    `form:"pageSize"`
-	OrderBy   string `form:"orderBy"`
-	Keyword   string `form:"keyword"`
-	Type      string `form:"type"`
-	IsEnabled *bool  `form:"isEnabled"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"pageSize"`
+	OrderBy  string `form:"orderBy"`
+	Keyword  string `form:"keyword"`
 }
 
 type AIModelResponse struct {

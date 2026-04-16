@@ -23,12 +23,12 @@ func NewModelHandler(base *Handler, modelService service.AIModelService) *ModelH
 }
 
 func (h *ModelHandler) RegisterRoutes(r gin.IRouter) {
-	models := r.Group("/models")
+	models := r.Group("/model")
 	models.POST("", h.CreateAIModel)
 	models.GET("", h.ListAIModels)
 	models.GET("/:id", h.GetAIModelByID)
 	models.PUT("/:id", h.UpdateAIModel)
-	models.PATCH("/:id/enabled", h.SetAIModelEnabled)
+	// models.PATCH("/:id/enabled", h.SetAIModelEnabled)
 	models.DELETE("/:id", h.DeleteAIModel)
 }
 

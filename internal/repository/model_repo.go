@@ -8,13 +8,11 @@ import (
 )
 
 type AIModelListOption struct {
-	Page      int
-	PageSize  int
-	OrderBy   string
-	Keyword   string
-	Type      models.ModelType
-	IsEnabled *bool
-	IDs       []int64
+	Page     int
+	PageSize int
+	OrderBy  string
+	Keyword  string
+	IDs      []int64
 }
 
 type AIModelRepo interface {
@@ -75,12 +73,6 @@ func (r *aiModelRepo) List(ctx context.Context, opt AIModelListOption) ([]*model
 		db = db.Where("name LIKE ? OR description LIKE ?", like, like)
 	}
 
-	if opt.Type != "" {
-		db = db.Where("type = ?", opt.Type)
-	}
-	if opt.IsEnabled != nil {
-		db = db.Where("is_enabled = ?", *opt.IsEnabled)
-	}
 	if len(opt.IDs) > 0 {
 		db = db.Where("id IN ?", uniqueInt64(opt.IDs))
 	}

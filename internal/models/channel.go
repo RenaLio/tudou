@@ -15,9 +15,9 @@ type Channel struct {
 	Type        ChannelType           `gorm:"column:type;type:varchar(32);not null;index:idx_channel_type" json:"type"`
 	Name        string                `gorm:"column:name;type:varchar(128);not null;index:idx_channel_name" json:"name"`
 	BaseURL     string                `gorm:"column:base_url;type:varchar(512);not null" json:"baseURL"`
-	APIKey      string                `gorm:"column:api_key;type:varchar(512);not null" json:"-"`
+	APIKey      string                `gorm:"column:api_key;type:varchar(512);not null" json:"apiKey"`
 	Weight      int                   `gorm:"column:weight;type:int;default:100" json:"weight"`
-	Status      int                   `gorm:"column:status;type:int;default:1;comment:渠道状态，1:启用,0:禁用,2:过期" json:"status"`
+	Status      ChannelStatus         `gorm:"column:status;type:varchar(16);default:'enabled';comment:渠道状态" json:"status"`
 	Remark      string                `gorm:"column:remark;type:text;comment:渠道备注" json:"remark"`
 	Tag         string                `gorm:"column:tag;type:varchar(128);comment:渠道标签" json:"tag"`
 	Model       string                `gorm:"column:model;type:text" json:"model"`              // 支持的模型列表，逗号分隔，用于同步
@@ -43,7 +43,7 @@ func (*Channel) TableName() string {
 
 // IsAvailable 检查渠道是否可用
 func (c *Channel) IsAvailable() bool {
-	if c.Status != 1 {
+	if c.Status != ChannelStatusEnabled {
 		return false
 	}
 	// 如果没有设置过期时间，或者过期时间在当前时间之后，则可用
@@ -93,6 +93,15 @@ const (
 	ChannelTypeClaude ChannelType = "claude" // Anthropic Claude
 	ChannelTypeAzure  ChannelType = "azure"  // Azure OpenAI
 	ChannelTypeCustom ChannelType = "custom" // 自定义
+)
+
+// ChannelStatus 渠道状态
+type ChannelStatus string
+
+const (
+	ChannelStatusEnabled  ChannelStatus = "enabled"  // 启用
+	ChannelStatusDisabled ChannelStatus = "disabled" // 禁用
+	ChannelStatusExpired  ChannelStatus = "expired"  // 过期
 )
 
 // ChannelSettings 渠道配置JSON字段

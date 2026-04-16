@@ -79,9 +79,21 @@ func (s *channelService) BatchCreate(ctx context.Context, reqs []v1.CreateChanne
 		}
 		channels = append(channels, channel)
 	}
-	if err := s.repo.BatchCreate(ctx, channels); err != nil {
+
+	if err := s.Transaction(ctx, func(txCtx context.Context) error {
+		if txErr := s.repo.BatchCreate(txCtx, channels); txErr != nil {
+			return txErr
+		}
+		for _, channel := range channels {
+			if txErr := s.ensureModelsExist(txCtx, channel); txErr != nil {
+				return txErr
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
+
 	resp := make([]v1.ChannelResponse, 0, len(channels))
 	for i := range channels {
 		resp = append(resp, toChannelResponse(channels[i]))
@@ -175,20 +187,19 @@ func (s *channelService) Update(ctx context.Context, id int64, req v1.UpdateChan
 		return nil, errors.New("name/baseURL/apiKey are required")
 	}
 
-	// 如果传递了 GroupIDs，则更新分组关联
-	if len(req.GroupIDs) > 0 {
-		if err = s.Transaction(ctx, func(txCtx context.Context) error {
-			if txErr := s.repo.Update(txCtx, channel); txErr != nil {
+	// 统一在事务中执行更新、分组关联和模型同步
+	if err = s.Transaction(ctx, func(txCtx context.Context) error {
+		if txErr := s.repo.Update(txCtx, channel); txErr != nil {
+			return txErr
+		}
+		if len(req.GroupIDs) > 0 {
+			if txErr := s.repo.ReplaceGroups(txCtx, channel.ID, req.GroupIDs); txErr != nil {
 				return txErr
 			}
-			return s.repo.ReplaceGroups(txCtx, channel.ID, req.GroupIDs)
-		}); err != nil {
-			return nil, err
 		}
-	} else {
-		if err = s.repo.Update(ctx, channel); err != nil {
-			return nil, err
-		}
+		return s.ensureModelsExist(txCtx, channel)
+	}); err != nil {
+		return nil, err
 	}
 
 	latest, err := s.repo.GetByIDWithGroups(ctx, id)
@@ -244,7 +255,7 @@ func (s *channelService) buildChannelByCreateReq(req v1.CreateChannelRequest) (*
 		Model:       strings.TrimSpace(req.Model),
 		CustomModel: strings.TrimSpace(req.CustomModel),
 		ExpiredAt:   req.ExpiredAt,
-		Status:      1, // 默认启用
+		Status:      models.ChannelStatusEnabled, // 默认启用
 	}
 	if req.Settings != nil {
 		channel.Settings = *req.Settings

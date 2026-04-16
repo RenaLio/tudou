@@ -79,7 +79,9 @@ func InitApp(configConfig *config.Config, logger *log.Logger) error {
 	serviceService := service.NewService(logger, sidSid, jsonCache, jwtJWT, transaction)
 	userRepo := repository.NewUserRepo(repositoryRepository)
 	userService := service.NewUserService(serviceService, userRepo)
-	error2 := start.InitApp(migrate, userService)
+	channelGroupRepo := repository.NewChannelGroupRepo(repositoryRepository)
+	channelGroupService := service.NewChannelGroupService(serviceService, channelGroupRepo)
+	error2 := start.InitApp(migrate, userService, channelGroupService)
 	return error2
 }
 

@@ -16,7 +16,7 @@ type ChannelListOption struct {
 	Keyword       string
 	GroupID       int64
 	Type          models.ChannelType
-	Status        *int
+	Status        *models.ChannelStatus
 	IDs           []int64
 	OnlyAvailable bool
 	PreloadGroups bool
@@ -31,7 +31,7 @@ type ChannelRepo interface {
 	GetByName(ctx context.Context, name string) (*models.Channel, error)
 	List(ctx context.Context, opt ChannelListOption) ([]*models.Channel, int64, error)
 	Update(ctx context.Context, channel *models.Channel) error
-	UpdateStatus(ctx context.Context, id int64, status int) error
+	UpdateStatus(ctx context.Context, id int64, status models.ChannelStatus) error
 	Delete(ctx context.Context, id int64) error
 	ReplaceGroups(ctx context.Context, channelID int64, groupIDs []int64) error
 	Exists(ctx context.Context, id int64) (bool, error)
@@ -110,7 +110,7 @@ func (r *channelRepo) List(ctx context.Context, opt ChannelListOption) ([]*model
 
 	if opt.OnlyAvailable {
 		now := time.Now()
-		db = db.Where("status = 1").Where("expired_at IS NULL OR expired_at > ?", now)
+		db = db.Where("status = ?", models.ChannelStatusEnabled).Where("expired_at IS NULL OR expired_at > ?", now)
 	}
 
 	if len(opt.IDs) > 0 {
@@ -136,7 +136,7 @@ func (r *channelRepo) Update(ctx context.Context, channel *models.Channel) error
 	return Update[models.Channel](ctx, channel, channel.ID, []string{"ID", "CreatedAt", "DeletedAt", "Groups", "Stats"}, r.DB(ctx))
 }
 
-func (r *channelRepo) UpdateStatus(ctx context.Context, id int64, status int) error {
+func (r *channelRepo) UpdateStatus(ctx context.Context, id int64, status models.ChannelStatus) error {
 	return SetField[models.Channel](ctx, "status", status, id, r.DB(ctx))
 }
 

@@ -16,7 +16,7 @@ type ChannelGroup struct {
 	LoadBalanceStrategy LoadBalanceStrategy   `gorm:"column:load_balance_strategy;type:varchar(32);default:'performance'" json:"loadBalanceStrategy"`
 	CreatedAt           time.Time             `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt           time.Time             `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
-	DeletedAt           soft_delete.DeletedAt `gorm:"column:deleted_at;type:bigint;index:idx_group_deleted_at" json:"-"`
+	DeletedAt           soft_delete.DeletedAt `gorm:"column:deleted_at;type:bigint;index:idx_group_deleted_at;uniqueIndex:idx_group_name" json:"-"`
 
 	// 关联关系
 	Channels []Channel `gorm:"many2many:group_channels;foreignKey:ID;joinForeignKey:GroupID;References:ID;joinReferences:ChannelID" json:"channels,omitempty"`
