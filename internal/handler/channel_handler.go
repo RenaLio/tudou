@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/service"
@@ -29,7 +30,7 @@ func NewChannelHandler(
 }
 
 func (h *ChannelHandler) RegisterRoutes(r gin.IRouter) {
-	channels := r.Group("/channels")
+	channels := r.Group("/channel")
 	channels.POST("/fetch-model", h.FetchChannelRelays)
 	channels.POST("", h.CreateChannel)
 	channels.GET("", h.ListChannels)
@@ -45,6 +46,15 @@ func (h *ChannelHandler) CreateChannel(ctx *gin.Context) {
 	if !h.BindJSON(ctx, &req) {
 		return
 	}
+	// 转换 GroupStringIDs 到 GroupIDs
+	if len(req.GroupStringIDs) > 0 {
+		req.GroupIDs = make([]int64, 0, len(req.GroupStringIDs))
+		for _, idStr := range req.GroupStringIDs {
+			if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+				req.GroupIDs = append(req.GroupIDs, id)
+			}
+		}
+	}
 	resp, err := h.ChannelService.Create(ctx.Request.Context(), req)
 	if err != nil {
 		HandleServiceError(ctx, err)
@@ -57,6 +67,12 @@ func (h *ChannelHandler) ListChannels(ctx *gin.Context) {
 	var req v1.ListChannelsRequest
 	if !h.BindQuery(ctx, &req) {
 		return
+	}
+	// 转换 GroupStringID 到 GroupID
+	if req.GroupStringID != "" {
+		if id, err := strconv.ParseInt(req.GroupStringID, 10, 64); err == nil {
+			req.GroupID = id
+		}
 	}
 	resp, err := h.ChannelService.List(ctx.Request.Context(), req)
 	if err != nil {
@@ -91,6 +107,15 @@ func (h *ChannelHandler) UpdateChannel(ctx *gin.Context) {
 	var req v1.UpdateChannelRequest
 	if !h.BindJSON(ctx, &req) {
 		return
+	}
+	// 转换 GroupStringIDs 到 GroupIDs
+	if len(req.GroupStringIDs) > 0 {
+		req.GroupIDs = make([]int64, 0, len(req.GroupStringIDs))
+		for _, idStr := range req.GroupStringIDs {
+			if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+				req.GroupIDs = append(req.GroupIDs, id)
+			}
+		}
 	}
 	resp, err := h.ChannelService.Update(ctx.Request.Context(), id, req)
 	if err != nil {
@@ -158,9 +183,6 @@ func (h *ChannelHandler) FetchChannelRelays(ctx *gin.Context) {
 	resp, err := h.RelayService.FetchModel(ctx.Request.Context(), &req)
 	if err != nil {
 		HandleServiceError(ctx, err)
-		return
-	}
-	if !h.BindJSON(ctx, &req) {
 		return
 	}
 	v1.Success(ctx, resp)

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
@@ -174,21 +175,20 @@ func (s *channelService) Update(ctx context.Context, id int64, req v1.UpdateChan
 		return nil, errors.New("name/baseURL/apiKey are required")
 	}
 
-	if !req.ReplaceGroups {
+	// 如果传递了 GroupIDs，则更新分组关联
+	if len(req.GroupIDs) > 0 {
+		if err = s.Transaction(ctx, func(txCtx context.Context) error {
+			if txErr := s.repo.Update(txCtx, channel); txErr != nil {
+				return txErr
+			}
+			return s.repo.ReplaceGroups(txCtx, channel.ID, req.GroupIDs)
+		}); err != nil {
+			return nil, err
+		}
+	} else {
 		if err = s.repo.Update(ctx, channel); err != nil {
 			return nil, err
 		}
-		resp := toChannelResponse(channel)
-		return &resp, nil
-	}
-
-	if err = s.Transaction(ctx, func(txCtx context.Context) error {
-		if txErr := s.repo.Update(txCtx, channel); txErr != nil {
-			return txErr
-		}
-		return s.repo.ReplaceGroups(txCtx, channel.ID, req.GroupIDs)
-	}); err != nil {
-		return nil, err
 	}
 
 	latest, err := s.repo.GetByIDWithGroups(ctx, id)
@@ -200,7 +200,7 @@ func (s *channelService) Update(ctx context.Context, id int64, req v1.UpdateChan
 }
 
 func (s *channelService) UpdateStatus(ctx context.Context, id int64, req v1.SetChannelStatusRequest) (*v1.ChannelResponse, error) {
-	if err := s.repo.UpdateStatus(ctx, id, req.Status); err != nil {
+	if err := s.repo.UpdateStatus(ctx, id, *req.Status); err != nil {
 		return nil, err
 	}
 	return s.GetByID(ctx, id, true)
@@ -243,19 +243,19 @@ func (s *channelService) buildChannelByCreateReq(req v1.CreateChannelRequest) (*
 		Tag:         strings.TrimSpace(req.Tag),
 		Model:       strings.TrimSpace(req.Model),
 		CustomModel: strings.TrimSpace(req.CustomModel),
-		Settings:    req.Settings,
-		Extra:       req.Extra,
 		ExpiredAt:   req.ExpiredAt,
+		Status:      1, // 默认启用
+	}
+	if req.Settings != nil {
+		channel.Settings = *req.Settings
+	}
+	if req.Extra != nil {
+		channel.Extra = *req.Extra
 	}
 	if req.Weight == nil {
 		channel.Weight = 100
 	} else {
 		channel.Weight = *req.Weight
-	}
-	if req.Status == nil {
-		channel.Status = 1
-	} else {
-		channel.Status = *req.Status
 	}
 	if req.PriceRate == nil {
 		channel.PriceRate = 1
@@ -309,7 +309,7 @@ func patchChannelByUpdateReq(channel *models.Channel, req v1.UpdateChannelReques
 		channel.PriceRate = *req.PriceRate
 	}
 	if req.ExpiredAt != nil {
-		channel.ExpiredAt = *req.ExpiredAt
+		channel.ExpiredAt = req.ExpiredAt
 	}
 }
 
@@ -317,15 +317,16 @@ func toChannelResponse(channel *models.Channel) v1.ChannelResponse {
 	if channel == nil {
 		return v1.ChannelResponse{}
 	}
-	groupIDs := make([]int64, 0, len(channel.Groups))
+	groupIDs := make([]string, 0, len(channel.Groups))
 	for _, group := range channel.Groups {
-		groupIDs = append(groupIDs, group.ID)
+		groupIDs = append(groupIDs, strconv.FormatInt(group.ID, 10))
 	}
 	return v1.ChannelResponse{
 		ID:          channel.ID,
 		Type:        channel.Type,
 		Name:        channel.Name,
 		BaseURL:     channel.BaseURL,
+		APIKey:      channel.APIKey,
 		Weight:      channel.Weight,
 		Status:      channel.Status,
 		Remark:      channel.Remark,
