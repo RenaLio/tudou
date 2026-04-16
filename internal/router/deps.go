@@ -15,4 +15,5 @@ type Deps struct {
 	TokenHandler        *handler.TokenHandler
 	UserHandler         *handler.UserHandler
 	SystemConfigHandler *handler.SystemConfigHandler
+	StatsHandler        *handler.StatsHandler
 }

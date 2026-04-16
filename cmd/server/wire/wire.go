@@ -29,6 +29,12 @@ var repositorySet = wire.NewSet(
 	repository.NewChannelRepo,
 	repository.NewChannelGroupRepo,
 	repository.NewTokenRepo,
+	repository.NewChannelStatsRepo,
+	repository.NewChannelModelStatsRepo,
+	repository.NewTokenStatsRepo,
+	repository.NewUserStatsRepo,
+	repository.NewUserUsageDailyStatsRepo,
+	repository.NewUserUsageHourlyStatsRepo,
 	repository.NewUserRepo,
 	repository.NewSystemConfigRepo,
 )
@@ -47,6 +53,7 @@ var serviceSet = wire.NewSet(
 	service.NewUserService,
 	service.NewSystemConfigService,
 	service.NewRelayService,
+	service.NewStatsService,
 )
 
 var handlerSet = wire.NewSet(
@@ -57,6 +64,7 @@ var handlerSet = wire.NewSet(
 	handler.NewTokenHandler,
 	handler.NewUserHandler,
 	handler.NewSystemConfigHandler,
+	handler.NewStatsHandler,
 )
 
 var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)

@@ -35,6 +35,9 @@ func RegisterHTTPRoutes(engine *gin.Engine, deps *Deps) error {
 	if deps.TokenHandler == nil {
 		return errors.New("token handler is nil")
 	}
+	if deps.StatsHandler == nil {
+		return errors.New("stats handler is nil")
+	}
 
 	apiV1Group := engine.Group("/api/v1")
 	apiV1Group.Use(middleware.RequestID(deps.Logger))
@@ -45,6 +48,7 @@ func RegisterHTTPRoutes(engine *gin.Engine, deps *Deps) error {
 		deps.ChannelGroupHandler.RegisterRoutes(apiV1Group)
 		deps.SystemConfigHandler.RegisterRoutes(apiV1Group)
 		deps.TokenHandler.RegisterRoutes(apiV1Group)
+		deps.StatsHandler.RegisterRoutes(apiV1Group)
 	}
 	return nil
 }
