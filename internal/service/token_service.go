@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/rand/v2"
+	"strconv"
 	"strings"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
@@ -124,12 +125,20 @@ func (s *tokenService) List(ctx context.Context, req v1.ListTokensRequest) (*v1.
 		PageSize:      req.PageSize,
 		OrderBy:       req.OrderBy,
 		Keyword:       req.Keyword,
-		UserID:        req.UserID,
-		GroupID:       req.GroupID,
 		OnlyAvailable: req.OnlyAvailable,
 		PreloadUser:   req.PreloadUser,
 		PreloadGroup:  req.PreloadGroup,
 		PreloadStats:  req.PreloadStats,
+	}
+	if req.UserID != "" {
+		if id, err := strconv.ParseInt(req.UserID, 10, 64); err == nil {
+			opt.UserID = id
+		}
+	}
+	if req.GroupID != "" {
+		if id, err := strconv.ParseInt(req.GroupID, 10, 64); err == nil {
+			opt.GroupID = id
+		}
 	}
 	if req.Status != "" {
 		status := models.TokenStatus(req.Status)
@@ -198,13 +207,11 @@ func (s *tokenService) buildTokenByCreateReq(req v1.CreateTokenRequest) (*models
 		GroupID:   req.GroupID,
 		Token:     tokenValue,
 		Name:      strings.TrimSpace(req.Name),
+		Status:    models.TokenStatusEnabled,
 		ExpiresAt: req.ExpiresAt,
-		Settings:  req.Settings,
 	}
-	if req.Status == nil {
-		token.Status = models.TokenStatusEnabled
-	} else {
-		token.Status = *req.Status
+	if req.Settings != nil {
+		token.Settings = *req.Settings
 	}
 	if req.Limit == nil {
 		token.LimitMicros = -1
@@ -223,17 +230,20 @@ func patchTokenByUpdateReq(token *models.Token, req v1.UpdateTokenRequest) {
 	if token == nil {
 		return
 	}
+	if req.GroupID != nil {
+		token.GroupID = *req.GroupID
+	}
 	if req.Name != nil {
 		token.Name = strings.TrimSpace(*req.Name)
 	}
 	if req.Status != nil {
 		token.Status = *req.Status
 	}
-	if req.LimitMicros != nil {
-		token.LimitMicros = *req.LimitMicros
+	if req.Limit != nil {
+		token.LimitMicros = int64((*req.Limit) * float64(models.GetMoneyMicrosPerUnit()))
 	}
 	if req.ExpiresAt != nil {
-		token.ExpiresAt = *req.ExpiresAt
+		token.ExpiresAt = req.ExpiresAt
 	}
 	if req.LoadBalanceStrategy != nil {
 		token.LoadBalanceStrategy = *req.LoadBalanceStrategy
@@ -247,6 +257,10 @@ func toTokenResponse(token *models.Token) v1.TokenResponse {
 	if token == nil {
 		return v1.TokenResponse{}
 	}
+	var limit float64
+	if token.LimitMicros > 0 {
+		limit = float64(token.LimitMicros) / float64(models.GetMoneyMicrosPerUnit())
+	}
 	return v1.TokenResponse{
 		ID:                  token.ID,
 		UserID:              token.UserID,
@@ -254,7 +268,7 @@ func toTokenResponse(token *models.Token) v1.TokenResponse {
 		Token:               token.Token,
 		Name:                token.Name,
 		Status:              token.Status,
-		LimitMicros:         token.LimitMicros,
+		Limit:               limit,
 		ExpiresAt:           token.ExpiresAt,
 		LoadBalanceStrategy: token.LoadBalanceStrategy,
 		Settings:            token.Settings,
@@ -301,12 +315,10 @@ func toTokenWithRelationsResponse(token *models.Token) v1.TokenWithRelationsResp
 			ID:                  token.Group.ID,
 			Name:                token.Group.Name,
 			NameRemark:          token.Group.NameRemark,
-			Description:         token.Group.Description,
-			PermissionNum:       token.Group.PermissionNum,
 			LoadBalanceStrategy: token.Group.LoadBalanceStrategy,
 			CreatedAt:           token.Group.CreatedAt,
 			UpdatedAt:           token.Group.UpdatedAt,
-			ChannelIDs:          channelIDs,
+			//ChannelIDs:          channelIDs,
 		}
 		resp.Group = &groupResp
 	}
@@ -319,7 +331,6 @@ func toTokenWithRelationsResponse(token *models.Token) v1.TokenWithRelationsResp
 }
 
 func GenToken(userId int64, groupId int64) string {
-
 	return RandomStringId(32)
 }
 

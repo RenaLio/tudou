@@ -13,17 +13,24 @@ import (
 type ChannelHandler struct {
 	*Handler
 	ChannelService service.ChannelService
+	RelayService   service.RelayService
 }
 
-func NewChannelHandler(base *Handler, channelService service.ChannelService) *ChannelHandler {
+func NewChannelHandler(
+	base *Handler,
+	channelService service.ChannelService,
+	relayService service.RelayService,
+) *ChannelHandler {
 	return &ChannelHandler{
 		Handler:        base,
 		ChannelService: channelService,
+		RelayService:   relayService,
 	}
 }
 
 func (h *ChannelHandler) RegisterRoutes(r gin.IRouter) {
 	channels := r.Group("/channels")
+	channels.POST("/fetch-model", h.FetchChannelRelays)
 	channels.POST("", h.CreateChannel)
 	channels.GET("", h.ListChannels)
 	channels.GET("/:id", h.GetChannelByID)
@@ -141,4 +148,20 @@ func (h *ChannelHandler) DeleteChannel(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+func (h *ChannelHandler) FetchChannelRelays(ctx *gin.Context) {
+	var req v1.FetchModelRequest
+	if !h.BindJSON(ctx, &req) {
+		return
+	}
+	resp, err := h.RelayService.FetchModel(ctx.Request.Context(), &req)
+	if err != nil {
+		HandleServiceError(ctx, err)
+		return
+	}
+	if !h.BindJSON(ctx, &req) {
+		return
+	}
+	v1.Success(ctx, resp)
 }

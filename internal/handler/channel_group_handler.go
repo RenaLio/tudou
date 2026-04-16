@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
+	"github.com/RenaLio/tudou/internal/models"
 	"github.com/RenaLio/tudou/internal/service"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -22,13 +23,15 @@ func NewChannelGroupHandler(base *Handler, groupService service.ChannelGroupServ
 }
 
 func (h *ChannelGroupHandler) RegisterRoutes(r gin.IRouter) {
-	groups := r.Group("/channel-groups")
+	groups := r.Group("/channel-group")
 	groups.POST("", h.CreateChannelGroup)
 	groups.GET("", h.ListChannelGroups)
 	groups.GET("/:id", h.GetChannelGroupByID)
 	groups.PUT("/:id", h.UpdateChannelGroup)
-	groups.PUT("/:id/channels", h.ReplaceGroupChannels)
 	groups.DELETE("/:id", h.DeleteChannelGroup)
+
+	// 负载均衡策略
+	groups.GET("/load-balance-strategies", h.ListLoadBalanceStrategies)
 }
 
 func (h *ChannelGroupHandler) CreateChannelGroup(ctx *gin.Context) {
@@ -62,7 +65,7 @@ func (h *ChannelGroupHandler) GetChannelGroupByID(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	resp, err := h.ChannelGroupService.GetByID(ctx.Request.Context(), id, true)
+	resp, err := h.ChannelGroupService.GetByID(ctx.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			HandleNotFound(ctx)
@@ -95,23 +98,6 @@ func (h *ChannelGroupHandler) UpdateChannelGroup(ctx *gin.Context) {
 	v1.Success(ctx, resp)
 }
 
-func (h *ChannelGroupHandler) ReplaceGroupChannels(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
-		return
-	}
-	var req v1.ReplaceGroupChannelsRequest
-	if !h.BindJSON(ctx, &req) {
-		return
-	}
-	resp, err := h.ChannelGroupService.ReplaceChannels(ctx.Request.Context(), id, req)
-	if err != nil {
-		HandleServiceError(ctx, err)
-		return
-	}
-	v1.Success(ctx, resp)
-}
-
 func (h *ChannelGroupHandler) DeleteChannelGroup(ctx *gin.Context) {
 	id, ok := h.ParseIDParam(ctx, "id")
 	if !ok {
@@ -122,4 +108,58 @@ func (h *ChannelGroupHandler) DeleteChannelGroup(ctx *gin.Context) {
 		return
 	}
 	v1.Success(ctx, nil)
+}
+
+// LoadBalanceStrategyInfo 负载均衡策略信息
+type LoadBalanceStrategyInfo struct {
+	Value       string `json:"value"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+}
+
+// ListLoadBalanceStrategies 返回所有负载均衡策略
+func (h *ChannelGroupHandler) ListLoadBalanceStrategies(ctx *gin.Context) {
+	strategies := []LoadBalanceStrategyInfo{
+		{
+			Value:       string(models.LoadBalanceStrategyRandom),
+			Label:       "随机",
+			Description: "随机选择一个可用渠道",
+		},
+		{
+			Value:       string(models.LoadBalanceStrategyPerformance),
+			Label:       "综合性能优先",
+			Description: "根据 TTFT、TPS、成功率综合评估，选择性能最优的渠道",
+		},
+		{
+			Value:       string(models.LoadBalanceStrategyTTFTFirst),
+			Label:       "响应时间优先",
+			Description: "选择首字延迟(TTFT)最低的渠道",
+		},
+		{
+			Value:       string(models.LoadBalanceStrategyTPSFirst),
+			Label:       "TPS优先",
+			Description: "选择每秒输出token数最高的渠道",
+		},
+		{
+			Value:       string(models.LoadBalanceStrategySuccessFirst),
+			Label:       "成功率优先",
+			Description: "选择请求成功率最高的渠道",
+		},
+		{
+			Value:       string(models.LoadBalanceStrategyCostFirst),
+			Label:       "成本优先",
+			Description: "选择成本最低的渠道",
+		},
+		{
+			Value:       string(models.LoadBalanceStrategyWeighted),
+			Label:       "加权",
+			Description: "根据渠道权重进行加权随机选择",
+		},
+		{
+			Value:       string(models.LoadBalanceStrategyLeastConn),
+			Label:       "最少连接",
+			Description: "选择当前连接数最少的渠道",
+		},
+	}
+	v1.Success(ctx, strategies)
 }

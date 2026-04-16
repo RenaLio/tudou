@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
+	"github.com/RenaLio/tudou/internal/middleware"
 	"github.com/RenaLio/tudou/internal/service"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -25,6 +26,7 @@ func NewTokenHandler(base *Handler, tokenService service.TokenService) *TokenHan
 
 func (h *TokenHandler) RegisterRoutes(r gin.IRouter) {
 	tokens := r.Group("/token")
+	tokens.Use(middleware.RequireAuth(h.Service.JWT()))
 	tokens.POST("", h.CreateToken)
 	tokens.GET("", h.ListTokens)
 	tokens.GET("/:id", h.GetTokenByID)

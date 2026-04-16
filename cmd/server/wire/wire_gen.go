@@ -38,7 +38,8 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	modelHandler := handler.NewModelHandler(handlerHandler, aiModelService)
 	channelRepo := repository.NewChannelRepo(repositoryRepository)
 	channelService := service.NewChannelService(serviceService, channelRepo, aiModelRepo)
-	channelHandler := handler.NewChannelHandler(handlerHandler, channelService)
+	relayService := service.NewRelayService(serviceService)
+	channelHandler := handler.NewChannelHandler(handlerHandler, channelService, relayService)
 	channelGroupRepo := repository.NewChannelGroupRepo(repositoryRepository)
 	channelGroupService := service.NewChannelGroupService(serviceService, channelGroupRepo)
 	channelGroupHandler := handler.NewChannelGroupHandler(handlerHandler, channelGroupService)
@@ -88,7 +89,7 @@ var repositorySet = wire.NewSet(repository.NewDB, repository.NewCache, repositor
 
 var depsSet = wire.NewSet(jwt.NewJwt, sid.NewSid)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService)
+var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService)
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handler.NewChannelHandler, handler.NewChannelGroupHandler, handler.NewTokenHandler, handler.NewUserHandler, handler.NewSystemConfigHandler)
 

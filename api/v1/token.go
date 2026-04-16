@@ -10,18 +10,18 @@ type CreateTokenRequest struct {
 	UserID              int64                       `json:"-"`
 	GroupID             int64                       `json:"groupID,string" binding:"required"`
 	Name                string                      `json:"name"`
-	Status              *models.TokenStatus         `json:"status,omitempty"`
 	Limit               *float64                    `json:"limit,omitempty"`
 	ExpiresAt           *time.Time                  `json:"expiresAt,omitempty"`
 	LoadBalanceStrategy *models.LoadBalanceStrategy `json:"loadBalanceStrategy,omitempty"`
-	Settings            models.TokenSettings        `json:"settings"`
+	Settings            *models.TokenSettings       `json:"settings,omitempty"`
 }
 
 type UpdateTokenRequest struct {
+	GroupID             *int64                      `json:"groupID,string,omitempty"`
 	Name                *string                     `json:"name,omitempty"`
 	Status              *models.TokenStatus         `json:"status,omitempty"`
-	LimitMicros         *int64                      `json:"limitMicros,omitempty"`
-	ExpiresAt           **time.Time                 `json:"expiresAt,omitempty"`
+	Limit               *float64                    `json:"limit,omitempty"`
+	ExpiresAt           *time.Time                  `json:"expiresAt,omitempty"`
 	LoadBalanceStrategy *models.LoadBalanceStrategy `json:"loadBalanceStrategy,omitempty"`
 	Settings            *models.TokenSettings       `json:"settings,omitempty"`
 }
@@ -35,8 +35,8 @@ type ListTokensRequest struct {
 	PageSize      int    `form:"pageSize"`
 	OrderBy       string `form:"orderBy"`
 	Keyword       string `form:"keyword"`
-	UserID        int64  `form:"userID"`
-	GroupID       int64  `form:"groupID"`
+	UserID        string `form:"userID"`
+	GroupID       string `form:"groupID"`
 	Status        string `form:"status"`
 	OnlyAvailable bool   `form:"onlyAvailable"`
 	PreloadUser   bool   `form:"preloadUser"`
@@ -51,7 +51,7 @@ type TokenResponse struct {
 	Token               string                     `json:"token"`
 	Name                string                     `json:"name"`
 	Status              models.TokenStatus         `json:"status"`
-	LimitMicros         int64                      `json:"limitMicros"`
+	Limit               float64                    `json:"limit"`
 	ExpiresAt           *time.Time                 `json:"expiresAt,omitempty"`
 	LoadBalanceStrategy models.LoadBalanceStrategy `json:"loadBalanceStrategy"`
 	Settings            models.TokenSettings       `json:"settings"`

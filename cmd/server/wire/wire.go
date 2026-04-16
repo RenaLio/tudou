@@ -46,6 +46,7 @@ var serviceSet = wire.NewSet(
 	service.NewTokenService,
 	service.NewUserService,
 	service.NewSystemConfigService,
+	service.NewRelayService,
 )
 
 var handlerSet = wire.NewSet(

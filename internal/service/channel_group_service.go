@@ -13,12 +13,11 @@ import (
 type ChannelGroupService interface {
 	Create(ctx context.Context, req v1.CreateChannelGroupRequest) (*v1.ChannelGroupResponse, error)
 	BatchCreate(ctx context.Context, reqs []v1.CreateChannelGroupRequest) ([]v1.ChannelGroupResponse, error)
-	GetByID(ctx context.Context, id int64, withChannels bool) (*v1.ChannelGroupResponse, error)
+	GetByID(ctx context.Context, id int64) (*v1.ChannelGroupResponse, error)
 	GetByName(ctx context.Context, name string) (*v1.ChannelGroupResponse, error)
 	List(ctx context.Context, req v1.ListChannelGroupsRequest) (*v1.ListResponse[v1.ChannelGroupResponse], error)
 	Update(ctx context.Context, id int64, req v1.UpdateChannelGroupRequest) (*v1.ChannelGroupResponse, error)
 	Delete(ctx context.Context, id int64) error
-	ReplaceChannels(ctx context.Context, groupID int64, req v1.ReplaceGroupChannelsRequest) (*v1.ChannelGroupResponse, error)
 	Exists(ctx context.Context, id int64) (bool, error)
 }
 
@@ -40,23 +39,11 @@ func (s *channelGroupService) Create(ctx context.Context, req v1.CreateChannelGr
 		return nil, err
 	}
 
-	if len(req.ChannelIDs) == 0 {
-		if err = s.repo.Create(ctx, group); err != nil {
-			return nil, err
-		}
-		resp := toChannelGroupResponse(group)
-		return &resp, nil
-	}
-
-	if err = s.Transaction(ctx, func(txCtx context.Context) error {
-		if txErr := s.repo.Create(txCtx, group); txErr != nil {
-			return txErr
-		}
-		return s.repo.ReplaceChannels(txCtx, group.ID, req.ChannelIDs)
-	}); err != nil {
+	if err = s.repo.Create(ctx, group); err != nil {
 		return nil, err
 	}
-	return s.GetByID(ctx, group.ID, true)
+	resp := toChannelGroupResponse(group)
+	return &resp, nil
 }
 
 func (s *channelGroupService) BatchCreate(ctx context.Context, reqs []v1.CreateChannelGroupRequest) ([]v1.ChannelGroupResponse, error) {
@@ -81,16 +68,8 @@ func (s *channelGroupService) BatchCreate(ctx context.Context, reqs []v1.CreateC
 	return resp, nil
 }
 
-func (s *channelGroupService) GetByID(ctx context.Context, id int64, withChannels bool) (*v1.ChannelGroupResponse, error) {
-	var (
-		group *models.ChannelGroup
-		err   error
-	)
-	if withChannels {
-		group, err = s.repo.GetByIDWithChannels(ctx, id)
-	} else {
-		group, err = s.repo.GetByID(ctx, id)
-	}
+func (s *channelGroupService) GetByID(ctx context.Context, id int64) (*v1.ChannelGroupResponse, error) {
+	group, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -109,13 +88,10 @@ func (s *channelGroupService) GetByName(ctx context.Context, name string) (*v1.C
 
 func (s *channelGroupService) List(ctx context.Context, req v1.ListChannelGroupsRequest) (*v1.ListResponse[v1.ChannelGroupResponse], error) {
 	opt := repository.ChannelGroupListOption{
-		Page:            req.Page,
-		PageSize:        req.PageSize,
-		OrderBy:         req.OrderBy,
-		Keyword:         req.Keyword,
-		ChannelID:       req.ChannelID,
-		PermissionNumGE: req.PermissionNumGE,
-		PreloadChannels: req.PreloadChannels,
+		Page:     req.Page,
+		PageSize: req.PageSize,
+		OrderBy:  req.OrderBy,
+		Keyword:  req.Keyword,
 	}
 	items, total, err := s.repo.List(ctx, opt)
 	if err != nil {
@@ -139,7 +115,7 @@ func (s *channelGroupService) List(ctx context.Context, req v1.ListChannelGroups
 }
 
 func (s *channelGroupService) Update(ctx context.Context, id int64, req v1.UpdateChannelGroupRequest) (*v1.ChannelGroupResponse, error) {
-	group, err := s.repo.GetByIDWithChannels(ctx, id)
+	group, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -148,34 +124,15 @@ func (s *channelGroupService) Update(ctx context.Context, id int64, req v1.Updat
 		return nil, errors.New("name is required")
 	}
 
-	if !req.ReplaceChannels {
-		if err = s.repo.Update(ctx, group); err != nil {
-			return nil, err
-		}
-		resp := toChannelGroupResponse(group)
-		return &resp, nil
-	}
-
-	if err = s.Transaction(ctx, func(txCtx context.Context) error {
-		if txErr := s.repo.Update(txCtx, group); txErr != nil {
-			return txErr
-		}
-		return s.repo.ReplaceChannels(txCtx, group.ID, req.ChannelIDs)
-	}); err != nil {
+	if err = s.repo.Update(ctx, group); err != nil {
 		return nil, err
 	}
-	return s.GetByID(ctx, id, true)
+	resp := toChannelGroupResponse(group)
+	return &resp, nil
 }
 
 func (s *channelGroupService) Delete(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
-}
-
-func (s *channelGroupService) ReplaceChannels(ctx context.Context, groupID int64, req v1.ReplaceGroupChannelsRequest) (*v1.ChannelGroupResponse, error) {
-	if err := s.repo.ReplaceChannels(ctx, groupID, req.ChannelIDs); err != nil {
-		return nil, err
-	}
-	return s.GetByID(ctx, groupID, true)
 }
 
 func (s *channelGroupService) Exists(ctx context.Context, id int64) (bool, error) {
@@ -192,13 +149,9 @@ func (s *channelGroupService) buildGroupByCreateReq(req v1.CreateChannelGroupReq
 		return nil, errors.New("failed to generate id by sid")
 	}
 	group := &models.ChannelGroup{
-		ID:          id,
-		Name:        name,
-		NameRemark:  strings.TrimSpace(req.NameRemark),
-		Description: strings.TrimSpace(req.Description),
-	}
-	if req.PermissionNum != nil {
-		group.PermissionNum = *req.PermissionNum
+		ID:         id,
+		Name:       name,
+		NameRemark: strings.TrimSpace(req.NameRemark),
 	}
 	if req.LoadBalanceStrategy != nil {
 		group.LoadBalanceStrategy = *req.LoadBalanceStrategy
@@ -218,12 +171,6 @@ func patchGroupByUpdateReq(group *models.ChannelGroup, req v1.UpdateChannelGroup
 	if req.NameRemark != nil {
 		group.NameRemark = strings.TrimSpace(*req.NameRemark)
 	}
-	if req.Description != nil {
-		group.Description = strings.TrimSpace(*req.Description)
-	}
-	if req.PermissionNum != nil {
-		group.PermissionNum = *req.PermissionNum
-	}
 	if req.LoadBalanceStrategy != nil {
 		group.LoadBalanceStrategy = *req.LoadBalanceStrategy
 	}
@@ -233,19 +180,12 @@ func toChannelGroupResponse(group *models.ChannelGroup) v1.ChannelGroupResponse 
 	if group == nil {
 		return v1.ChannelGroupResponse{}
 	}
-	channelIDs := make([]int64, 0, len(group.Channels))
-	for _, channel := range group.Channels {
-		channelIDs = append(channelIDs, channel.ID)
-	}
 	return v1.ChannelGroupResponse{
 		ID:                  group.ID,
 		Name:                group.Name,
 		NameRemark:          group.NameRemark,
-		Description:         group.Description,
-		PermissionNum:       group.PermissionNum,
 		LoadBalanceStrategy: group.LoadBalanceStrategy,
 		CreatedAt:           group.CreatedAt,
 		UpdatedAt:           group.UpdatedAt,
-		ChannelIDs:          channelIDs,
 	}
 }
