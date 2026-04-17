@@ -62,6 +62,7 @@ type ListChannelsRequest struct {
 	Status        *models.ChannelStatus `form:"status"`
 	OnlyAvailable bool                  `form:"onlyAvailable"`
 	PreloadGroups bool                  `form:"preloadGroups"`
+	PreloadStats  bool                  `form:"preloadStats"`
 }
 
 type ChannelResponse struct {
@@ -83,4 +84,5 @@ type ChannelResponse struct {
 	CreatedAt   time.Time              `json:"createdAt"`
 	UpdatedAt   time.Time              `json:"updatedAt"`
 	GroupIDs    []string               `json:"groupIDs,omitempty"`
+	Stats       *models.ChannelStats   `json:"stats,omitempty"`
 }

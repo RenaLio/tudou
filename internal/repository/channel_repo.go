@@ -20,6 +20,7 @@ type ChannelListOption struct {
 	IDs           []int64
 	OnlyAvailable bool
 	PreloadGroups bool
+	PreloadStats  bool
 }
 
 type ChannelRepo interface {
@@ -84,6 +85,9 @@ func (r *channelRepo) List(ctx context.Context, opt ChannelListOption) ([]*model
 	db := r.DB(ctx).Model(&models.Channel{})
 	if opt.PreloadGroups {
 		db = db.Preload("Groups")
+	}
+	if opt.PreloadStats {
+		db = db.Preload("Stats")
 	}
 
 	keyword := strings.TrimSpace(opt.Keyword)

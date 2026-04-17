@@ -152,6 +152,7 @@ func (s *channelService) List(ctx context.Context, req v1.ListChannelsRequest) (
 		Status:        req.Status,
 		OnlyAvailable: req.OnlyAvailable,
 		PreloadGroups: req.PreloadGroups,
+		PreloadStats:  req.PreloadStats,
 	}
 	if req.Type != "" {
 		opt.Type = models.ChannelType(req.Type)
@@ -332,6 +333,11 @@ func toChannelResponse(channel *models.Channel) v1.ChannelResponse {
 	for _, group := range channel.Groups {
 		groupIDs = append(groupIDs, strconv.FormatInt(group.ID, 10))
 	}
+	var stats *models.ChannelStats
+	if channel.Stats != nil && channel.Stats.ChannelID != 0 {
+		s := *channel.Stats
+		stats = &s
+	}
 	return v1.ChannelResponse{
 		ID:          channel.ID,
 		Type:        channel.Type,
@@ -351,6 +357,7 @@ func toChannelResponse(channel *models.Channel) v1.ChannelResponse {
 		CreatedAt:   channel.CreatedAt,
 		UpdatedAt:   channel.UpdatedAt,
 		GroupIDs:    groupIDs,
+		Stats:       stats,
 	}
 }
 

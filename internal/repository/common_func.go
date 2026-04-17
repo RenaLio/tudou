@@ -63,6 +63,18 @@ func GetByIDWithPreload[T any](ctx context.Context, id int64, db *gorm.DB, prelo
 	return &item, nil
 }
 
+func GetByIDWithPreloads[T any](ctx context.Context, id int64, db *gorm.DB, preloads ...string) (*T, error) {
+	temp := gorm.G[T](db).Where("id = ?", id)
+	for _, preload := range preloads {
+		temp = temp.Preload(preload, nil)
+	}
+	item, err := temp.First(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
 func Update[T any](ctx context.Context, item *T, id int64, omits []string, db *gorm.DB) error {
 	//if item == nil {
 	//	return errors.New("item is nil")
