@@ -6,6 +6,7 @@ package wire
 import (
 	"github.com/RenaLio/tudou/internal/config"
 	"github.com/RenaLio/tudou/internal/handler"
+	"github.com/RenaLio/tudou/internal/loadbalancer"
 	"github.com/RenaLio/tudou/internal/pkg/app"
 	"github.com/RenaLio/tudou/internal/pkg/jwt"
 	"github.com/RenaLio/tudou/internal/pkg/log"
@@ -35,6 +36,7 @@ var repositorySet = wire.NewSet(
 	repository.NewUserStatsRepo,
 	repository.NewUserUsageDailyStatsRepo,
 	repository.NewUserUsageHourlyStatsRepo,
+	repository.NewRequestLogRepo,
 	repository.NewUserRepo,
 	repository.NewSystemConfigRepo,
 )
@@ -42,6 +44,8 @@ var repositorySet = wire.NewSet(
 var depsSet = wire.NewSet(
 	jwt.NewJwt,
 	sid.NewSid,
+	loadbalancer.NewDynamicLoadBalancer,
+	loadbalancer.NewAsyncMetricsCollector,
 )
 
 var serviceSet = wire.NewSet(
@@ -54,6 +58,7 @@ var serviceSet = wire.NewSet(
 	service.NewSystemConfigService,
 	service.NewRelayService,
 	service.NewStatsService,
+	service.NewRequestLogService,
 )
 
 var handlerSet = wire.NewSet(
@@ -84,6 +89,7 @@ func BuildApp(*config.Config, *log.Logger) (*app.App, func(), error) {
 		handlerSet,
 		serverSet,
 		wire.Struct(new(router.Deps), "*"),
+		start.InitLBRegistry,
 		newApp,
 	))
 }

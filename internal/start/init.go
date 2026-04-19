@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
+	"github.com/RenaLio/tudou/internal/loadbalancer"
 	"github.com/RenaLio/tudou/internal/models"
 	"github.com/RenaLio/tudou/internal/server"
 	"github.com/RenaLio/tudou/internal/service"
@@ -57,4 +58,14 @@ func InitApp(m *server.Migrate, userService service.UserService, channelGroupSer
 		LoadBalanceStrategy: &strategy,
 	})
 	return err
+}
+
+func InitLBRegistry(db *gorm.DB) (loadbalancer.LoadBalancer, loadbalancer.MetricsCollector) {
+	registry := loadbalancer.NewRegistry()
+	// load 一些数据
+
+	//
+	tempCollector := loadbalancer.NewAsyncMetricsCollector(registry, 1024)
+	lb := loadbalancer.NewDynamicLoadBalancer(registry)
+	return lb, tempCollector
 }

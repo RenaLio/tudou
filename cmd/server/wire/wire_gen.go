@@ -9,6 +9,7 @@ package wire
 import (
 	"github.com/RenaLio/tudou/internal/config"
 	"github.com/RenaLio/tudou/internal/handler"
+	"github.com/RenaLio/tudou/internal/loadbalancer"
 	"github.com/RenaLio/tudou/internal/pkg/app"
 	"github.com/RenaLio/tudou/internal/pkg/jwt"
 	"github.com/RenaLio/tudou/internal/pkg/log"
@@ -38,7 +39,10 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	modelHandler := handler.NewModelHandler(handlerHandler, aiModelService)
 	channelRepo := repository.NewChannelRepo(repositoryRepository)
 	channelService := service.NewChannelService(serviceService, channelRepo, aiModelRepo)
-	relayService := service.NewRelayService(serviceService)
+	registry := start.InitLBRegistry(db)
+	loadBalancer := loadbalancer.NewDynamicLoadBalancer(registry)
+	metricsCollector := loadbalancer.NewAsyncMetricsCollector(registry)
+	relayService := service.NewRelayService(serviceService, loadBalancer, metricsCollector)
 	channelHandler := handler.NewChannelHandler(handlerHandler, channelService, relayService)
 	channelGroupRepo := repository.NewChannelGroupRepo(repositoryRepository)
 	channelGroupService := service.NewChannelGroupService(serviceService, channelGroupRepo)
@@ -46,6 +50,12 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	tokenRepo := repository.NewTokenRepo(repositoryRepository)
 	tokenService := service.NewTokenService(serviceService, tokenRepo)
 	tokenHandler := handler.NewTokenHandler(handlerHandler, tokenService)
+	userRepo := repository.NewUserRepo(repositoryRepository)
+	userService := service.NewUserService(serviceService, userRepo)
+	userHandler := handler.NewUserHandler(handlerHandler, userService)
+	systemConfigRepo := repository.NewSystemConfigRepo(repositoryRepository)
+	systemConfigService := service.NewSystemConfigService(serviceService, systemConfigRepo)
+	systemConfigHandler := handler.NewSystemConfigHandler(handlerHandler, systemConfigService)
 	channelStatsRepo := repository.NewChannelStatsRepo(repositoryRepository)
 	channelModelStatsRepo := repository.NewChannelModelStatsRepo(repositoryRepository)
 	tokenStatsRepo := repository.NewTokenStatsRepo(repositoryRepository)
@@ -54,12 +64,6 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	userUsageHourlyStatsRepo := repository.NewUserUsageHourlyStatsRepo(repositoryRepository)
 	statsService := service.NewStatsService(serviceService, channelStatsRepo, channelModelStatsRepo, tokenStatsRepo, userStatsRepo, userUsageDailyStatsRepo, userUsageHourlyStatsRepo)
 	statsHandler := handler.NewStatsHandler(handlerHandler, statsService)
-	userRepo := repository.NewUserRepo(repositoryRepository)
-	userService := service.NewUserService(serviceService, userRepo)
-	userHandler := handler.NewUserHandler(handlerHandler, userService)
-	systemConfigRepo := repository.NewSystemConfigRepo(repositoryRepository)
-	systemConfigService := service.NewSystemConfigService(serviceService, systemConfigRepo)
-	systemConfigHandler := handler.NewSystemConfigHandler(handlerHandler, systemConfigService)
 	deps := &router.Deps{
 		Conf:                configConfig,
 		Logger:              logger,
@@ -67,9 +71,9 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 		ChannelHandler:      channelHandler,
 		ChannelGroupHandler: channelGroupHandler,
 		TokenHandler:        tokenHandler,
-		StatsHandler:        statsHandler,
 		UserHandler:         userHandler,
 		SystemConfigHandler: systemConfigHandler,
+		StatsHandler:        statsHandler,
 	}
 	httpServer := server.NewHttpServer(deps)
 	appApp := newApp(httpServer)
@@ -96,11 +100,11 @@ func InitApp(configConfig *config.Config, logger *log.Logger) error {
 
 // wire.go:
 
-var repositorySet = wire.NewSet(repository.NewDB, repository.NewCache, repository.NewRepository, repository.NewTransaction, repository.NewAIModelRepo, repository.NewChannelRepo, repository.NewChannelGroupRepo, repository.NewTokenRepo, repository.NewChannelStatsRepo, repository.NewChannelModelStatsRepo, repository.NewTokenStatsRepo, repository.NewUserStatsRepo, repository.NewUserUsageDailyStatsRepo, repository.NewUserUsageHourlyStatsRepo, repository.NewUserRepo, repository.NewSystemConfigRepo)
+var repositorySet = wire.NewSet(repository.NewDB, repository.NewCache, repository.NewRepository, repository.NewTransaction, repository.NewAIModelRepo, repository.NewChannelRepo, repository.NewChannelGroupRepo, repository.NewTokenRepo, repository.NewChannelStatsRepo, repository.NewChannelModelStatsRepo, repository.NewTokenStatsRepo, repository.NewUserStatsRepo, repository.NewUserUsageDailyStatsRepo, repository.NewUserUsageHourlyStatsRepo, repository.NewRequestLogRepo, repository.NewUserRepo, repository.NewSystemConfigRepo)
 
-var depsSet = wire.NewSet(jwt.NewJwt, sid.NewSid)
+var depsSet = wire.NewSet(jwt.NewJwt, sid.NewSid, loadbalancer.NewDynamicLoadBalancer, loadbalancer.NewAsyncMetricsCollector)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService, service.NewStatsService)
+var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService, service.NewStatsService, service.NewRequestLogService)
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handler.NewChannelHandler, handler.NewChannelGroupHandler, handler.NewTokenHandler, handler.NewUserHandler, handler.NewSystemConfigHandler, handler.NewStatsHandler)
 
