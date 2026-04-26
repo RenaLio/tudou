@@ -139,6 +139,9 @@ func Worker(stream *ComplexEventStream, req *types.Request) {
 		if len(line) == 0 {
 			continue
 		}
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
 		line = strings.TrimPrefix(line, "data:")
 		line = strings.TrimSpace(line)
 		if line == "[DONE]" {

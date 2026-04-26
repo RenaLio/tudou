@@ -8,6 +8,7 @@ import (
 	"github.com/RenaLio/tudou/cmd/server/wire"
 	"github.com/RenaLio/tudou/internal/config"
 	"github.com/RenaLio/tudou/internal/pkg/log"
+	"github.com/RenaLio/tudou/pkg/provider/plog"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +25,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	plog.SetLevel(plog.LevelDebug)
 
 	app, cleanup, err := wire.BuildApp(conf, logger)
 	defer cleanup()

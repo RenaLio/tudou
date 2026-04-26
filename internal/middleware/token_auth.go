@@ -8,6 +8,7 @@ import (
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/constants"
 	"github.com/RenaLio/tudou/internal/models"
+	"github.com/RenaLio/tudou/internal/types"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -63,14 +64,18 @@ func RequireToken(lookup TokenLookup) gin.HandlerFunc {
 			ctx.Abort()
 			return
 		}
+		tokenClaim := &types.TokenClaim{
+			TokenId:   token.ID,
+			TokenName: token.Name,
+			GroupId:   token.GroupID,
+			GroupName: token.Group.Name,
+			UserId:    token.UserID,
+		}
 
-		ctx.Set(constants.TokenIdKey(), token.ID)
-		ctx.Set(constants.UserIdKey(), token.UserID)
-		ctx.Set(constants.GroupIdKey(), token.GroupID)
+		ctx.Set(constants.TokenClaimKey(), tokenClaim)
 
-		reqCtx := context.WithValue(ctx.Request.Context(), constants.TokenIdKey(), token.ID)
-		reqCtx = context.WithValue(reqCtx, constants.UserIdKey(), token.UserID)
-		reqCtx = context.WithValue(reqCtx, constants.GroupIdKey(), token.GroupID)
+		reqCtx := context.WithValue(ctx.Request.Context(), constants.TokenClaimKey(), tokenClaim)
+
 		ctx.Request = ctx.Request.WithContext(reqCtx)
 
 		ctx.Next()

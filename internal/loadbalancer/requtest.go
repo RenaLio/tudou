@@ -13,8 +13,8 @@ type Request struct {
 }
 
 type Result struct {
-	UpstreamModel string `json:"upstreamModel"`
-	*models.Channel
+	UpstreamModel string         `json:"upstreamModel"`
+	Channel       models.Channel `json:"channel"`
 }
 
 type ResultRecord struct {

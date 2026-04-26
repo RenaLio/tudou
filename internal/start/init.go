@@ -3,12 +3,15 @@ package start
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/loadbalancer"
 	"github.com/RenaLio/tudou/internal/models"
+	"github.com/RenaLio/tudou/internal/repository"
 	"github.com/RenaLio/tudou/internal/server"
 	"github.com/RenaLio/tudou/internal/service"
+	"github.com/goccy/go-json"
 	"gorm.io/gorm"
 )
 
@@ -60,12 +63,28 @@ func InitApp(m *server.Migrate, userService service.UserService, channelGroupSer
 	return err
 }
 
-func InitLBRegistry(db *gorm.DB) (loadbalancer.LoadBalancer, loadbalancer.MetricsCollector) {
+func InitLBRegistry(db *gorm.DB, groupRepo repository.ChannelGroupRepo) *loadbalancer.Registry {
 	registry := loadbalancer.NewRegistry()
-	// load 一些数据
+	ctx := context.Background()
+	// loading channels and groups
+	var channels []*models.Channel
+	if err := db.WithContext(ctx).Find(&channels).Error; err != nil {
+		panic(err)
+	}
+	for _, ch := range channels {
+		registry.ReloadChannel(ch)
+	}
 
-	//
-	tempCollector := loadbalancer.NewAsyncMetricsCollector(registry, 1024)
-	lb := loadbalancer.NewDynamicLoadBalancer(registry)
-	return lb, tempCollector
+	groups, err := groupRepo.PreLoadRegistryData(ctx)
+	if err != nil {
+		panic(err)
+	}
+	for _, g := range groups {
+		registry.ReloadGroup(g)
+	}
+
+	data, _ := json.Marshal(registry)
+	fmt.Println(string(data))
+
+	return registry
 }

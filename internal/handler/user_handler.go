@@ -23,16 +23,19 @@ func NewUserHandler(base *Handler, userService service.UserService) *UserHandler
 }
 
 func (h *UserHandler) RegisterRoutes(r gin.IRouter) {
+	// Public routes - login endpoint (no auth)
+	users := r.Group("/user")
+	{
+		users.POST("/login", h.Login)
+	}
+
+	// Protected routes - require JWT auth
 	self := r.Group("/self")
 	self.Use(middleware.RequireAuth(h.Service.JWT()))
 	{
 		self.GET("", h.GetUserByID)
 		self.PUT("", h.UpdateUser)
 		self.PATCH("/password", h.UpdateUserPassword)
-	}
-	users := r.Group("/user")
-	{
-		users.POST("/login", h.Login)
 	}
 }
 

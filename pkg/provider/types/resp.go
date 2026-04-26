@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/RenaLio/tudou/pkg/provider/plog"
 )
 
 type Response struct {
@@ -24,7 +26,7 @@ type Response struct {
 	Header http.Header
 	// 流式响应
 	Stream StandardStream
-	Err    error
+	//Err    error
 }
 
 type StandardStream interface {
@@ -104,6 +106,7 @@ func (it *BaseStreamIterator) Recv() (*StreamEvent, error) {
 				return event, nil
 			}
 			event, parseErr := it.parseFn(line)
+
 			if parseErr != nil {
 				return nil, parseErr // 解析失败，抛出异常终止流
 			}
@@ -133,6 +136,7 @@ func (it *BaseStreamIterator) Recv() (*StreamEvent, error) {
 				return nil, io.EOF // 正常读取完毕
 			}
 			// 网络断开、超时或其他底层错误
+			plog.Error("read stream recv error", err)
 			return nil, err
 		}
 

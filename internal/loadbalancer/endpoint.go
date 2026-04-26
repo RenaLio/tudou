@@ -3,51 +3,20 @@ package loadbalancer
 import (
 	"sync"
 	"time"
+
+	"github.com/RenaLio/tudou/pkg/provider/plog"
 )
-
-// Normalize TTFT score to a value between 0 and 1000
-func normalizeTTFTScore(num int64) int {
-	if num <= 0 {
-		return 1000
-	}
-	if num >= 10000 {
-		return 0
-	}
-	return int((10000 - num) * 1000 / 10000)
-}
-
-// Normalize TPS score to a value between 0 and 1000
-func normalizeTPSScore(num int64) int {
-	if num <= 0 {
-		return 0
-	}
-	if num >= 1000 {
-		return 1000
-	}
-	return int(num * 1000 / 1000)
-}
-
-func normalizeWeight(weight int64) int {
-	if weight <= 0 {
-		return 0
-	}
-	weight = weight * 10
-	if weight >= 1000 {
-		return 1000
-	}
-	return int(weight)
-}
 
 type Endpoint struct {
 	// =====================================
 	// 1. 静态配置区 (只读，初始化后不修改)
 	// =====================================
-	ChannelID     int64   `json:"channelId"`     // 渠道 ID
-	ChannelType   string  `json:"channelType"`   // [补充] 极其重要：用于决定协议转换器 (如 openai, bedrock, azure)
-	Model         string  `json:"model"`         // 标准模型名 (如 "claude-3-5")
-	UpstreamModel string  `json:"upstreamModel"` // 真实请求上游的模型名
-	BaseWeight    int64   `json:"baseWeight"`    // 基础静态权重
-	CostRate      float64 `json:"costRate"`      // 成本倍率
+	ChannelID     int64   `json:"channelId,string"` // 渠道 ID
+	ChannelType   string  `json:"channelType"`      // [补充] 极其重要：用于决定协议转换器 (如 openai, bedrock, azure)
+	Model         string  `json:"model"`            // 标准模型名 (如 "claude-3-5")
+	UpstreamModel string  `json:"upstreamModel"`    // 真实请求上游的模型名
+	BaseWeight    int64   `json:"baseWeight"`       // 基础静态权重
+	CostRate      float64 `json:"costRate"`         // 成本倍率
 
 	// =====================================
 	// 2. 动态指标区 (高频并发读写，需加锁)
@@ -109,14 +78,21 @@ func (e *Endpoint) UpdateMetrics(isSuccess bool, ttft float64, tps float64) {
 		// --- 失败处理逻辑 ---
 		e.EmaSuccessRate = (0.95 * e.EmaSuccessRate) + (0.05 * 0.0)
 		e.ConsecutiveFails++
+		// 并发控制：避免同时有多个请求触发熔断
+		if e.Status == 2 && time.Now().Unix() < e.NextRetryTime {
+			e.ConsecutiveFails--
+			return
+		}
 		interval := getMinBackoffInterval()
 		// 触发熔断策略
 		if e.ConsecutiveFails >= getCircuitBreakThreshold() && e.Status != 2 {
 			e.Status = 2
 		} else {
 			e.Status = 1
+			return // 降权状态，立即返回
 		}
-		num := min(e.ConsecutiveFails, getCircuitBreakThreshold())
+		num := min(e.ConsecutiveFails, getMaxCircuitBreakThreshold())
+		num -= getCircuitBreakThreshold()
 		interval = interval << num
 		if interval > getMaxBackoffInterval() {
 			interval = getMaxBackoffInterval()
@@ -170,6 +146,7 @@ func (e *Endpoint) ScoreWithWeights(w PerformanceWeights) float64 {
 			score *= 0.96
 		}
 	}
+	plog.Debug("ID:", e.ChannelID, "Score:", score)
 
 	return score
 }

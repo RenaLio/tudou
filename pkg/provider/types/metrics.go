@@ -1,25 +1,35 @@
 package types
 
-import "time"
+import (
+	"time"
+
+	"github.com/goccy/go-json"
+)
 
 type ResponseMetrics struct {
-	Provider string
-	Model    string
-	Format   Format
-	IsStream bool
-	Status   int // 状态码 0-未初始化 1-成功 2-失败
+	Provider   string `json:"provider"`
+	Model      string `json:"model"`
+	Format     Format `json:"format"`
+	IsStream   bool   `json:"isStream"`
+	Status     int    `json:"status"` // 状态码 0-未初始化 1-成功 2-失败
+	StatusCode int    `json:"statusCode"`
 
-	DNSTime      time.Duration // DNS 解析耗时
-	TCPTime      time.Duration // TCP 连接耗时
-	TLSTime      time.Duration // TLS 握手耗时
-	TTFB         time.Duration // 首字时间
-	TransferTime time.Duration // 数据传输耗时
-	TotalTime    time.Duration // 总耗时
+	DNSTime      time.Duration `json:"DNSTime"`      // DNS 解析耗时
+	TCPTime      time.Duration `json:""`             // TCP 连接耗时
+	TLSTime      time.Duration `json:"TLSTime"`      // TLS 握手耗时
+	TTFB         time.Duration `json:"TTFB"`         // 首字时间
+	TransferTime time.Duration `json:"TransferTime"` // 数据传输耗时
+	TotalTime    time.Duration `json:"totalTime"`    // 总耗时
 
-	TTFT time.Duration // 首token时间
+	TTFT time.Duration `json:"TTFT"` // 首token时间
 
-	Usage Usage
-	Extra map[string]any
+	Usage Usage          `json:"usage"`
+	Extra map[string]any `json:"extra"`
+}
+
+func (m *ResponseMetrics) String() string {
+	json, _ := json.Marshal(m)
+	return string(json)
 }
 
 type MetricsCallback func(metrics *ResponseMetrics)

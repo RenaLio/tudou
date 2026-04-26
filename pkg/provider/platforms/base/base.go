@@ -324,8 +324,8 @@ func (c *Client) GetURLBase(format types.Format) string {
 }
 
 var urlBaseMap = map[types.Format]string{
-	//types.FormatChatCompletion:   "/v1/chat/completions",
-	types.FormatChatCompletion:   "/chat/completions",
+	types.FormatChatCompletion: "/v1/chat/completions",
+	//types.FormatChatCompletion:   "/chat/completions",
 	types.FormatOpenAIResponses:  "/v1/responses",
 	types.FormatClaudeMessages:   "/v1/messages",
 	types.FormatOpenAIEmbeddings: "/v1/embeddings",

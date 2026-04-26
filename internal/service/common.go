@@ -1,7 +1,10 @@
 package service
 
 import (
+	"context"
 	"strconv"
+
+	"github.com/RenaLio/tudou/internal/constants"
 )
 
 const (
@@ -30,4 +33,15 @@ func int64ToString(v int64) string {
 
 func stringToInt64(v string) (int64, error) {
 	return strconv.ParseInt(v, 10, 64)
+}
+
+func getRequestId(ctx context.Context) string {
+	value := ctx.Value(constants.RequestIdKey())
+	if value == nil {
+		return ""
+	}
+	if value, ok := value.(string); ok {
+		return value
+	}
+	return ""
 }

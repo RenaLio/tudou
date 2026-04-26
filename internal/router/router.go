@@ -38,17 +38,36 @@ func RegisterHTTPRoutes(engine *gin.Engine, deps *Deps) error {
 	if deps.StatsHandler == nil {
 		return errors.New("stats handler is nil")
 	}
+	if deps.RelayHandler == nil {
+		return errors.New("relay handler is nil")
+	}
+	if deps.RequestLogHandler == nil {
+		return errors.New("request log handler is nil")
+	}
 
+	// Public routes (no auth required)
+	deps.UserHandler.RegisterRoutes(engine.Group("/api/v1"))
+
+	// Protected routes (JWT auth required)
 	apiV1Group := engine.Group("/api/v1")
 	apiV1Group.Use(middleware.RequestID(deps.Logger))
+	//apiV1Group.Use(middleware.RequireAuth(deps.UserHandler.Service.JWT()))
 	{
 		deps.ChannelHandler.RegisterRoutes(apiV1Group)
 		deps.ModelHandler.RegisterRoutes(apiV1Group)
-		deps.UserHandler.RegisterRoutes(apiV1Group)
 		deps.ChannelGroupHandler.RegisterRoutes(apiV1Group)
 		deps.SystemConfigHandler.RegisterRoutes(apiV1Group)
 		deps.TokenHandler.RegisterRoutes(apiV1Group)
 		deps.StatsHandler.RegisterRoutes(apiV1Group)
+		deps.RequestLogHandler.RegisterRoutes(apiV1Group)
+		deps.DebugHandler.RegisterRoutes(apiV1Group)
 	}
+
+	// Relay routes (Token auth required)
+	v1Group := engine.Group("/v1")
+	v1Group.Use(middleware.RequestID(deps.Logger))
+	v1Group.Use(middleware.RequireToken(deps.TokenService))
+	deps.RelayHandler.RegisterRoutes(v1Group)
+
 	return nil
 }

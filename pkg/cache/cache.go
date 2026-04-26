@@ -64,6 +64,13 @@ func SetBytes(c *JsonCache, key string, value []byte) error {
 	return c.client.Set(key, value)
 }
 
+func (c *JsonCache) Get(key string) ([]byte, error) {
+	return c.client.Get(key)
+}
+func (c *JsonCache) Set(key string, value []byte) error {
+	return c.client.Set(key, value)
+}
+
 func (c *JsonCache) Delete(key string) error {
 	return c.client.Delete(key)
 }

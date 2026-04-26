@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/RenaLio/tudou/internal/models"
+	"gorm.io/gorm"
 )
 
 type ChannelGroupListOption struct {
@@ -30,6 +31,7 @@ type ChannelGroupRepo interface {
 	Delete(ctx context.Context, id int64) error
 	ReplaceChannels(ctx context.Context, groupID int64, channelIDs []int64) error
 	Exists(ctx context.Context, id int64) (bool, error)
+	PreLoadRegistryData(ctx context.Context) ([]*models.ChannelGroup, error)
 }
 
 type channelGroupRepo struct {
@@ -136,4 +138,11 @@ func (r *channelGroupRepo) ReplaceChannels(ctx context.Context, groupID int64, c
 
 func (r *channelGroupRepo) Exists(ctx context.Context, id int64) (bool, error) {
 	return Exists[models.ChannelGroup](ctx, id, r.DB(ctx))
+}
+
+func (r *channelGroupRepo) PreLoadRegistryData(ctx context.Context) ([]*models.ChannelGroup, error) {
+	return gorm.G[[]*models.ChannelGroup](r.DB(ctx)).Preload("Channels", func(db gorm.PreloadBuilder) error {
+		db.Select("id")
+		return nil
+	}).First(ctx)
 }

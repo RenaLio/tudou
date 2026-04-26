@@ -32,7 +32,7 @@ type asyncRequestLogTask struct {
 	log *models.RequestLog
 }
 
-type requestLogService struct {
+type RequestLogServiceImpl struct {
 	*Service
 	repo repository.RequestLogRepo
 
@@ -40,8 +40,8 @@ type requestLogService struct {
 	asyncWG    sync.WaitGroup
 }
 
-func NewRequestLogService(base *Service, repo repository.RequestLogRepo) RequestLogService {
-	s := &requestLogService{
+func NewRequestLogService(base *Service, repo repository.RequestLogRepo) *RequestLogServiceImpl {
+	s := &RequestLogServiceImpl{
 		Service:    base,
 		repo:       repo,
 		asyncQueue: make(chan asyncRequestLogTask, defaultRequestLogAsyncQueueSize),
@@ -50,7 +50,7 @@ func NewRequestLogService(base *Service, repo repository.RequestLogRepo) Request
 	return s
 }
 
-func (s *requestLogService) Create(ctx context.Context, log *models.RequestLog) error {
+func (s *RequestLogServiceImpl) Create(ctx context.Context, log *models.RequestLog) error {
 	prepared, err := s.prepareRequestLog(log)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func (s *requestLogService) Create(ctx context.Context, log *models.RequestLog) 
 	return s.repo.Create(ctx, prepared)
 }
 
-func (s *requestLogService) CreateAsync(ctx context.Context, log *models.RequestLog) error {
+func (s *RequestLogServiceImpl) CreateAsync(ctx context.Context, log *models.RequestLog) error {
 	prepared, err := s.prepareRequestLog(log)
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func (s *requestLogService) CreateAsync(ctx context.Context, log *models.Request
 	}
 }
 
-func (s *requestLogService) BatchCreate(ctx context.Context, logs []*models.RequestLog) error {
+func (s *RequestLogServiceImpl) BatchCreate(ctx context.Context, logs []*models.RequestLog) error {
 	if len(logs) == 0 {
 		return nil
 	}
@@ -99,23 +99,23 @@ func (s *requestLogService) BatchCreate(ctx context.Context, logs []*models.Requ
 	return s.repo.BatchCreate(ctx, prepared)
 }
 
-func (s *requestLogService) GetByID(ctx context.Context, id int64) (*models.RequestLog, error) {
+func (s *RequestLogServiceImpl) GetByID(ctx context.Context, id int64) (*models.RequestLog, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
-func (s *requestLogService) List(ctx context.Context, opt repository.RequestLogListOption) ([]*models.RequestLog, int64, error) {
+func (s *RequestLogServiceImpl) List(ctx context.Context, opt repository.RequestLogListOption) ([]*models.RequestLog, int64, error) {
 	return s.repo.List(ctx, opt)
 }
 
-func (s *requestLogService) Delete(ctx context.Context, id int64) error {
+func (s *RequestLogServiceImpl) Delete(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *requestLogService) Exists(ctx context.Context, id int64) (bool, error) {
+func (s *RequestLogServiceImpl) Exists(ctx context.Context, id int64) (bool, error) {
 	return s.repo.Exists(ctx, id)
 }
 
-func (s *requestLogService) Flush(ctx context.Context) error {
+func (s *RequestLogServiceImpl) Flush(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -132,7 +132,7 @@ func (s *requestLogService) Flush(ctx context.Context) error {
 	}
 }
 
-func (s *requestLogService) startAsyncWorkers(workerCount int) {
+func (s *RequestLogServiceImpl) startAsyncWorkers(workerCount int) {
 	if workerCount <= 0 {
 		workerCount = 1
 	}
@@ -141,7 +141,7 @@ func (s *requestLogService) startAsyncWorkers(workerCount int) {
 	}
 }
 
-func (s *requestLogService) asyncCreateWorker() {
+func (s *RequestLogServiceImpl) asyncCreateWorker() {
 	for task := range s.asyncQueue {
 		if err := s.repo.Create(task.ctx, task.log); err != nil {
 			s.Log(task.ctx).Error("async create request log failed",
@@ -152,7 +152,7 @@ func (s *requestLogService) asyncCreateWorker() {
 	}
 }
 
-func (s *requestLogService) prepareRequestLog(log *models.RequestLog) (*models.RequestLog, error) {
+func (s *RequestLogServiceImpl) prepareRequestLog(log *models.RequestLog) (*models.RequestLog, error) {
 	if log == nil {
 		return nil, errors.New("request log is nil")
 	}

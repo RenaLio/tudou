@@ -37,12 +37,16 @@ func (r *Registry) ReloadChannel(channel *models.Channel) {
 			r.Endpoints[callModel] = make(map[int64]*Endpoint)
 		}
 		r.Endpoints[callModel][channel.ID] = &Endpoint{
-			ChannelID:     channel.ID,
-			ChannelType:   string(channel.Type),
-			Model:         callModel,
-			UpstreamModel: upstreamModel,
-			BaseWeight:    int64(channel.Weight),
-			mu:            sync.RWMutex{},
+			ChannelID:      channel.ID,
+			ChannelType:    string(channel.Type),
+			Model:          callModel,
+			UpstreamModel:  upstreamModel,
+			BaseWeight:     int64(channel.Weight),
+			CostRate:       channel.PriceRate,
+			mu:             sync.RWMutex{},
+			EmaTTFT:        1600,
+			EmaTPS:         100,
+			EmaSuccessRate: 1.0,
 		}
 	}
 }
@@ -119,7 +123,7 @@ func (r *Registry) GetEndpoint(model string, channelId int64) *Endpoint {
 	return r.Endpoints[model][channelId]
 }
 
-func (r *Registry) GetEndpoints2(model string, channelIds ...int64) []*Endpoint {
+func (r *Registry) GetEndpoints(model string, channelIds ...int64) []*Endpoint {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	endpoints := make([]*Endpoint, 0, len(channelIds))
@@ -139,4 +143,8 @@ func (r *Registry) removeChannelEndpointsLocked(channelID int64) {
 			delete(r.Endpoints, model)
 		}
 	}
+}
+
+func (c *Registry) ExportRegistryData() Registry {
+	return *c
 }

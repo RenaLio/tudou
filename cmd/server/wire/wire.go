@@ -44,9 +44,19 @@ var repositorySet = wire.NewSet(
 var depsSet = wire.NewSet(
 	jwt.NewJwt,
 	sid.NewSid,
+	start.InitLBRegistry,
+	wire.Bind(new(service.LBRegistryReloader), new(*loadbalancer.Registry)),
+	wire.Bind(new(service.GroupRegistryReloader), new(*loadbalancer.Registry)),
+	wire.Bind(new(handler.RegistryHelper), new(*loadbalancer.Registry)),
 	loadbalancer.NewDynamicLoadBalancer,
-	loadbalancer.NewAsyncMetricsCollector,
+	wire.Bind(new(loadbalancer.LoadBalancer), new(*loadbalancer.DynamicLoadBalancer)),
+	newAsyncMetricsCollector,
+	wire.Bind(new(loadbalancer.MetricsCollector), new(*loadbalancer.AsyncMetricsCollector)),
 )
+
+func newAsyncMetricsCollector(reg *loadbalancer.Registry) *loadbalancer.AsyncMetricsCollector {
+	return loadbalancer.NewAsyncMetricsCollector(reg, 1024)
+}
 
 var serviceSet = wire.NewSet(
 	service.NewService,
@@ -59,6 +69,8 @@ var serviceSet = wire.NewSet(
 	service.NewRelayService,
 	service.NewStatsService,
 	service.NewRequestLogService,
+	wire.Bind(new(service.RequestLogService), new(*service.RequestLogServiceImpl)),
+	wire.Bind(new(service.RequestLogCreator), new(*service.RequestLogServiceImpl)),
 )
 
 var handlerSet = wire.NewSet(
@@ -70,6 +82,9 @@ var handlerSet = wire.NewSet(
 	handler.NewUserHandler,
 	handler.NewSystemConfigHandler,
 	handler.NewStatsHandler,
+	handler.NewRelayHandler,
+	handler.NewRequestLogHandler,
+	handler.NewDebugHelperHandler,
 )
 
 var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)
@@ -89,7 +104,6 @@ func BuildApp(*config.Config, *log.Logger) (*app.App, func(), error) {
 		handlerSet,
 		serverSet,
 		wire.Struct(new(router.Deps), "*"),
-		start.InitLBRegistry,
 		newApp,
 	))
 }

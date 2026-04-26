@@ -3,10 +3,13 @@ package loadbalancer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"sort"
 	"sync"
+
+	"github.com/RenaLio/tudou/pkg/provider/plog"
 )
 
 type ScorePlugin func([]*Endpoint) []*Endpoint
@@ -18,6 +21,7 @@ type LoadBalancer interface {
 type MetricsCollector interface {
 	CollectMetrics(ctx context.Context, record *ResultRecord) error
 	IncConn(channelID int64)
+	DecConn(channelID int64)
 }
 
 type DynamicLoadBalancer struct {
@@ -41,20 +45,25 @@ func (lb *DynamicLoadBalancer) Select(ctx context.Context, req *Request, plugins
 	for _, channel := range modelChannels {
 		channelIds = append(channelIds, channel.ID)
 	}
-	endpoints := lb.GetEndpoints2(req.Model, channelIds...)
+	endpoints := lb.GetEndpoints(req.Model, channelIds...)
 	if len(endpoints) == 0 {
 		return nil, ErrNoAvailableChannel
 	}
+	plog.Debug("endpoints_step1", fmt.Sprintf("%#v", endpoints))
 	endpoints = FilterAvailableEndpoints(endpoints)
+	plog.Debug("endpoints_step2", fmt.Sprintf("%#v", endpoints))
 	if len(endpoints) == 0 {
 		return nil, ErrNoAvailableChannel
 	}
 	// sort
 	sortedEndpoints := SortEndpoints(endpoints, req.Strategy, lb)
+	plog.Debug("sorted_endpoints", fmt.Sprintf("%v", sortedEndpoints))
 	// 随机扰动
 	randNum := rand.IntN(101)
+	plog.Debug("randNum", randNum)
 	if randNum >= 90 {
 		sortedEndpoints = Shuffled(sortedEndpoints)
+		plog.Debug("shuffled_endpoints", fmt.Sprintf("%v", sortedEndpoints))
 	}
 	// 插件
 	for _, plugin := range plugins {
@@ -68,7 +77,7 @@ func (lb *DynamicLoadBalancer) Select(ctx context.Context, req *Request, plugins
 			continue
 		}
 		result = append(result, &Result{
-			Channel:       channel.Channel,
+			Channel:       *channel.Channel,
 			UpstreamModel: endpoint.UpstreamModel,
 		})
 	}
@@ -89,16 +98,44 @@ func FilterAvailableEndpoints(endpoints []*Endpoint) []*Endpoint {
 }
 
 func SortEndpoints(endpoints []*Endpoint, strategy string, lb *DynamicLoadBalancer) []*Endpoint {
+	scoreCache := make(map[int64]float64)
+
 	switch strategy {
 	case "random":
 		return Shuffled(endpoints)
 	case "performance":
 		sort.Slice(endpoints, func(i, j int) bool {
-			return endpoints[i].ScoreWithWeights(DefaultPerformanceWeights) > endpoints[j].ScoreWithWeights(DefaultPerformanceWeights)
+			var scoreI, scoreJ float64
+			if val, ok := scoreCache[endpoints[i].ChannelID]; ok {
+				scoreI = val
+			} else {
+				scoreI = endpoints[i].ScoreWithWeights(DefaultPerformanceWeights)
+				scoreCache[endpoints[i].ChannelID] = scoreI
+			}
+			if val, ok := scoreCache[endpoints[j].ChannelID]; ok {
+				scoreJ = val
+			} else {
+				scoreJ = endpoints[j].ScoreWithWeights(DefaultPerformanceWeights)
+				scoreCache[endpoints[j].ChannelID] = scoreJ
+			}
+			return scoreI > scoreJ
 		})
 	case "ttft_first":
 		sort.Slice(endpoints, func(i, j int) bool {
-			return endpoints[i].ScoreWithWeights(TTFTFirstWeights) > endpoints[j].ScoreWithWeights(TTFTFirstWeights)
+			var scoreI, scoreJ float64
+			if val, ok := scoreCache[endpoints[i].ChannelID]; ok {
+				scoreI = val
+			} else {
+				scoreI = endpoints[i].ScoreWithWeights(TTFTFirstWeights)
+				scoreCache[endpoints[i].ChannelID] = scoreI
+			}
+			if val, ok := scoreCache[endpoints[j].ChannelID]; ok {
+				scoreJ = val
+			} else {
+				scoreJ = endpoints[j].ScoreWithWeights(TTFTFirstWeights)
+				scoreCache[endpoints[j].ChannelID] = scoreJ
+			}
+			return scoreI > scoreJ
 		})
 	case "tps_first":
 		sort.Slice(endpoints, func(i, j int) bool {
@@ -146,7 +183,20 @@ func SortEndpoints(endpoints []*Endpoint, strategy string, lb *DynamicLoadBalanc
 		})
 	default:
 		sort.Slice(endpoints, func(i, j int) bool {
-			return endpoints[i].ScoreWithWeights(DefaultPerformanceWeights) > endpoints[j].ScoreWithWeights(DefaultPerformanceWeights)
+			var scoreI, scoreJ float64
+			if val, ok := scoreCache[endpoints[i].ChannelID]; ok {
+				scoreI = val
+			} else {
+				scoreI = endpoints[i].ScoreWithWeights(DefaultPerformanceWeights)
+				scoreCache[endpoints[i].ChannelID] = scoreI
+			}
+			if val, ok := scoreCache[endpoints[j].ChannelID]; ok {
+				scoreJ = val
+			} else {
+				scoreJ = endpoints[j].ScoreWithWeights(DefaultPerformanceWeights)
+				scoreCache[endpoints[j].ChannelID] = scoreJ
+			}
+			return scoreI > scoreJ
 		})
 	}
 	return endpoints

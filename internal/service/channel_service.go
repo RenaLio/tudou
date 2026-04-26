@@ -11,6 +11,12 @@ import (
 	"github.com/RenaLio/tudou/internal/repository"
 )
 
+type LBRegistryReloader interface {
+	ReloadChannel(channel *models.Channel)
+	UnregisterChannel(channelID int64)
+	ReloadGroup(group *models.ChannelGroup)
+}
+
 type ChannelService interface {
 	Create(ctx context.Context, req v1.CreateChannelRequest) (*v1.ChannelResponse, error)
 	BatchCreate(ctx context.Context, reqs []v1.CreateChannelRequest) ([]v1.ChannelResponse, error)
@@ -29,13 +35,23 @@ type channelService struct {
 	*Service
 	repo      repository.ChannelRepo
 	modelRepo repository.AIModelRepo
+	groupRepo repository.ChannelGroupRepo
+	registry  LBRegistryReloader
 }
 
-func NewChannelService(base *Service, repo repository.ChannelRepo, modelRepo repository.AIModelRepo) ChannelService {
+func NewChannelService(
+	base *Service,
+	repo repository.ChannelRepo,
+	modelRepo repository.AIModelRepo,
+	registry LBRegistryReloader,
+	groupRepo repository.ChannelGroupRepo,
+) ChannelService {
 	return &channelService{
 		Service:   base,
 		repo:      repo,
 		modelRepo: modelRepo,
+		groupRepo: groupRepo,
+		registry:  registry,
 	}
 }
 
@@ -59,12 +75,29 @@ func (s *channelService) Create(ctx context.Context, req v1.CreateChannelRequest
 		return nil, err
 	}
 
-	latest, err := s.repo.GetByIDWithGroups(ctx, channel.ID)
+	latest, err := s.repo.GetByID(ctx, channel.ID)
 	if err != nil {
 		return nil, err
 	}
+	if s.registry != nil {
+		s.registry.ReloadChannel(latest)
+	}
+	if len(req.GroupIDs) > 0 {
+		ReloadGroup(ctx, s.groupRepo, s.registry)
+	}
 	resp := toChannelResponse(latest)
 	return &resp, nil
+}
+
+func ReloadGroup(ctx context.Context, groupRepo repository.ChannelGroupRepo, registry LBRegistryReloader) error {
+	groups, err := groupRepo.PreLoadRegistryData(ctx)
+	if err != nil {
+		return err
+	}
+	for _, g := range groups {
+		registry.ReloadGroup(g)
+	}
+	return nil
 }
 
 func (s *channelService) BatchCreate(ctx context.Context, reqs []v1.CreateChannelRequest) ([]v1.ChannelResponse, error) {
@@ -203,10 +236,17 @@ func (s *channelService) Update(ctx context.Context, id int64, req v1.UpdateChan
 		return nil, err
 	}
 
-	latest, err := s.repo.GetByIDWithGroups(ctx, id)
+	latest, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
+	if s.registry != nil {
+		s.registry.ReloadChannel(latest)
+	}
+	if len(req.GroupIDs) > 0 {
+		ReloadGroup(ctx, s.groupRepo, s.registry)
+	}
+
 	resp := toChannelResponse(latest)
 	return &resp, nil
 }
@@ -215,18 +255,40 @@ func (s *channelService) UpdateStatus(ctx context.Context, id int64, req v1.SetC
 	if err := s.repo.UpdateStatus(ctx, id, *req.Status); err != nil {
 		return nil, err
 	}
-	return s.GetByID(ctx, id, true)
+	ch, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if s.registry != nil {
+		s.registry.ReloadChannel(ch)
+	}
+	resp := toChannelResponse(ch)
+	return &resp, nil
 }
 
 func (s *channelService) Delete(ctx context.Context, id int64) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	if s.registry != nil {
+		s.registry.UnregisterChannel(id)
+	}
+	return nil
 }
 
 func (s *channelService) ReplaceGroups(ctx context.Context, channelID int64, req v1.ReplaceChannelGroupsRequest) (*v1.ChannelResponse, error) {
 	if err := s.repo.ReplaceGroups(ctx, channelID, req.GroupIDs); err != nil {
 		return nil, err
 	}
-	return s.GetByID(ctx, channelID, true)
+	ch, err := s.repo.GetByIDWithGroups(ctx, channelID)
+	if err != nil {
+		return nil, err
+	}
+	if s.registry != nil {
+		s.registry.ReloadChannel(ch)
+	}
+	resp := toChannelResponse(ch)
+	return &resp, nil
 }
 
 func (s *channelService) Exists(ctx context.Context, id int64) (bool, error) {

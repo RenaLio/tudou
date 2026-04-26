@@ -10,6 +10,11 @@ import (
 	"github.com/RenaLio/tudou/internal/repository"
 )
 
+type GroupRegistryReloader interface {
+	ReloadGroup(group *models.ChannelGroup)
+	UnregisterGroup(groupID int64)
+}
+
 type ChannelGroupService interface {
 	Create(ctx context.Context, req v1.CreateChannelGroupRequest) (*v1.ChannelGroupResponse, error)
 	BatchCreate(ctx context.Context, reqs []v1.CreateChannelGroupRequest) ([]v1.ChannelGroupResponse, error)
@@ -23,13 +28,15 @@ type ChannelGroupService interface {
 
 type channelGroupService struct {
 	*Service
-	repo repository.ChannelGroupRepo
+	repo     repository.ChannelGroupRepo
+	registry GroupRegistryReloader
 }
 
-func NewChannelGroupService(base *Service, repo repository.ChannelGroupRepo) ChannelGroupService {
+func NewChannelGroupService(base *Service, repo repository.ChannelGroupRepo, registry GroupRegistryReloader) ChannelGroupService {
 	return &channelGroupService{
-		Service: base,
-		repo:    repo,
+		Service:  base,
+		repo:     repo,
+		registry: registry,
 	}
 }
 
@@ -41,6 +48,9 @@ func (s *channelGroupService) Create(ctx context.Context, req v1.CreateChannelGr
 
 	if err = s.repo.Create(ctx, group); err != nil {
 		return nil, err
+	}
+	if s.registry != nil {
+		s.registry.ReloadGroup(group)
 	}
 	resp := toChannelGroupResponse(group)
 	return &resp, nil
@@ -115,7 +125,7 @@ func (s *channelGroupService) List(ctx context.Context, req v1.ListChannelGroups
 }
 
 func (s *channelGroupService) Update(ctx context.Context, id int64, req v1.UpdateChannelGroupRequest) (*v1.ChannelGroupResponse, error) {
-	group, err := s.repo.GetByID(ctx, id)
+	group, err := s.repo.GetByIDWithChannels(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -127,12 +137,21 @@ func (s *channelGroupService) Update(ctx context.Context, id int64, req v1.Updat
 	if err = s.repo.Update(ctx, group); err != nil {
 		return nil, err
 	}
+	if s.registry != nil {
+		s.registry.ReloadGroup(group)
+	}
 	resp := toChannelGroupResponse(group)
 	return &resp, nil
 }
 
 func (s *channelGroupService) Delete(ctx context.Context, id int64) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	if s.registry != nil {
+		s.registry.UnregisterGroup(id)
+	}
+	return nil
 }
 
 func (s *channelGroupService) Exists(ctx context.Context, id int64) (bool, error) {

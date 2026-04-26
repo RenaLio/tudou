@@ -47,7 +47,7 @@ func (m *AIModel) CalculateByTokensMicros(inputTokens, outputTokens int64) int64
 
 // CalculateByTokensWithCacheMicros 按量计费（含缓存 tokens，返回 micros）
 func (m *AIModel) CalculateByTokensWithCacheMicros(inputTokens, outputTokens, cacheCreateTokens, cacheReadTokens int64) int64 {
-	inputCost := inputTokens * pricingPerMillionToMicros(m.Pricing.InputPrice) / pricingTokenUnit
+	inputCost := (inputTokens - cacheCreateTokens - cacheReadTokens) * pricingPerMillionToMicros(m.Pricing.InputPrice) / pricingTokenUnit
 	outputCost := outputTokens * pricingPerMillionToMicros(m.Pricing.OutputPrice) / pricingTokenUnit
 	cacheCreateCost := cacheCreateTokens * pricingPerMillionToMicros(m.Pricing.CacheCreatePrice) / pricingTokenUnit
 	cacheReadCost := cacheReadTokens * pricingPerMillionToMicros(m.Pricing.CacheReadPrice) / pricingTokenUnit
@@ -116,11 +116,11 @@ const (
 
 // ModelPricing 模型定价信息
 type ModelPricing struct {
-	InputPrice       float64 `json:"inputPrice,omitempty"`       // 输入价格 (per 1M tokens)
-	OutputPrice      float64 `json:"outputPrice,omitempty"`      // 输出价格 (per 1M tokens)
-	CacheCreatePrice float64 `json:"cacheCreatePrice,omitempty"` // 缓存创建价格 (per 1M tokens)
-	CacheReadPrice   float64 `json:"cacheReadPrice,omitempty"`   // 缓存读取价格 (per 1M tokens)
-	PerRequestPrice  float64 `json:"perRequestPrice,omitempty"`  // 按次计费价格 (per request)
+	InputPrice       float64 `json:"inputPrice"`       // 输入价格 (per 1M tokens)
+	OutputPrice      float64 `json:"outputPrice"`      // 输出价格 (per 1M tokens)
+	CacheCreatePrice float64 `json:"cacheCreatePrice"` // 缓存创建价格 (per 1M tokens)
+	CacheReadPrice   float64 `json:"cacheReadPrice"`   // 缓存读取价格 (per 1M tokens)
+	PerRequestPrice  float64 `json:"perRequestPrice"`  // 按次计费价格 (per request)
 }
 
 // Value 实现 driver.Valuer 接口

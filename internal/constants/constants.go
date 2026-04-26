@@ -37,3 +37,9 @@ var groupIdKey ctxKeyType = "group_id"
 func GroupIdKey() ctxKeyType {
 	return groupIdKey
 }
+
+var tokenClaimKey ctxKeyType = "token_claim"
+
+func TokenClaimKey() ctxKeyType {
+	return tokenClaimKey
+}

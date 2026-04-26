@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptrace"
@@ -63,7 +62,11 @@ func parseSSEEvent(raw []byte, finishTypes map[string]struct{}, extractFunc Extr
 	}
 	result := extractFunc(raw)
 	if !result.Ok {
-		return nil, nil
+		// ping 之类的
+		return &types.StreamEvent{
+			Content:  raw,
+			Finished: result.Finished,
+		}, nil
 	}
 	if result.DataType == "event" {
 		return &types.StreamEvent{
@@ -254,6 +257,7 @@ func (c *Client) executeJSONRequest(
 	metrics.Model = req.Model
 	metrics.Format = req.Format
 	metrics.IsStream = req.IsStream
+	metrics.StatusCode = httpResp.StatusCode
 	metrics.Extra = make(map[string]any)
 	metrics.Extra[constant.RequestFormatKey] = req.Format
 	var exceptedStatus bool
@@ -291,9 +295,9 @@ func (c *Client) executeJSONRequest(
 		if err != nil {
 			return nil, err
 		}
-		plog.Debug("data:", string(data))
+		//plog.Debug("data:", string(data))
 		if exceptedStatus {
-			return nil, fmt.Errorf("unexpected status code: %d %s", httpResp.StatusCode, string(data))
+			plog.Debug("unexpected status code:", httpResp.StatusCode, string(data))
 		}
 
 		if !firstByte.IsZero() {
