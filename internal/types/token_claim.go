@@ -6,4 +6,5 @@ type TokenClaim struct {
 	GroupId   int64
 	GroupName string
 	UserId    int64
+	Strategy  string
 }

@@ -35,6 +35,7 @@ type RelayMeta struct {
 	UserID    int64
 	GroupID   int64
 	GroupName string
+	Strategy  string
 }
 
 type RelayServiceImpl struct {
@@ -60,8 +61,13 @@ func NewRelayService(
 }
 
 func (s *RelayServiceImpl) FetchModel(ctx context.Context, req *v1.FetchModelRequest) ([]string, error) {
-	// todo
-	return []string{"gpt-4o", "gpt-3.5-turbo", "deepseek/deepseek-v3.2"}, nil
+	httpClient := httpclient.GetDefaultClient()
+	prov := buildProvider(string(req.Type), req.BaseURL, req.APIKey, httpClient)
+	modelList, err := prov.Models()
+	if err != nil {
+		return nil, err
+	}
+	return modelList, nil
 }
 
 func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []byte, header http.Header) (*types.Response, error) {
@@ -75,9 +81,10 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 	}
 
 	lbReq := &loadbalancer.Request{
-		GroupID: meta.GroupID,
-		UserID:  meta.UserID,
-		Model:   model,
+		GroupID:  meta.GroupID,
+		UserID:   meta.UserID,
+		Model:    model,
+		Strategy: meta.Strategy,
 	}
 
 	candidates, err := s.lb.Select(ctx, lbReq)
@@ -127,9 +134,6 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 
 		resp, execErr := prov.Execute(ctx, req, func(metrics *types.ResponseMetrics) {
 			plog.Debug("metrics:", metrics)
-			if s.collector != nil {
-				s.collector.DecConn(candidate.Channel.ID)
-			}
 
 			lbRecord := &loadbalancer.ResultRecord{
 				Model:         model,
@@ -224,8 +228,18 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 		if execErr != nil {
 			lastErr = execErr
 			plog.Error("execute error:", execErr)
+			if s.collector != nil {
+				s.collector.DecConn(candidate.Channel.ID)
+			}
+			retryTrace = append(retryTrace, models.RetryDetail{
+				ChannelID:     candidate.Channel.ID,
+				UpstreamModel: candidate.UpstreamModel,
+				StatusCode:    -1,
+				StatusBody:    execErr.Error(),
+			})
 			continue
 		}
+		lastResp = resp
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return resp, nil

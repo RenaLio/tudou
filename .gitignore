@@ -30,6 +30,7 @@ go.work.sum
 .go_cache/
 .idea/
 .vscode/
+.gocache/
 ai_docs/
 storage/*
 web/node_modules

@@ -70,6 +70,10 @@ func RequireToken(lookup TokenLookup) gin.HandlerFunc {
 			GroupId:   token.GroupID,
 			GroupName: token.Group.Name,
 			UserId:    token.UserID,
+			Strategy:  string(token.LoadBalanceStrategy),
+		}
+		if tokenClaim.Strategy == "" {
+			tokenClaim.Strategy = string(token.Group.LoadBalanceStrategy)
 		}
 
 		ctx.Set(constants.TokenClaimKey(), tokenClaim)

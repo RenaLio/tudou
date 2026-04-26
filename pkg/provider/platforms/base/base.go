@@ -263,6 +263,10 @@ func (c *Client) Models() ([]string, error) {
 	return c.FetchModels(context.Background(), c.baseURL+"/v1/models")
 }
 
+func (c *Client) SetOpenAIAuth(req *http.Request) {
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+}
+
 func (c *Client) FetchModels(ctx context.Context, reqURL string) ([]string, error) {
 	var models []string
 	var err error
@@ -272,6 +276,7 @@ func (c *Client) FetchModels(ctx context.Context, reqURL string) ([]string, erro
 		plog.Error("get.models.request", "err", err)
 		return models, perrors.New(perrors.KindBuildRequest, "get.models.request", c.Identifier(), "", "", err)
 	}
+	c.SetOpenAIAuth(request)
 	response, err := c.httpC.Do(request)
 	if err != nil {
 		plog.Error("get.models.response", "err", err)

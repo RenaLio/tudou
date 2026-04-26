@@ -63,6 +63,7 @@ func (h *RelayHandler) forward(format types.Format) gin.HandlerFunc {
 			UserID:    tokenClaim.UserId,
 			GroupID:   tokenClaim.GroupId,
 			GroupName: tokenClaim.GroupName,
+			Strategy:  tokenClaim.Strategy,
 		}
 
 		body, err := io.ReadAll(ctx.Request.Body)
