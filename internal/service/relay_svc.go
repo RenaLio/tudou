@@ -216,6 +216,7 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 						reqLog.Pricing = aiModel.Pricing
 						reqLog.CostMicros = aiModel.CalculateByRequestMicros()
 					}
+					reqLog.CostMicros = int64(float64(reqLog.CostMicros) * candidate.Channel.PriceRate)
 				}
 				if err := s.requestLog.CreateAsync(ctx, &reqLog); err != nil {
 					plog.Error("create request log error:", err)

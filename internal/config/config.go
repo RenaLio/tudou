@@ -2,8 +2,11 @@ package config
 
 type Config struct {
 	Env   string `mapstructure:"env"` // prod,dev,test,local
-	Debug bool   `mapstructure:"debug"`
-	Http  struct {
+	Debug struct {
+		Default bool `mapstructure:"default"`
+		DB      bool `mapstructure:"db"`
+	} `mapstructure:"debug"`
+	Http struct {
 		Host string `mapstructure:"host"`
 		Port int    `mapstructure:"port"`
 	} `mapstructure:"http"`

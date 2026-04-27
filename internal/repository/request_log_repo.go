@@ -13,6 +13,10 @@ type RequestLogListOption struct {
 	PageSize      int
 	OrderBy       string
 	Keyword       string
+	IDGT          int64
+	IDGTE         int64
+	IDLT          int64
+	IDLTE         int64
 	RequestID     string
 	UserID        int64
 	TokenID       int64
@@ -71,6 +75,18 @@ func (r *requestLogRepo) List(ctx context.Context, opt RequestLogListOption) ([]
 	requestID := strings.TrimSpace(opt.RequestID)
 	if requestID != "" {
 		db = db.Where("request_id = ?", requestID)
+	}
+	if opt.IDGT > 0 {
+		db = db.Where("id > ?", opt.IDGT)
+	}
+	if opt.IDGTE > 0 {
+		db = db.Where("id >= ?", opt.IDGTE)
+	}
+	if opt.IDLT > 0 {
+		db = db.Where("id < ?", opt.IDLT)
+	}
+	if opt.IDLTE > 0 {
+		db = db.Where("id <= ?", opt.IDLTE)
 	}
 	if opt.UserID > 0 {
 		db = db.Where("user_id = ?", opt.UserID)

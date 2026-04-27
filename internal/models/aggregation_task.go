@@ -2,6 +2,15 @@ package models
 
 import "time"
 
+type AggregationTaskStatus int8
+
+const (
+	AggregationTaskStatusPending AggregationTaskStatus = 0
+	AggregationTaskStatusRunning AggregationTaskStatus = 1
+	AggregationTaskStatusDone    AggregationTaskStatus = 2
+	AggregationTaskStatusFailed  AggregationTaskStatus = 3
+)
+
 type AggregationTask struct {
 	ID         int64      `gorm:"primaryKey;autoIncrement:false" json:"id,string"`
 	TaskName   string     `gorm:"column:task_name;type:varchar(128);not null;index" json:"taskName"`
@@ -13,4 +22,8 @@ type AggregationTask struct {
 	CreatedAt  time.Time  `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt  time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 	FinishedAt *time.Time `gorm:"column:finished_at;" json:"finishedAt"`
+}
+
+func (*AggregationTask) TableName() string {
+	return "aggregation_tasks"
 }

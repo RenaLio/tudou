@@ -16,16 +16,17 @@ type UpsertChannelStatsRequest struct {
 }
 
 type ChannelStatsResponse struct {
-	ChannelID                 int64   `json:"channelID,string"`
-	InputToken                int64   `json:"inputToken"`
-	OutputToken               int64   `json:"outputToken"`
-	CachedCreationInputTokens int64   `json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64   `json:"cachedReadInputTokens"`
-	RequestSuccess            int64   `json:"requestSuccess"`
-	RequestFailed             int64   `json:"requestFailed"`
-	TotalCostMicros           int64   `json:"totalCostMicros"`
-	AvgTTFT                   int     `json:"avgTTFT"`
-	AvgTPS                    float64 `json:"avgTPS"`
+	ChannelID                 int64                       `json:"channelID,string"`
+	InputToken                int64                       `json:"inputToken"`
+	OutputToken               int64                       `json:"outputToken"`
+	CachedCreationInputTokens int64                       `json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64                       `json:"cachedReadInputTokens"`
+	RequestSuccess            int64                       `json:"requestSuccess"`
+	RequestFailed             int64                       `json:"requestFailed"`
+	TotalCostMicros           int64                       `json:"totalCostMicros"`
+	AvgTTFT                   int                         `json:"avgTTFT"`
+	AvgTPS                    float64                     `json:"avgTPS"`
+	Window3H                  ObservationWindow3HResponse `json:"window3h"`
 }
 
 type UpsertChannelModelStatsRequest struct {
@@ -43,17 +44,38 @@ type UpsertChannelModelStatsRequest struct {
 }
 
 type ChannelModelStatsResponse struct {
-	ChannelID                 int64   `json:"channelID,string"`
-	Model                     string  `json:"model"`
-	InputToken                int64   `json:"inputToken"`
-	OutputToken               int64   `json:"outputToken"`
-	CachedCreationInputTokens int64   `json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64   `json:"cachedReadInputTokens"`
-	RequestSuccess            int64   `json:"requestSuccess"`
-	RequestFailed             int64   `json:"requestFailed"`
-	TotalCostMicros           int64   `json:"totalCostMicros"`
-	AvgTTFT                   int     `json:"avgTTFT"`
-	AvgTPS                    float64 `json:"avgTPS"`
+	ChannelID                 int64                       `json:"channelID,string"`
+	Model                     string                      `json:"model"`
+	InputToken                int64                       `json:"inputToken"`
+	OutputToken               int64                       `json:"outputToken"`
+	CachedCreationInputTokens int64                       `json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64                       `json:"cachedReadInputTokens"`
+	RequestSuccess            int64                       `json:"requestSuccess"`
+	RequestFailed             int64                       `json:"requestFailed"`
+	TotalCostMicros           int64                       `json:"totalCostMicros"`
+	AvgTTFT                   int                         `json:"avgTTFT"`
+	AvgTPS                    float64                     `json:"avgTPS"`
+	Window3H                  ObservationWindow3HResponse `json:"window3h"`
+}
+
+type ObservationWindow3HResponse struct {
+	WindowMinutes int                            `json:"windowMinutes"`
+	BucketMinutes int                            `json:"bucketMinutes"`
+	Buckets       []ObservationBucket15MResponse `json:"buckets"`
+}
+
+type ObservationBucket15MResponse struct {
+	StartAt                   time.Time `json:"startAt"`
+	EndAt                     time.Time `json:"endAt"`
+	InputToken                int64     `json:"inputToken"`
+	OutputToken               int64     `json:"outputToken"`
+	CachedCreationInputTokens int64     `json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64     `json:"cachedReadInputTokens"`
+	RequestSuccess            int64     `json:"requestSuccess"`
+	RequestFailed             int64     `json:"requestFailed"`
+	TotalCostMicros           int64     `json:"totalCostMicros"`
+	AvgTTFT                   int       `json:"avgTTFT"`
+	AvgTPS                    float64   `json:"avgTPS"`
 }
 
 type UpsertTokenStatsRequest struct {

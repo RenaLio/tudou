@@ -2,6 +2,26 @@ import client from './client'
 import type { ApiResponse, ListResponse } from '@/types'
 
 // Types
+export interface ObservationBucket15M {
+  startAt: string
+  endAt: string
+  inputToken: number
+  outputToken: number
+  cachedCreationInputTokens: number
+  cachedReadInputTokens: number
+  requestSuccess: number
+  requestFailed: number
+  totalCostMicros: number
+  avgTTFT: number
+  avgTPS: number
+}
+
+export interface ObservationWindow3H {
+  windowMinutes: number
+  bucketMinutes: number
+  buckets: ObservationBucket15M[]
+}
+
 export interface ChannelStatsResponse {
   channelID: string
   inputToken: number
@@ -13,6 +33,7 @@ export interface ChannelStatsResponse {
   totalCostMicros: number
   avgTTFT: number
   avgTPS: number
+  window3h: ObservationWindow3H
 }
 
 export interface ChannelModelStatsResponse {
@@ -27,6 +48,7 @@ export interface ChannelModelStatsResponse {
   totalCostMicros: number
   avgTTFT: number
   avgTPS: number
+  window3h: ObservationWindow3H
 }
 
 export interface TokenStatsResponse {

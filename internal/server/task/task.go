@@ -414,7 +414,7 @@ func (t *TaskServer) executeTask(ctx context.Context, request taskRunRequest) {
 		t.logger.Error("task execution failed", zap.String("task", request.name), zap.Duration("duration", duration), zap.Error(err))
 		return
 	}
-	t.logger.Info("task execution finished", zap.String("task", request.name), zap.Duration("duration", duration))
+	//t.logger.Info("task execution finished", zap.String("task", request.name), zap.Duration("duration", duration))
 }
 
 func buildEntry(task Task, cfg TaskConfig) (*taskEntry, error) {

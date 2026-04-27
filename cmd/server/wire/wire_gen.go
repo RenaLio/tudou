@@ -90,7 +90,9 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	}
 	httpServer := server.NewHttpServer(deps)
 	mockTask := tasks.NewMockTask(logger)
-	taskServer := NewTaskServer(logger, mockTask)
+	aggregationTaskRepo := repository.NewAggregationTaskRepo(repositoryRepository)
+	statsAggregationTask := tasks.NewStatsAggregationTask(logger, sidSid, transaction, aggregationTaskRepo, requestLogRepo, channelStatsRepo, channelModelStatsRepo, tokenStatsRepo, userStatsRepo, userUsageDailyStatsRepo, userUsageHourlyStatsRepo)
+	taskServer := NewTaskServer(logger, mockTask, statsAggregationTask)
 	appApp := newApp(httpServer, taskServer)
 	return appApp, func() {
 	}, nil
@@ -116,7 +118,7 @@ func InitApp(configConfig *config.Config, logger *log.Logger) error {
 
 // wire.go:
 
-var repositorySet = wire.NewSet(repository.NewDB, repository.NewCache, repository.NewRepository, repository.NewTransaction, repository.NewAIModelRepo, repository.NewChannelRepo, repository.NewChannelGroupRepo, repository.NewTokenRepo, repository.NewChannelStatsRepo, repository.NewChannelModelStatsRepo, repository.NewTokenStatsRepo, repository.NewUserStatsRepo, repository.NewUserUsageDailyStatsRepo, repository.NewUserUsageHourlyStatsRepo, repository.NewRequestLogRepo, repository.NewUserRepo, repository.NewSystemConfigRepo)
+var repositorySet = wire.NewSet(repository.NewDB, repository.NewCache, repository.NewRepository, repository.NewTransaction, repository.NewAIModelRepo, repository.NewChannelRepo, repository.NewChannelGroupRepo, repository.NewTokenRepo, repository.NewChannelStatsRepo, repository.NewChannelModelStatsRepo, repository.NewTokenStatsRepo, repository.NewUserStatsRepo, repository.NewUserUsageDailyStatsRepo, repository.NewUserUsageHourlyStatsRepo, repository.NewRequestLogRepo, repository.NewAggregationTaskRepo, repository.NewUserRepo, repository.NewSystemConfigRepo)
 
 var depsSet = wire.NewSet(jwt.NewJwt, sid.NewSid, start.InitLBRegistry, wire.Bind(new(service.LBRegistryReloader), new(*loadbalancer.Registry)), wire.Bind(new(service.GroupRegistryReloader), new(*loadbalancer.Registry)), wire.Bind(new(handler.RegistryHelper), new(*loadbalancer.Registry)), loadbalancer.NewDynamicLoadBalancer, wire.Bind(new(loadbalancer.LoadBalancer), new(*loadbalancer.DynamicLoadBalancer)), newAsyncMetricsCollector, wire.Bind(new(loadbalancer.MetricsCollector), new(*loadbalancer.AsyncMetricsCollector)))
 
@@ -130,13 +132,14 @@ var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handle
 
 var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)
 
-var taskSet = wire.NewSet(tasks.NewMockTask)
+var taskSet = wire.NewSet(tasks.NewMockTask, tasks.NewStatsAggregationTask)
 
 func NewTaskServer(
 	logger *log.Logger,
 	mockTask *tasks.MockTask,
+	statsAggregationTask *tasks.StatsAggregationTask,
 ) *task.TaskServer {
-	return task.NewTaskServer(logger, mockTask)
+	return task.NewTaskServer(logger, mockTask, statsAggregationTask)
 }
 
 func newApp(

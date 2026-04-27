@@ -37,6 +37,7 @@ func (m *Migrate) Start(ctx context.Context) error {
 		&models.RequestLog{},
 		&models.UserUsageDailyStats{},
 		&models.UserUsageHourlyStats{},
+		&models.AggregationTask{},
 	); err != nil {
 		m.logger.Error(fmt.Sprintf("AutoMigrate error: %v", err))
 		return err

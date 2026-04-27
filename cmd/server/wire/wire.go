@@ -39,6 +39,7 @@ var repositorySet = wire.NewSet(
 	repository.NewUserUsageDailyStatsRepo,
 	repository.NewUserUsageHourlyStatsRepo,
 	repository.NewRequestLogRepo,
+	repository.NewAggregationTaskRepo,
 	repository.NewUserRepo,
 	repository.NewSystemConfigRepo,
 )
@@ -93,13 +94,15 @@ var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)
 
 var taskSet = wire.NewSet(
 	tasks.NewMockTask,
+	tasks.NewStatsAggregationTask,
 )
 
 func NewTaskServer(
 	logger *log.Logger,
 	mockTask *tasks.MockTask,
+	statsAggregationTask *tasks.StatsAggregationTask,
 ) *task.TaskServer {
-	return task.NewTaskServer(logger, mockTask)
+	return task.NewTaskServer(logger, mockTask, statsAggregationTask)
 }
 
 func newApp(

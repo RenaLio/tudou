@@ -158,29 +158,31 @@ func (e *ChannelExtra) Scan(value interface{}) error {
 
 // ChannelStats 渠道统计信息 仅用于看板统计显示
 type ChannelStats struct {
-	ChannelID                 int64   `gorm:"column:channel_id;primaryKey;index:idx_channel_stats_channel" json:"channelID,string"`
-	InputToken                int64   `gorm:"column:input_token;type:bigint;default:0;comment:输入token数" json:"inputToken"`
-	OutputToken               int64   `gorm:"column:output_token;type:bigint;default:0;comment:输出token数" json:"outputToken"`
-	CachedCreationInputTokens int64   `gorm:"column:cached_creation_input_tokens;type:bigint;default:0;comment:缓存创建输入token数" json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64   `gorm:"column:cached_read_input_tokens;type:bigint;default:0;comment:缓存读取输入token数" json:"cachedReadInputTokens"`
-	RequestSuccess            int64   `gorm:"column:request_success;type:bigint;default:0;comment:请求成功数" json:"requestSuccess"`
-	RequestFailed             int64   `gorm:"column:request_failed;type:bigint;default:0;comment:请求失败数" json:"requestFailed"`
-	TotalCostMicros           int64   `gorm:"column:total_cost_micros;type:bigint;default:0;comment:总成本，单位 micros" json:"totalCostMicros"`
-	AvgTTFT                   int     `gorm:"column:avg_ttft;type:int;default:0;comment:平均首字延迟(ms)" json:"avgTTFT"`
-	AvgTPS                    float64 `gorm:"column:avg_tps;type:decimal(8,2);default:0;comment:平均每秒吐字" json:"avgTPS"`
+	ChannelID                 int64               `gorm:"column:channel_id;primaryKey;index:idx_channel_stats_channel" json:"channelID,string"`
+	InputToken                int64               `gorm:"column:input_token;type:bigint;default:0;comment:输入token数" json:"inputToken"`
+	OutputToken               int64               `gorm:"column:output_token;type:bigint;default:0;comment:输出token数" json:"outputToken"`
+	CachedCreationInputTokens int64               `gorm:"column:cached_creation_input_tokens;type:bigint;default:0;comment:缓存创建输入token数" json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64               `gorm:"column:cached_read_input_tokens;type:bigint;default:0;comment:缓存读取输入token数" json:"cachedReadInputTokens"`
+	RequestSuccess            int64               `gorm:"column:request_success;type:bigint;default:0;comment:请求成功数" json:"requestSuccess"`
+	RequestFailed             int64               `gorm:"column:request_failed;type:bigint;default:0;comment:请求失败数" json:"requestFailed"`
+	TotalCostMicros           int64               `gorm:"column:total_cost_micros;type:bigint;default:0;comment:总成本，单位 micros" json:"totalCostMicros"`
+	AvgTTFT                   int                 `gorm:"column:avg_ttft;type:int;default:0;comment:平均首字延迟(ms)" json:"avgTTFT"`
+	AvgTPS                    float64             `gorm:"column:avg_tps;type:decimal(8,2);default:0;comment:平均每秒吐字" json:"avgTPS"`
+	Window3H                  ObservationWindow3H `gorm:"column:window_3h;type:json" json:"window3h"`
 }
 
 // ChannelModelStats 渠道模型统计信息 仅用于看板统计显示
 type ChannelModelStats struct {
-	ChannelID                 int64   `gorm:"column:channel_id;primaryKey;index:idx_channel_model_stats_channel_model" json:"channelID,string"`
-	Model                     string  `gorm:"column:model;type:varchar(128);primaryKey;not null;index:idx_channel_model_stats_channel_model" json:"model"`
-	InputToken                int64   `gorm:"column:input_token;type:bigint;default:0;comment:输入token数" json:"inputToken"`
-	OutputToken               int64   `gorm:"column:output_token;type:bigint;default:0;comment:输出token数" json:"outputToken"`
-	CachedCreationInputTokens int64   `gorm:"column:cached_creation_input_tokens;type:bigint;default:0;comment:缓存创建输入token数" json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64   `gorm:"column:cached_read_input_tokens;type:bigint;default:0;comment:缓存读取输入token数" json:"cachedReadInputTokens"`
-	RequestSuccess            int64   `gorm:"column:request_success;type:bigint;default:0;comment:请求成功数" json:"requestSuccess"`
-	RequestFailed             int64   `gorm:"column:request_failed;type:bigint;default:0;comment:请求失败数" json:"requestFailed"`
-	TotalCostMicros           int64   `gorm:"column:total_cost_micros;type:bigint;default:0;comment:总成本，单位 micros" json:"totalCostMicros"`
-	AvgTTFT                   int     `gorm:"column:avg_ttft;type:int;default:0;comment:平均首字延迟(ms)" json:"avgTTFT"`
-	AvgTPS                    float64 `gorm:"column:avg_tps;type:decimal(8,2);default:0;comment:平均每秒吐字" json:"avgTPS"`
+	ChannelID                 int64               `gorm:"column:channel_id;primaryKey;index:idx_channel_model_stats_channel_model" json:"channelID,string"`
+	Model                     string              `gorm:"column:model;type:varchar(128);primaryKey;not null;index:idx_channel_model_stats_channel_model" json:"model"`
+	InputToken                int64               `gorm:"column:input_token;type:bigint;default:0;comment:输入token数" json:"inputToken"`
+	OutputToken               int64               `gorm:"column:output_token;type:bigint;default:0;comment:输出token数" json:"outputToken"`
+	CachedCreationInputTokens int64               `gorm:"column:cached_creation_input_tokens;type:bigint;default:0;comment:缓存创建输入token数" json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64               `gorm:"column:cached_read_input_tokens;type:bigint;default:0;comment:缓存读取输入token数" json:"cachedReadInputTokens"`
+	RequestSuccess            int64               `gorm:"column:request_success;type:bigint;default:0;comment:请求成功数" json:"requestSuccess"`
+	RequestFailed             int64               `gorm:"column:request_failed;type:bigint;default:0;comment:请求失败数" json:"requestFailed"`
+	TotalCostMicros           int64               `gorm:"column:total_cost_micros;type:bigint;default:0;comment:总成本，单位 micros" json:"totalCostMicros"`
+	AvgTTFT                   int                 `gorm:"column:avg_ttft;type:int;default:0;comment:平均首字延迟(ms)" json:"avgTTFT"`
+	AvgTPS                    float64             `gorm:"column:avg_tps;type:decimal(8,2);default:0;comment:平均每秒吐字" json:"avgTPS"`
+	Window3H                  ObservationWindow3H `gorm:"column:window_3h;type:json" json:"window3h"`
 }

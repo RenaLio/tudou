@@ -23,7 +23,7 @@ func NewHttpServer(deps *router.Deps) *http.Server {
 		panic("router deps logger is nil")
 	}
 
-	if deps.Conf.Env == "prod" && !deps.Conf.Debug {
+	if deps.Conf.Env == "prod" && !deps.Conf.Debug.Default {
 		gin.SetMode(gin.ReleaseMode)
 	}
 

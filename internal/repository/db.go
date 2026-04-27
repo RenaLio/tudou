@@ -34,7 +34,7 @@ func NewDB(conf *config.Config, logger *log.Logger) *gorm.DB {
 		panic("unknown db driver")
 	}
 
-	if conf.Debug {
+	if conf.Debug.DB {
 		db = db.Debug()
 	}
 	return db

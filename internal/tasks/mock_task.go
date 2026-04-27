@@ -27,7 +27,7 @@ func (m *MockTask) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	m.logger.Info("mock task runOnce")
+	//m.logger.Info("mock task runOnce")
 	<-ctx.Done()
 	return nil
 }

@@ -76,10 +76,10 @@ type RequestLog struct {
 	TokenName                 string         `gorm:"column:token_name;type:varchar(256)" json:"tokenName"`
 	GroupID                   int64          `gorm:"column:group_id;type:bigint;index:idx_reqlog_group" json:"groupID,string"`
 	GroupName                 string         `gorm:"column:group_name;type:varchar(256)" json:"groupName"`
-	ChannelID                 int64          `gorm:"column:channel_id;type:bigint;index:idx_reqlog_channel" json:"channelID,string"`
+	ChannelID                 int64          `gorm:"column:channel_id;type:bigint;index:idx_reqlog_channel;index:idx_reqlog_channel_created,priority:1;index:idx_reqlog_channel_model_created,priority:1" json:"channelID,string"`
 	ChannelName               string         `gorm:"column:channel_name;type:varchar(128)" json:"channelName"`                       // 渠道名称，冗余字段，只是为了展示时，不再查询channel
 	ChannelPriceRate          float64        `gorm:"column:channel_price_rate;type:decimal(20,6);default:0" json:"channelPriceRate"` // 渠道价格比例
-	Model                     string         `gorm:"column:model;type:varchar(128);index:idx_reqlog_model" json:"model"`
+	Model                     string         `gorm:"column:model;type:varchar(128);index:idx_reqlog_model;index:idx_reqlog_channel_model_created,priority:2" json:"model"`
 	UpstreamModel             string         `gorm:"column:upstream_model;type:varchar(128)" json:"upstreamModel"`
 	InputToken                int64          `gorm:"column:input_token;type:bigint;default:0;comment:输入token数" json:"inputToken"`
 	OutputToken               int64          `gorm:"column:output_token;type:bigint;default:0;comment:输出token数" json:"outputToken"`
@@ -95,7 +95,7 @@ type RequestLog struct {
 	IsStream                  bool           `gorm:"column:is_stream;type:boolean;default:false" json:"isStream"`
 	Extra                     RequestExtra   `gorm:"column:extra;type:json" json:"extra"`
 	ProviderDetail            ProviderDetail `gorm:"column:provider_detail;type:json" json:"providerDetail"`
-	CreatedAt                 time.Time      `gorm:"column:created_at;type:timestamp;not null;index:idx_reqlog_created" json:"createdAt"`
+	CreatedAt                 time.Time      `gorm:"column:created_at;type:timestamp;not null;index:idx_reqlog_created;index:idx_reqlog_channel_created,priority:2;index:idx_reqlog_channel_model_created,priority:3" json:"createdAt"`
 }
 
 // TableName 指定表名

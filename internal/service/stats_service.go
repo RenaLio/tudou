@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/models"
@@ -93,6 +94,14 @@ func (s *statsService) GetChannelStatsByChannelID(ctx context.Context, channelID
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now().UTC()
+	windowStart, windowEnd := observationWindowRange(now)
+	logs, err := s.channelStatsRepo.ListRequestLogsByChannelIDsAndRange(ctx, []int64{channelID}, windowStart, windowEnd)
+	if err != nil {
+		return nil, err
+	}
+	stats.Window3H = buildObservationWindow3H(now, logs)
+	_ = s.channelStatsRepo.Upsert(ctx, stats)
 	resp := toChannelStatsResponse(stats)
 	return &resp, nil
 }
@@ -102,11 +111,34 @@ func (s *statsService) ListChannelStatsByChannelIDs(ctx context.Context, channel
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now().UTC()
+	windowStart, windowEnd := observationWindowRange(now)
+	idList := make([]int64, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		idList = append(idList, item.ChannelID)
+	}
+	logs, err := s.channelStatsRepo.ListRequestLogsByChannelIDsAndRange(ctx, idList, windowStart, windowEnd)
+	if err != nil {
+		return nil, err
+	}
+	channelLogs := make(map[int64][]*models.RequestLog, len(idList))
+	for _, item := range logs {
+		if item == nil {
+			continue
+		}
+		channelLogs[item.ChannelID] = append(channelLogs[item.ChannelID], item)
+	}
+
 	resp := make([]v1.ChannelStatsResponse, 0, len(items))
 	for _, item := range items {
 		if item == nil {
 			continue
 		}
+		item.Window3H = buildObservationWindow3H(now, channelLogs[item.ChannelID])
+		_ = s.channelStatsRepo.Upsert(ctx, item)
 		resp = append(resp, toChannelStatsResponse(item))
 	}
 	return resp, nil
@@ -137,10 +169,19 @@ func (s *statsService) UpsertChannelModelStats(ctx context.Context, req v1.Upser
 }
 
 func (s *statsService) GetChannelModelStats(ctx context.Context, channelID int64, model string) (*v1.ChannelModelStatsResponse, error) {
+	model = strings.TrimSpace(model)
 	stats, err := s.channelModelStatsRepo.GetByChannelModel(ctx, channelID, model)
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now().UTC()
+	windowStart, windowEnd := observationWindowRange(now)
+	logs, err := s.channelModelStatsRepo.ListRequestLogsByChannelModelAndRange(ctx, channelID, model, windowStart, windowEnd)
+	if err != nil {
+		return nil, err
+	}
+	stats.Window3H = buildObservationWindow3H(now, logs)
+	_ = s.channelModelStatsRepo.Upsert(ctx, stats)
 	resp := toChannelModelStatsResponse(stats)
 	return &resp, nil
 }
@@ -150,11 +191,31 @@ func (s *statsService) ListChannelModelStatsByChannelID(ctx context.Context, cha
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now().UTC()
+	windowStart, windowEnd := observationWindowRange(now)
+	logs, err := s.channelModelStatsRepo.ListRequestLogsByChannelAndRange(ctx, channelID, windowStart, windowEnd)
+	if err != nil {
+		return nil, err
+	}
+	modelLogs := make(map[string][]*models.RequestLog, len(items))
+	for _, item := range logs {
+		if item == nil {
+			continue
+		}
+		key := strings.TrimSpace(item.Model)
+		if key == "" {
+			continue
+		}
+		modelLogs[key] = append(modelLogs[key], item)
+	}
+
 	resp := make([]v1.ChannelModelStatsResponse, 0, len(items))
 	for _, item := range items {
 		if item == nil {
 			continue
 		}
+		item.Window3H = buildObservationWindow3H(now, modelLogs[strings.TrimSpace(item.Model)])
+		_ = s.channelModelStatsRepo.Upsert(ctx, item)
 		resp = append(resp, toChannelModelStatsResponse(item))
 	}
 	return resp, nil
@@ -406,6 +467,7 @@ func toChannelStatsResponse(stats *models.ChannelStats) v1.ChannelStatsResponse 
 		TotalCostMicros:           stats.TotalCostMicros,
 		AvgTTFT:                   stats.AvgTTFT,
 		AvgTPS:                    stats.AvgTPS,
+		Window3H:                  toObservationWindow3HResponse(stats.Window3H),
 	}
 }
 
@@ -425,6 +487,7 @@ func toChannelModelStatsResponse(stats *models.ChannelModelStats) v1.ChannelMode
 		TotalCostMicros:           stats.TotalCostMicros,
 		AvgTTFT:                   stats.AvgTTFT,
 		AvgTPS:                    stats.AvgTPS,
+		Window3H:                  toObservationWindow3HResponse(stats.Window3H),
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/RenaLio/tudou/internal/models"
 	"gorm.io/gorm"
@@ -14,6 +15,8 @@ type ChannelModelStatsRepo interface {
 	Upsert(ctx context.Context, stats *models.ChannelModelStats) error
 	GetByChannelModel(ctx context.Context, channelID int64, model string) (*models.ChannelModelStats, error)
 	ListByChannelID(ctx context.Context, channelID int64) ([]*models.ChannelModelStats, error)
+	ListRequestLogsByChannelModelAndRange(ctx context.Context, channelID int64, model string, start, end time.Time) ([]*models.RequestLog, error)
+	ListRequestLogsByChannelAndRange(ctx context.Context, channelID int64, start, end time.Time) ([]*models.RequestLog, error)
 }
 
 type channelModelStatsRepo struct {
@@ -47,6 +50,7 @@ func (r *channelModelStatsRepo) Upsert(ctx context.Context, stats *models.Channe
 			"total_cost_micros",
 			"avg_ttft",
 			"avg_tps",
+			"window_3h",
 		}),
 	}).Create(stats).Error
 }
@@ -69,6 +73,52 @@ func (r *channelModelStatsRepo) ListByChannelID(ctx context.Context, channelID i
 	}
 	items := make([]*models.ChannelModelStats, 0, 8)
 	if err := r.DB(ctx).Where("channel_id = ?", channelID).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *channelModelStatsRepo) ListRequestLogsByChannelModelAndRange(ctx context.Context, channelID int64, model string, start, end time.Time) ([]*models.RequestLog, error) {
+	model = strings.TrimSpace(model)
+	if channelID <= 0 || model == "" {
+		return nil, errors.New("invalid channel id or model")
+	}
+	start = start.UTC()
+	end = end.UTC()
+	if !start.Before(end) {
+		return nil, errors.New("invalid range: start must be before end")
+	}
+	items := make([]*models.RequestLog, 0, 128)
+	err := r.DB(ctx).
+		Model(&models.RequestLog{}).
+		Where("channel_id = ?", channelID).
+		Where("model = ?", model).
+		Where("created_at >= ? AND created_at < ?", start, end).
+		Order("created_at ASC, id ASC").
+		Find(&items).Error
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *channelModelStatsRepo) ListRequestLogsByChannelAndRange(ctx context.Context, channelID int64, start, end time.Time) ([]*models.RequestLog, error) {
+	if channelID <= 0 {
+		return nil, errors.New("invalid channel id")
+	}
+	start = start.UTC()
+	end = end.UTC()
+	if !start.Before(end) {
+		return nil, errors.New("invalid range: start must be before end")
+	}
+	items := make([]*models.RequestLog, 0, 256)
+	err := r.DB(ctx).
+		Model(&models.RequestLog{}).
+		Where("channel_id = ?", channelID).
+		Where("created_at >= ? AND created_at < ?", start, end).
+		Order("created_at ASC, id ASC").
+		Find(&items).Error
+	if err != nil {
 		return nil, err
 	}
 	return items, nil

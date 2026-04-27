@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/RenaLio/tudou/internal/models"
 	"gorm.io/gorm"
@@ -13,6 +14,7 @@ type ChannelStatsRepo interface {
 	Upsert(ctx context.Context, stats *models.ChannelStats) error
 	GetByChannelID(ctx context.Context, channelID int64) (*models.ChannelStats, error)
 	ListByChannelIDs(ctx context.Context, channelIDs []int64) ([]*models.ChannelStats, error)
+	ListRequestLogsByChannelIDsAndRange(ctx context.Context, channelIDs []int64, start, end time.Time) ([]*models.RequestLog, error)
 }
 
 type channelStatsRepo struct {
@@ -42,6 +44,7 @@ func (r *channelStatsRepo) Upsert(ctx context.Context, stats *models.ChannelStat
 			"total_cost_micros",
 			"avg_ttft",
 			"avg_tps",
+			"window_3h",
 		}),
 	}).Create(stats).Error
 }
@@ -64,6 +67,29 @@ func (r *channelStatsRepo) ListByChannelIDs(ctx context.Context, channelIDs []in
 	}
 	items := make([]*models.ChannelStats, 0, len(channelIDs))
 	if err := r.DB(ctx).Where("channel_id IN ?", channelIDs).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *channelStatsRepo) ListRequestLogsByChannelIDsAndRange(ctx context.Context, channelIDs []int64, start, end time.Time) ([]*models.RequestLog, error) {
+	channelIDs = uniqueInt64(channelIDs)
+	if len(channelIDs) == 0 {
+		return []*models.RequestLog{}, nil
+	}
+	start = start.UTC()
+	end = end.UTC()
+	if !start.Before(end) {
+		return nil, errors.New("invalid range: start must be before end")
+	}
+	items := make([]*models.RequestLog, 0, 256)
+	err := r.DB(ctx).
+		Model(&models.RequestLog{}).
+		Where("channel_id IN ?", channelIDs).
+		Where("created_at >= ? AND created_at < ?", start, end).
+		Order("created_at ASC, id ASC").
+		Find(&items).Error
+	if err != nil {
 		return nil, err
 	}
 	return items, nil
