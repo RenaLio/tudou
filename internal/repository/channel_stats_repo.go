@@ -77,8 +77,6 @@ func (r *channelStatsRepo) ListRequestLogsByChannelIDsAndRange(ctx context.Conte
 	if len(channelIDs) == 0 {
 		return []*models.RequestLog{}, nil
 	}
-	start = start.UTC()
-	end = end.UTC()
 	if !start.Before(end) {
 		return nil, errors.New("invalid range: start must be before end")
 	}

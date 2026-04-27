@@ -1,7 +1,7 @@
 env: dev
 debug:
   default: true
-  db: false
+  db: true
 http:
   host: 0.0.0.0
   port: 8080
@@ -17,7 +17,7 @@ data:
       driver: sqlite
       dsn:  storage/tudou.db?_busy_timeout=5000&_journal_mode=WAL&_synchronous=NORMAL&_cache_size=-10000&_temp_store=MEMORY&_pragmas_cache_size=1000
       #      driver: mysql
-      #      dsn: root:123456@tcp(localhost:3306)/cpa_mgt
+      #      dsn: root:123456@tcp(127.0.0.1:3380)/user?charset=utf8mb4&parseTime=True&loc=Local
 
 log:
   log_level: debug

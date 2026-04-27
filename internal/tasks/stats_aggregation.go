@@ -230,7 +230,8 @@ func aggregateRequestLogs(logs []*models.RequestLog, nextID func() int64) *aggre
 
 		// 按用户每日、每小时维度聚合
 		if item.UserID > 0 {
-			createdAtUTC := item.CreatedAt.UTC()      // 使用 UTC 时间
+			//createdAtUTC := item.CreatedAt.UTC()      // 使用 UTC 时间
+			createdAtUTC := item.CreatedAt            // 使用 UTC 时间
 			date := createdAtUTC.Format("2006-01-02") // 格式化为日期字符串 yyyy-MM-dd
 			hour := createdAtUTC.Hour()               // 获取一天中的小时数(0-23)
 
@@ -464,7 +465,8 @@ func (t *StatsAggregationTask) Run(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background() // 若未传入 context，使用默认背景 context
 	}
-	startedAt := time.Now().UTC() // 记录任务开始时间
+	//startedAt := time.Now().UTC() // 记录任务开始时间
+	startedAt := time.Now() // 记录任务开始时间
 	now := startedAt
 
 	// 获取上次成功完成的聚合任务的最大 EndID，作为增量拉取的起点
@@ -612,7 +614,8 @@ func (t *StatsAggregationTask) mergeAndPersistSnapshot(
 			return err
 		}
 		// 3. 更新任务记录为已完成
-		finishedAt := time.Now().UTC()
+		//finishedAt := time.Now().UTC()
+		finishedAt := time.Now()
 		taskRecord.Status = int8(models.AggregationTaskStatusDone)
 		taskRecord.ErrorMsg = ""
 		taskRecord.FinishedAt = &finishedAt
@@ -623,7 +626,8 @@ func (t *StatsAggregationTask) mergeAndPersistSnapshot(
 	}
 
 	// 事务失败，记录失败状态
-	failedAt := time.Now().UTC()
+	//failedAt := time.Now().UTC()
+	failedAt := time.Now()
 	taskRecord.Status = int8(models.AggregationTaskStatusFailed)
 	taskRecord.RetryCount++             // 增加重试次数
 	taskRecord.ErrorMsg = txErr.Error() // 记录错误信息
@@ -666,6 +670,7 @@ func (t *StatsAggregationTask) applyObservationWindows(
 			return err
 		}
 		windowLogs = logsNormalize(windowLogs)
+		t.logger.Info("loaded windowLogs", zap.Int("numLogs", len(windowLogs)), zap.Time("windowStart", windowStart), zap.Time("windowEnd", windowEnd))
 		// 将查询出的日志分配到对应的映射中
 		for _, item := range windowLogs {
 			if item == nil {
@@ -1042,7 +1047,8 @@ func (t *StatsAggregationTask) updateRuntimeState(
 	taskID int64,
 	runErr error,
 ) {
-	finishedAt := time.Now().UTC()
+	//finishedAt := time.Now().UTC()
+	finishedAt := time.Now()
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -1119,7 +1125,8 @@ func buildObservationWindow3H(now time.Time, logs []*models.RequestLog) models.O
 		if item == nil {
 			continue
 		}
-		createdAt := item.CreatedAt.UTC()
+		//createdAt := item.CreatedAt.UTC()
+		createdAt := item.CreatedAt
 		if createdAt.Before(windowStart) || !createdAt.Before(windowEnd) {
 			continue
 		}
@@ -1149,7 +1156,8 @@ func buildObservationWindow3H(now time.Time, logs []*models.RequestLog) models.O
 
 func observationWindowRange(now time.Time) (time.Time, time.Time) {
 	bucketDuration := time.Duration(models.ObservationBucket15MMinutes) * time.Minute
-	alignedBucketStart := now.UTC().Truncate(bucketDuration)
+	//alignedBucketStart := now.UTC().Truncate(bucketDuration)
+	alignedBucketStart := now.Truncate(bucketDuration)
 	windowStart := alignedBucketStart.Add(-time.Duration(models.ObservationBucketCount-1) * bucketDuration)
 	windowEnd := alignedBucketStart.Add(bucketDuration)
 	return windowStart, windowEnd
