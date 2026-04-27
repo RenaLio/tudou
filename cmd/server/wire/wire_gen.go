@@ -18,8 +18,10 @@ import (
 	"github.com/RenaLio/tudou/internal/repository"
 	"github.com/RenaLio/tudou/internal/router"
 	"github.com/RenaLio/tudou/internal/server"
+	"github.com/RenaLio/tudou/internal/server/task"
 	"github.com/RenaLio/tudou/internal/service"
 	"github.com/RenaLio/tudou/internal/start"
+	"github.com/RenaLio/tudou/internal/tasks"
 	"github.com/google/wire"
 )
 
@@ -87,7 +89,9 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 		Registry:            registry,
 	}
 	httpServer := server.NewHttpServer(deps)
-	appApp := newApp(httpServer)
+	mockTask := tasks.NewMockTask(logger)
+	taskServer := NewTaskServer(logger, mockTask)
+	appApp := newApp(httpServer, taskServer)
 	return appApp, func() {
 	}, nil
 }
@@ -126,6 +130,18 @@ var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handle
 
 var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)
 
-func newApp(httpServer *http.Server) *app.App {
-	return app.NewApp(app.WithServer(httpServer), app.WithName("tudou"))
+var taskSet = wire.NewSet(tasks.NewMockTask)
+
+func NewTaskServer(
+	logger *log.Logger,
+	mockTask *tasks.MockTask,
+) *task.TaskServer {
+	return task.NewTaskServer(logger, mockTask)
+}
+
+func newApp(
+	httpServer *http.Server,
+	taskServer *task.TaskServer,
+) *app.App {
+	return app.NewApp(app.WithServer(httpServer, taskServer), app.WithName("tudou"))
 }
