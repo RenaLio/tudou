@@ -117,10 +117,8 @@ export async function getChannelStats(channelID: string) {
   return response.data.data
 }
 
-export async function listChannelStats(ids: string[]) {
-  const response = await client.get<ApiResponse<ChannelStatsResponse[]>>('/stats/channel', {
-    params: { ids: ids.join(',') },
-  })
+export async function listChannelStats() {
+  const response = await client.get<ApiResponse<ChannelStatsResponse[]>>('/stats/channel')
   return response.data.data
 }
 

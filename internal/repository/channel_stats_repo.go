@@ -16,6 +16,7 @@ type ChannelStatsRepo interface {
 	ListAll(ctx context.Context) ([]*models.ChannelStats, error)
 	ListByChannelIDs(ctx context.Context, channelIDs []int64) ([]*models.ChannelStats, error)
 	ListRequestLogsByChannelIDsAndRange(ctx context.Context, channelIDs []int64, start, end time.Time) ([]*models.RequestLog, error)
+	ListRequestLogsByRange(ctx context.Context, start, end time.Time) ([]*models.RequestLog, error)
 }
 
 type channelStatsRepo struct {
@@ -86,6 +87,22 @@ func (r *channelStatsRepo) ListRequestLogsByChannelIDsAndRange(ctx context.Conte
 	err := r.DB(ctx).
 		Model(&models.RequestLog{}).
 		Where("channel_id IN ?", channelIDs).
+		Where("created_at >= ? AND created_at < ?", start, end).
+		Order("created_at ASC, id ASC").
+		Find(&items).Error
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *channelStatsRepo) ListRequestLogsByRange(ctx context.Context, start, end time.Time) ([]*models.RequestLog, error) {
+	if !start.Before(end) {
+		return nil, errors.New("invalid range: start must be before end")
+	}
+	items := make([]*models.RequestLog, 0, 256)
+	err := r.DB(ctx).
+		Model(&models.RequestLog{}).
 		Where("created_at >= ? AND created_at < ?", start, end).
 		Order("created_at ASC, id ASC").
 		Find(&items).Error

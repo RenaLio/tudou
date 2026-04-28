@@ -1,10 +1,16 @@
 package tasks
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/RenaLio/tudou/internal/models"
+	"github.com/RenaLio/tudou/internal/pkg/log"
+	"github.com/RenaLio/tudou/internal/repository"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 func TestAggregateRequestLogs_BuildsAllStats(t *testing.T) {
@@ -213,4 +219,278 @@ func findHourlyStat(items []*models.UserUsageHourlyStats, userID int64, date str
 		}
 	}
 	return nil
+}
+
+func TestStatsAggregationTaskRun_EmptyIncrementalLogsStillRefreshesObservationWindow(t *testing.T) {
+	now := time.Now()
+	channelID := int64(101)
+	model := "gpt-4o-mini"
+
+	aggRepo := &testAggregationTaskRepo{
+		latestCompleted: &models.AggregationTask{
+			TaskName: StatsAggregationTaskName,
+			EndID:    200,
+			Status:   int8(models.AggregationTaskStatusDone),
+		},
+	}
+	requestLogRepo := &testRequestLogRepo{}
+	channelStatsRepo := &testChannelStatsRepo{
+		statsByChannelID: map[int64]*models.ChannelStats{
+			channelID: {
+				ChannelID: channelID,
+			},
+		},
+		windowLogs: []*models.RequestLog{
+			{
+				ChannelID:     channelID,
+				UpstreamModel: model,
+				Status:        models.RequestStatusSuccess,
+				InputToken:    3,
+				OutputToken:   6,
+				TransferTime:  500,
+				TTFT:          120,
+				CreatedAt:     now.Add(-10 * time.Minute),
+			},
+		},
+	}
+	channelModelStatsRepo := &testChannelModelStatsRepo{
+		statsByKey: map[channelModelKey]*models.ChannelModelStats{
+			{
+				channelID: channelID,
+				model:     model,
+			}: {
+				ChannelID: channelID,
+				Model:     model,
+			},
+		},
+	}
+	tx := &testTransaction{}
+
+	task := &StatsAggregationTask{
+		logger:                &log.Logger{Logger: zap.NewNop()},
+		tm:                    tx,
+		aggregationTaskRepo:   aggRepo,
+		requestLogRepo:        requestLogRepo,
+		channelStatsRepo:      channelStatsRepo,
+		channelModelStatsRepo: channelModelStatsRepo,
+		nextID: func() int64 {
+			return 1
+		},
+	}
+
+	err := task.Run(context.Background())
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if tx.called == 0 {
+		t.Fatal("expected transaction to be used for window refresh when incremental logs are empty")
+	}
+	if channelStatsRepo.upsertCount == 0 {
+		t.Fatal("expected channel stats upsert for window refresh")
+	}
+	if channelModelStatsRepo.upsertCount == 0 {
+		t.Fatal("expected channel-model stats upsert for window refresh")
+	}
+
+	updatedChannel := channelStatsRepo.statsByChannelID[channelID]
+	if updatedChannel == nil {
+		t.Fatal("missing updated channel stats")
+	}
+	if len(updatedChannel.Window3H.Buckets) != models.ObservationBucketCount {
+		t.Fatalf("expected %d window buckets, got %d", models.ObservationBucketCount, len(updatedChannel.Window3H.Buckets))
+	}
+	if !windowHasTraffic(updatedChannel.Window3H) {
+		t.Fatal("expected refreshed channel window to include traffic from recent logs")
+	}
+
+	updatedModel := channelModelStatsRepo.statsByKey[channelModelKey{
+		channelID: channelID,
+		model:     model,
+	}]
+	if updatedModel == nil {
+		t.Fatal("missing updated channel-model stats")
+	}
+	if len(updatedModel.Window3H.Buckets) != models.ObservationBucketCount {
+		t.Fatalf("expected %d model window buckets, got %d", models.ObservationBucketCount, len(updatedModel.Window3H.Buckets))
+	}
+	if !windowHasTraffic(updatedModel.Window3H) {
+		t.Fatal("expected refreshed channel-model window to include traffic from recent logs")
+	}
+}
+
+func windowHasTraffic(window models.ObservationWindow3H) bool {
+	for _, bucket := range window.Buckets {
+		if bucket.RequestSuccess > 0 || bucket.RequestFailed > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+type testTransaction struct {
+	called int
+}
+
+func (t *testTransaction) Transaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	t.called++
+	return fn(ctx)
+}
+
+type testAggregationTaskRepo struct {
+	latestCompleted *models.AggregationTask
+}
+
+func (r *testAggregationTaskRepo) Create(ctx context.Context, task *models.AggregationTask) error {
+	return nil
+}
+
+func (r *testAggregationTaskRepo) Update(ctx context.Context, task *models.AggregationTask) error {
+	return nil
+}
+
+func (r *testAggregationTaskRepo) GetByID(ctx context.Context, id int64) (*models.AggregationTask, error) {
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (r *testAggregationTaskRepo) GetLatestByTaskName(ctx context.Context, taskName string) (*models.AggregationTask, error) {
+	if r.latestCompleted == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return r.latestCompleted, nil
+}
+
+func (r *testAggregationTaskRepo) GetLatestCompletedByTaskName(ctx context.Context, taskName string) (*models.AggregationTask, error) {
+	if r.latestCompleted == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return r.latestCompleted, nil
+}
+
+type testRequestLogRepo struct{}
+
+func (r *testRequestLogRepo) Create(ctx context.Context, log *models.RequestLog) error {
+	return nil
+}
+
+func (r *testRequestLogRepo) BatchCreate(ctx context.Context, logs []*models.RequestLog) error {
+	return nil
+}
+
+func (r *testRequestLogRepo) GetByID(ctx context.Context, id int64) (*models.RequestLog, error) {
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (r *testRequestLogRepo) List(ctx context.Context, opt repository.RequestLogListOption) ([]*models.RequestLog, int64, error) {
+	return []*models.RequestLog{}, 0, nil
+}
+
+func (r *testRequestLogRepo) Delete(ctx context.Context, id int64) error {
+	return nil
+}
+
+func (r *testRequestLogRepo) Exists(ctx context.Context, id int64) (bool, error) {
+	return false, nil
+}
+
+type testChannelStatsRepo struct {
+	statsByChannelID map[int64]*models.ChannelStats
+	windowLogs       []*models.RequestLog
+	upsertCount      int
+}
+
+func (r *testChannelStatsRepo) Upsert(ctx context.Context, stats *models.ChannelStats) error {
+	if stats == nil {
+		return errors.New("channel stats is nil")
+	}
+	cloned := *stats
+	r.statsByChannelID[stats.ChannelID] = &cloned
+	r.upsertCount++
+	return nil
+}
+
+func (r *testChannelStatsRepo) GetByChannelID(ctx context.Context, channelID int64) (*models.ChannelStats, error) {
+	if item, ok := r.statsByChannelID[channelID]; ok {
+		cloned := *item
+		return &cloned, nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (r *testChannelStatsRepo) ListAll(ctx context.Context) ([]*models.ChannelStats, error) {
+	items := make([]*models.ChannelStats, 0, len(r.statsByChannelID))
+	for _, item := range r.statsByChannelID {
+		cloned := *item
+		items = append(items, &cloned)
+	}
+	return items, nil
+}
+
+func (r *testChannelStatsRepo) ListByChannelIDs(ctx context.Context, channelIDs []int64) ([]*models.ChannelStats, error) {
+	items := make([]*models.ChannelStats, 0, len(channelIDs))
+	for _, id := range channelIDs {
+		if item, ok := r.statsByChannelID[id]; ok {
+			cloned := *item
+			items = append(items, &cloned)
+		}
+	}
+	return items, nil
+}
+
+func (r *testChannelStatsRepo) ListRequestLogsByChannelIDsAndRange(ctx context.Context, channelIDs []int64, start, end time.Time) ([]*models.RequestLog, error) {
+	return nil, nil
+}
+
+func (r *testChannelStatsRepo) ListRequestLogsByRange(ctx context.Context, start, end time.Time) ([]*models.RequestLog, error) {
+	return r.windowLogs, nil
+}
+
+type testChannelModelStatsRepo struct {
+	statsByKey  map[channelModelKey]*models.ChannelModelStats
+	upsertCount int
+}
+
+func (r *testChannelModelStatsRepo) Upsert(ctx context.Context, stats *models.ChannelModelStats) error {
+	if stats == nil {
+		return errors.New("channel model stats is nil")
+	}
+	key := channelModelKey{
+		channelID: stats.ChannelID,
+		model:     stats.Model,
+	}
+	cloned := *stats
+	r.statsByKey[key] = &cloned
+	r.upsertCount++
+	return nil
+}
+
+func (r *testChannelModelStatsRepo) GetByChannelModel(ctx context.Context, channelID int64, model string) (*models.ChannelModelStats, error) {
+	key := channelModelKey{
+		channelID: channelID,
+		model:     model,
+	}
+	if item, ok := r.statsByKey[key]; ok {
+		cloned := *item
+		return &cloned, nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (r *testChannelModelStatsRepo) ListByChannelID(ctx context.Context, channelID int64) ([]*models.ChannelModelStats, error) {
+	items := make([]*models.ChannelModelStats, 0)
+	for key, item := range r.statsByKey {
+		if key.channelID != channelID {
+			continue
+		}
+		cloned := *item
+		items = append(items, &cloned)
+	}
+	return items, nil
+}
+
+func (r *testChannelModelStatsRepo) ListRequestLogsByChannelModelAndRange(ctx context.Context, channelID int64, model string, start, end time.Time) ([]*models.RequestLog, error) {
+	return nil, nil
+}
+
+func (r *testChannelModelStatsRepo) ListRequestLogsByChannelAndRange(ctx context.Context, channelID int64, start, end time.Time) ([]*models.RequestLog, error) {
+	return nil, nil
 }

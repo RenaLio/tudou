@@ -482,6 +482,16 @@ func (t *StatsAggregationTask) Run(ctx context.Context) error {
 	}
 	// 如果没有新日志，更新状态并返回
 	if len(logs) == 0 {
+		refreshSnapshot, refreshErr := t.buildWindowRefreshSnapshot(ctx)
+		if refreshErr != nil {
+			t.updateRuntimeState(startedAt, now, nil, 0, lastEndID, lastEndID, 0, refreshErr)
+			return refreshErr
+		}
+		if refreshSnapshot != nil && (len(refreshSnapshot.ChannelStats) > 0 || len(refreshSnapshot.ChannelModelStats) > 0) {
+			refreshErr = t.refreshObservationWindowsOnly(ctx, refreshSnapshot, now)
+			t.updateRuntimeState(startedAt, now, refreshSnapshot, 0, lastEndID, lastEndID, 0, refreshErr)
+			return refreshErr
+		}
 		t.updateRuntimeState(startedAt, now, nil, 0, lastEndID, lastEndID, 0, nil)
 		return nil
 	}
@@ -632,6 +642,118 @@ func (t *StatsAggregationTask) mergeAndPersistSnapshot(
 	return txErr
 }
 
+// buildWindowRefreshSnapshot 基于现有统计记录构造一个“仅刷新窗口”的快照。
+// 该快照不包含增量计数，仅携带渠道和渠道-模型主键，用于后续重算并覆盖 Window3H。
+func (t *StatsAggregationTask) buildWindowRefreshSnapshot(ctx context.Context) (*aggregationSnapshot, error) {
+	if t.channelStatsRepo == nil {
+		return nil, errors.New("channel stats repo is nil")
+	}
+	if t.channelModelStatsRepo == nil {
+		return nil, errors.New("channel model stats repo is nil")
+	}
+
+	channelStats, err := t.channelStatsRepo.ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := &aggregationSnapshot{
+		ChannelStats:      make([]*models.ChannelStats, 0, len(channelStats)),
+		ChannelModelStats: make([]*models.ChannelModelStats, 0, len(channelStats)),
+	}
+
+	seenModelKeys := make(map[channelModelKey]struct{})
+	for _, item := range channelStats {
+		if item == nil || item.ChannelID <= 0 {
+			continue
+		}
+		snapshot.ChannelStats = append(snapshot.ChannelStats, &models.ChannelStats{
+			ChannelID: item.ChannelID,
+		})
+
+		modelStats, err := t.channelModelStatsRepo.ListByChannelID(ctx, item.ChannelID)
+		if err != nil {
+			return nil, err
+		}
+		for _, modelItem := range modelStats {
+			if modelItem == nil || modelItem.ChannelID <= 0 {
+				continue
+			}
+			model := strings.TrimSpace(modelItem.Model)
+			if model == "" {
+				continue
+			}
+			key := channelModelKey{
+				channelID: modelItem.ChannelID,
+				model:     model,
+			}
+			if _, exists := seenModelKeys[key]; exists {
+				continue
+			}
+			seenModelKeys[key] = struct{}{}
+			snapshot.ChannelModelStats = append(snapshot.ChannelModelStats, &models.ChannelModelStats{
+				ChannelID: modelItem.ChannelID,
+				Model:     model,
+			})
+		}
+	}
+
+	return snapshot, nil
+}
+
+// refreshObservationWindowsOnly 仅刷新已有统计记录的观测窗口，不变更累计统计值。
+func (t *StatsAggregationTask) refreshObservationWindowsOnly(
+	ctx context.Context,
+	snapshot *aggregationSnapshot,
+	now time.Time,
+) error {
+	if snapshot == nil {
+		return nil
+	}
+	if t.tm == nil {
+		return errors.New("transaction manager is nil")
+	}
+	if t.channelStatsRepo == nil {
+		return errors.New("channel stats repo is nil")
+	}
+	if t.channelModelStatsRepo == nil {
+		return errors.New("channel model stats repo is nil")
+	}
+
+	return t.tm.Transaction(ctx, func(txCtx context.Context) error {
+		if err := t.applyObservationWindows(txCtx, snapshot, now); err != nil {
+			return err
+		}
+
+		for _, delta := range snapshot.ChannelStats {
+			if delta == nil {
+				continue
+			}
+			merged, err := t.mergeChannelStats(txCtx, delta, nil)
+			if err != nil {
+				return err
+			}
+			if err := t.channelStatsRepo.Upsert(txCtx, merged); err != nil {
+				return err
+			}
+		}
+
+		for _, delta := range snapshot.ChannelModelStats {
+			if delta == nil {
+				continue
+			}
+			merged, err := t.mergeChannelModelStats(txCtx, delta, nil)
+			if err != nil {
+				return err
+			}
+			if err := t.channelModelStatsRepo.Upsert(txCtx, merged); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
 // applyObservationWindows 为快照中的渠道和渠道-模型统计填充观测窗口数据。
 func (t *StatsAggregationTask) applyObservationWindows(
 	ctx context.Context,
@@ -660,30 +782,52 @@ func (t *StatsAggregationTask) applyObservationWindows(
 	channelModelLogsMap := make(map[channelModelKey][]*models.RequestLog, len(snapshot.ChannelModelStats))
 
 	// 如果存在渠道 ID，则从仓库中查询这些渠道在窗口内的所有日志
-	if len(channelIDs) > 0 {
-		windowLogs, err := t.channelStatsRepo.ListRequestLogsByChannelIDsAndRange(ctx, channelIDs, windowStart, windowEnd)
-		if err != nil {
-			return err
-		}
-		windowLogs = logsNormalize(windowLogs)
-		t.logger.Info("loaded windowLogs", zap.Int("numLogs", len(windowLogs)), zap.Time("windowStart", windowStart), zap.Time("windowEnd", windowEnd))
-		// 将查询出的日志分配到对应的映射中
-		for _, item := range windowLogs {
-			if item == nil {
-				continue
-			}
-			channelLogsMap[item.ChannelID] = append(channelLogsMap[item.ChannelID], item)
-			model := strings.TrimSpace(item.UpstreamModel)
-			if model == "" {
-				continue
-			}
-			key := channelModelKey{
-				channelID: item.ChannelID,
-				model:     model,
-			}
-			channelModelLogsMap[key] = append(channelModelLogsMap[key], item)
-		}
+	windowLogs, err := t.channelStatsRepo.ListRequestLogsByRange(ctx, windowStart, windowEnd)
+	if err != nil {
+		return err
 	}
+	windowLogs = logsNormalize(windowLogs)
+	t.logger.Info("loaded windowLogs", zap.Int("numLogs", len(windowLogs)), zap.Time("windowStart", windowStart), zap.Time("windowEnd", windowEnd))
+	// 将查询出的日志分配到对应的映射中
+	for _, item := range windowLogs {
+		if item == nil {
+			continue
+		}
+		channelLogsMap[item.ChannelID] = append(channelLogsMap[item.ChannelID], item)
+		model := strings.TrimSpace(item.UpstreamModel)
+		if model == "" {
+			continue
+		}
+		key := channelModelKey{
+			channelID: item.ChannelID,
+			model:     model,
+		}
+		channelModelLogsMap[key] = append(channelModelLogsMap[key], item)
+	}
+	//if len(channelIDs) > 0 {
+	//	windowLogs, err := t.channelStatsRepo.ListRequestLogsByChannelIDsAndRange(ctx, channelIDs, windowStart, windowEnd)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	windowLogs = logsNormalize(windowLogs)
+	//	t.logger.Info("loaded windowLogs", zap.Int("numLogs", len(windowLogs)), zap.Time("windowStart", windowStart), zap.Time("windowEnd", windowEnd))
+	//	// 将查询出的日志分配到对应的映射中
+	//	for _, item := range windowLogs {
+	//		if item == nil {
+	//			continue
+	//		}
+	//		channelLogsMap[item.ChannelID] = append(channelLogsMap[item.ChannelID], item)
+	//		model := strings.TrimSpace(item.UpstreamModel)
+	//		if model == "" {
+	//			continue
+	//		}
+	//		key := channelModelKey{
+	//			channelID: item.ChannelID,
+	//			model:     model,
+	//		}
+	//		channelModelLogsMap[key] = append(channelModelLogsMap[key], item)
+	//	}
+	//}
 
 	// 为快照中的每个渠道统计构建观测窗口
 	for _, item := range snapshot.ChannelStats {

@@ -53,25 +53,6 @@ function toDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function parseUTCDateKey(dateLike: string): Date | null {
-  const key = dateLike.slice(0, 10)
-  const [yearRaw, monthRaw, dayRaw] = key.split('-')
-  const year = Number(yearRaw)
-  const month = Number(monthRaw)
-  const day = Number(dayRaw)
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-    return null
-  }
-  return new Date(Date.UTC(year, month - 1, day))
-}
-
-function parseStatsDateHourToLocal(dateLike: string, hour: number): Date | null {
-  const utcDate = parseUTCDateKey(dateLike)
-  if (!utcDate) return null
-  utcDate.setUTCHours(hour, 0, 0, 0)
-  return utcDate
-}
-
 // ── Time range ──
 type TimeRange = 'all' | 'today' | '7d' | '30d'
 const timeRange = ref<TimeRange>('today')
@@ -109,6 +90,14 @@ const heatmapStats = ref<UserUsageHourlyStatsResponse[]>([])
 const channelStats = ref<ChannelStatsResponse[]>([])
 const channels = ref<Channel[]>([])
 
+function isDateKeyInRange(dateKey: string): boolean {
+  const dr = dateRange.value
+  if (!dr) return true
+  const startKey = toDateKey(dr.start)
+  const endKey = toDateKey(dr.end)
+  return dateKey >= startKey && dateKey <= endKey
+}
+
 // ── Computed: overview ──
 const overviewStats = computed(() => {
   if (timeRange.value === 'all' && userStats.value) {
@@ -124,7 +113,7 @@ const overviewStats = computed(() => {
     }
   }
   // Sum from daily stats for today/7d/30d
-  const items = dailyStats.value
+  const items = dailyStats.value.filter(item => isDateKeyInRange(item.date.slice(0, 10)))
   return {
     requestSuccess: items.reduce((s, d) => s + d.requestSuccess, 0),
     requestFailed: items.reduce((s, d) => s + d.requestFailed, 0),
@@ -177,19 +166,79 @@ interface ChartPoint {
   cost: number
 }
 
+interface UsageAccumulator {
+  requestSuccess: number
+  requestFailed: number
+  inputToken: number
+  outputToken: number
+  cachedReadInputTokens: number
+  cachedCreationInputTokens: number
+  totalCost: number
+}
+
+function createUsageAccumulator(): UsageAccumulator {
+  return {
+    requestSuccess: 0,
+    requestFailed: 0,
+    inputToken: 0,
+    outputToken: 0,
+    cachedReadInputTokens: 0,
+    cachedCreationInputTokens: 0,
+    totalCost: 0,
+  }
+}
+
+function mergeUsageAccumulator(
+  target: UsageAccumulator,
+  source: Pick<
+    UserUsageDailyStatsResponse | UserUsageHourlyStatsResponse,
+    | 'requestSuccess'
+    | 'requestFailed'
+    | 'inputToken'
+    | 'outputToken'
+    | 'cachedReadInputTokens'
+    | 'cachedCreationInputTokens'
+    | 'totalCost'
+  >,
+) {
+  target.requestSuccess += source.requestSuccess
+  target.requestFailed += source.requestFailed
+  target.inputToken += source.inputToken
+  target.outputToken += source.outputToken
+  target.cachedReadInputTokens += source.cachedReadInputTokens
+  target.cachedCreationInputTokens += source.cachedCreationInputTokens
+  target.totalCost += source.totalCost
+}
+
+type UnifiedSeriesKey =
+  | 'inputToken'
+  | 'outputToken'
+  | 'cachedRead'
+  | 'cachedCreate'
+  | 'requests'
+  | 'cost'
+
 const unifiedChartData = computed<ChartPoint[]>(() => {
   if (timeRange.value === 'today') {
-    // Hourly data for today, fill 0-23
-    const data = hourlyStats.value
+    const todayKey = toDateKey(new Date())
+    const hourlyMap = new Map<number, UsageAccumulator>()
+    for (const item of hourlyStats.value) {
+      const dateKey = item.date.slice(0, 10)
+      if (dateKey !== todayKey) continue
+      const existing = hourlyMap.get(item.hour) ?? createUsageAccumulator()
+      mergeUsageAccumulator(existing, item)
+      hourlyMap.set(item.hour, existing)
+    }
+
     const result: ChartPoint[] = []
     for (let h = 0; h < 24; h++) {
-      const found = data.find(d => d.hour === h)
-      const reqS = found ? found.requestSuccess : 0
-      const reqF = found ? found.requestFailed : 0
-      const inp = found ? found.inputToken : 0
-      const out = found ? found.outputToken : 0
-      const cr = found ? found.cachedReadInputTokens : 0
-      const cc = found ? found.cachedCreationInputTokens : 0
+      const found = hourlyMap.get(h)
+      const reqS = found?.requestSuccess ?? 0
+      const reqF = found?.requestFailed ?? 0
+      const inp = found?.inputToken ?? 0
+      const out = found?.outputToken ?? 0
+      const cr = found?.cachedReadInputTokens ?? 0
+      const cc = found?.cachedCreationInputTokens ?? 0
       result.push({
         label: `${h}`,
         requests: reqS + reqF,
@@ -200,42 +249,35 @@ const unifiedChartData = computed<ChartPoint[]>(() => {
         cachedRead: cr,
         cachedCreate: cc,
         totalTokens: inp + out + cr + cc,
-        cost: found ? found.totalCost : 0,
+        cost: found?.totalCost ?? 0,
       })
     }
     return result
   }
 
-  // Daily data for 7d/30d/all
-  const items = dailyStats.value.slice().sort((a, b) => a.date.localeCompare(b.date))
-  const dr = dateRange.value
-
-  // For 'all', limit to last 30 days of data
-  const limited = timeRange.value === 'all' ? items.slice(-30) : items
-
-  if (limited.length === 0) return []
-
-  // Build a map for quick lookup
-  const map = new Map<string, typeof limited[0]>()
-  for (const d of limited) {
-    map.set(d.date.slice(0, 10), d)
+  const dailyMap = new Map<string, UsageAccumulator>()
+  for (const item of dailyStats.value) {
+    const dayKey = item.date.slice(0, 10)
+    const existing = dailyMap.get(dayKey) ?? createUsageAccumulator()
+    mergeUsageAccumulator(existing, item)
+    dailyMap.set(dayKey, existing)
   }
 
-  // Generate full date range and fill gaps
-  const startDate = new Date(limited[0].date + 'T00:00:00')
-  const endDate = new Date(limited[limited.length - 1].date + 'T00:00:00')
+  const dr = dateRange.value
+  const startDate = dr ? startOfDay(dr.start) : startOfDay(addDays(new Date(), -29))
+  const endDate = dr ? endOfDay(dr.end) : endOfDay(new Date())
   const result: ChartPoint[] = []
   const cur = new Date(startDate)
 
   while (cur <= endDate) {
-    const dateStr = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`
-    const found = map.get(dateStr)
-    const reqS = found ? found.requestSuccess : 0
-    const reqF = found ? found.requestFailed : 0
-    const inp = found ? found.inputToken : 0
-    const out = found ? found.outputToken : 0
-    const cr = found ? found.cachedReadInputTokens : 0
-    const cc = found ? found.cachedCreationInputTokens : 0
+    const dateStr = toDateKey(cur)
+    const found = dailyMap.get(dateStr)
+    const reqS = found?.requestSuccess ?? 0
+    const reqF = found?.requestFailed ?? 0
+    const inp = found?.inputToken ?? 0
+    const out = found?.outputToken ?? 0
+    const cr = found?.cachedReadInputTokens ?? 0
+    const cc = found?.cachedCreationInputTokens ?? 0
     result.push({
       label: `${cur.getMonth() + 1}/${cur.getDate()}`,
       requests: reqS + reqF,
@@ -246,7 +288,7 @@ const unifiedChartData = computed<ChartPoint[]>(() => {
       cachedRead: cr,
       cachedCreate: cc,
       totalTokens: inp + out + cr + cc,
-      cost: found ? found.totalCost : 0,
+      cost: found?.totalCost ?? 0,
     })
     cur.setDate(cur.getDate() + 1)
   }
@@ -260,7 +302,79 @@ const chartInstance = shallowRef<echarts.ECharts>()
 function buildChartOption(data: ChartPoint[]): echarts.EChartsOption {
   const labels = data.map(d => d.label)
   const isHourly = timeRange.value === 'today'
-
+  const seriesDefs: Array<{ key: UnifiedSeriesKey; series: echarts.SeriesOption }> = [
+    {
+      key: 'inputToken',
+      series: {
+        name: '输入 Token',
+        type: 'bar',
+        stack: 'tokens',
+        itemStyle: { color: '#8bc34a', borderRadius: [0, 0, 0, 0] },
+        barMaxWidth: 20,
+        data: data.map(d => d.inputToken),
+      },
+    },
+    {
+      key: 'outputToken',
+      series: {
+        name: '输出 Token',
+        type: 'bar',
+        stack: 'tokens',
+        itemStyle: { color: 'rgba(139, 195, 74, 0.55)' },
+        barMaxWidth: 20,
+        data: data.map(d => d.outputToken),
+      },
+    },
+    {
+      key: 'cachedRead',
+      series: {
+        name: '缓存读',
+        type: 'bar',
+        stack: 'tokens',
+        itemStyle: { color: 'rgba(255, 179, 0, 0.7)' },
+        barMaxWidth: 20,
+        data: data.map(d => d.cachedRead),
+      },
+    },
+    {
+      key: 'cachedCreate',
+      series: {
+        name: '缓存创建',
+        type: 'bar',
+        stack: 'tokens',
+        itemStyle: { color: 'rgba(255, 213, 79, 0.6)', borderRadius: [2, 2, 0, 0] },
+        barMaxWidth: 20,
+        data: data.map(d => d.cachedCreate),
+      },
+    },
+    {
+      key: 'requests',
+      series: {
+        name: '请求数',
+        type: 'line',
+        yAxisIndex: 1,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: { color: '#e57373', width: 1.5 },
+        itemStyle: { color: '#e57373' },
+        data: data.map(d => d.requests),
+      },
+    },
+    {
+      key: 'cost',
+      series: {
+        name: '费用',
+        type: 'line',
+        smooth: true,
+        symbol: 'diamond',
+        symbolSize: 4,
+        lineStyle: { color: '#ffb300', width: 1.5, type: 'dashed' },
+        itemStyle: { color: '#ffb300' },
+        data: data.map(d => d.cost),
+      },
+    },
+  ]
   return {
     backgroundColor: 'transparent',
     tooltip: {
@@ -285,13 +399,22 @@ function buildChartOption(data: ChartPoint[]): echarts.EChartsOption {
       },
     },
     legend: {
-      show: false,
+      show: true,
+      bottom: 0,
+      left: 'center',
+      textStyle: {
+        color: '#8f949e',
+        fontSize: 11,
+      },
+      itemWidth: 12,
+      itemHeight: 8,
+      itemGap: 16,
     },
     grid: {
       left: 50,
       right: 50,
       top: 10,
-      bottom: 24,
+      bottom: 48,
     },
     xAxis: {
       type: 'category',
@@ -326,61 +449,7 @@ function buildChartOption(data: ChartPoint[]): echarts.EChartsOption {
         },
       },
     ],
-    series: [
-      {
-        name: '输入 Token',
-        type: 'bar',
-        stack: 'tokens',
-        itemStyle: { color: '#8bc34a', borderRadius: [0, 0, 0, 0] },
-        barMaxWidth: 20,
-        data: data.map(d => d.inputToken),
-      },
-      {
-        name: '输出 Token',
-        type: 'bar',
-        stack: 'tokens',
-        itemStyle: { color: 'rgba(139, 195, 74, 0.55)' },
-        barMaxWidth: 20,
-        data: data.map(d => d.outputToken),
-      },
-      {
-        name: '缓存读',
-        type: 'bar',
-        stack: 'tokens',
-        itemStyle: { color: 'rgba(255, 179, 0, 0.7)' },
-        barMaxWidth: 20,
-        data: data.map(d => d.cachedRead),
-      },
-      {
-        name: '缓存创建',
-        type: 'bar',
-        stack: 'tokens',
-        itemStyle: { color: 'rgba(255, 213, 79, 0.6)', borderRadius: [2, 2, 0, 0] },
-        barMaxWidth: 20,
-        data: data.map(d => d.cachedCreate),
-      },
-      {
-        name: '请求数',
-        type: 'line',
-        yAxisIndex: 1,
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 4,
-        lineStyle: { color: '#e57373', width: 1.5 },
-        itemStyle: { color: '#e57373' },
-        data: data.map(d => d.requests),
-      },
-      {
-        name: '费用',
-        type: 'line',
-        smooth: true,
-        symbol: 'diamond',
-        symbolSize: 4,
-        lineStyle: { color: '#ffb300', width: 1.5, type: 'dashed' },
-        itemStyle: { color: '#ffb300' },
-        data: data.map(d => d.cost),
-      },
-    ],
+    series: seriesDefs.map(item => item.series),
   }
 }
 
@@ -389,32 +458,41 @@ function updateChart() {
   chartInstance.value.setOption(buildChartOption(unifiedChartData.value), { notMerge: true })
 }
 
+function disposeMainChart() {
+  chartInstance.value?.dispose()
+  chartInstance.value = undefined
+}
+
 function handleResize() {
   chartInstance.value?.resize()
   rtChartInstance.value?.resize()
 }
 
 onMounted(() => {
-  if (chartRef.value) {
-    chartInstance.value = echarts.init(chartRef.value)
-    updateChart()
-  }
-  if (rtChartRef.value && hasRealtimeData.value) {
-    rtChartInstance.value = echarts.init(rtChartRef.value)
-    updateRtChart()
-  }
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
-  chartInstance.value?.dispose()
-  rtChartInstance.value?.dispose()
+  disposeMainChart()
+  disposeRtChart()
 })
 
-watch([unifiedChartData, timeRange], () => {
-  updateChart()
-})
+watch(
+  [() => chartRef.value, unifiedChartData],
+  () => {
+    if (!chartRef.value || unifiedChartData.value.length === 0) {
+      disposeMainChart()
+      return
+    }
+    if (!chartInstance.value) {
+      chartInstance.value = echarts.init(chartRef.value)
+    }
+    updateChart()
+    chartInstance.value.resize()
+  },
+  { immediate: true, flush: 'post' },
+)
 
 // ── Realtime ECharts ──
 const rtChartRef = ref<HTMLDivElement>()
@@ -442,8 +520,19 @@ function buildRtChartOption(data: WindowPoint[]): echarts.EChartsOption {
         return html
       },
     },
-    legend: { show: false },
-    grid: { left: 50, right: 50, top: 10, bottom: 24 },
+    legend: {
+      show: true,
+      bottom: 0,
+      left: 'center',
+      textStyle: {
+        color: '#8f949e',
+        fontSize: 11,
+      },
+      itemWidth: 12,
+      itemHeight: 8,
+      itemGap: 16,
+    },
+    grid: { left: 50, right: 50, top: 10, bottom: 48 },
     xAxis: {
       type: 'category',
       data: data.map(d => d.time),
@@ -510,6 +599,11 @@ function updateRtChart() {
   rtChartInstance.value.setOption(buildRtChartOption(realtimeData.value), { notMerge: true })
 }
 
+function disposeRtChart() {
+  rtChartInstance.value?.dispose()
+  rtChartInstance.value = undefined
+}
+
 // ── Computed: real-time window (aggregate window3h from all channels) ──
 interface WindowPoint {
   time: string
@@ -519,7 +613,7 @@ interface WindowPoint {
 }
 
 const realtimeData = computed<WindowPoint[]>(() => {
-  const buckets = new Map<string, { requests: number; tokens: number; ttftSum: number; ttftCount: number }>()
+  const buckets = new Map<string, { requests: number; tokens: number; ttftSum: number; ttftCount: number; ts: number }>()
 
   for (const ch of channelStats.value) {
     if (!ch.window3h?.buckets) continue
@@ -528,6 +622,8 @@ const realtimeData = computed<WindowPoint[]>(() => {
       const existing = buckets.get(key)
       const reqs = b.requestSuccess + b.requestFailed
       const toks = b.inputToken + b.outputToken
+      const parsedTs = new Date(key).getTime()
+      const ts = Number.isNaN(parsedTs) ? Number.MAX_SAFE_INTEGER : parsedTs
       if (existing) {
         existing.requests += reqs
         existing.tokens += toks
@@ -541,14 +637,19 @@ const realtimeData = computed<WindowPoint[]>(() => {
           tokens: toks,
           ttftSum: b.avgTTFT > 0 ? b.avgTTFT : 0,
           ttftCount: b.avgTTFT > 0 ? 1 : 0,
+          ts,
         })
       }
     }
   }
 
-  const sorted = Array.from(buckets.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+  const sorted = Array.from(buckets.entries()).sort((a, b) => a[1].ts - b[1].ts)
   return sorted.map(([time, v]) => ({
-    time: time.slice(11, 16),
+    time: (() => {
+      const d = new Date(time)
+      if (Number.isNaN(d.getTime())) return time.slice(11, 16)
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    })(),
     requests: v.requests,
     tokens: v.tokens,
     ttft: v.ttftCount > 0 ? Math.round(v.ttftSum / v.ttftCount) : 0,
@@ -557,14 +658,21 @@ const realtimeData = computed<WindowPoint[]>(() => {
 
 const hasRealtimeData = computed(() => realtimeData.value.length > 0)
 
-watch(realtimeData, () => {
-  if (rtChartInstance.value) {
+watch(
+  [() => rtChartRef.value, realtimeData],
+  () => {
+    if (!rtChartRef.value || !hasRealtimeData.value) {
+      disposeRtChart()
+      return
+    }
+    if (!rtChartInstance.value) {
+      rtChartInstance.value = echarts.init(rtChartRef.value)
+    }
     updateRtChart()
-  } else if (rtChartRef.value && hasRealtimeData.value) {
-    rtChartInstance.value = echarts.init(rtChartRef.value)
-    updateRtChart()
-  }
-})
+    rtChartInstance.value.resize()
+  },
+  { immediate: true, flush: 'post' },
+)
 
 // ── Heatmap helpers ──
 function formatHeatmapDate(dateStr: string): string {
@@ -596,26 +704,36 @@ interface HeatmapCell {
 const heatmapCells = computed<HeatmapCell[]>(() => {
   const now = new Date()
   const cells: HeatmapCell[] = []
+  const localHourlyMap = new Map<string, UsageAccumulator & { totalCostMicros: number }>()
+
+  for (const item of heatmapStats.value) {
+    const key = `${item.date.slice(0, 10)}-${item.hour}`
+    const existing = localHourlyMap.get(key) ?? {
+      ...createUsageAccumulator(),
+      totalCostMicros: 0,
+    }
+    mergeUsageAccumulator(existing, item)
+    existing.totalCostMicros += item.totalCostMicros
+    localHourlyMap.set(key, existing)
+  }
 
   for (let dayOffset = 6; dayOffset >= 0; dayOffset--) {
     const d = addDays(now, -dayOffset)
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const dateStr = toDateKey(d)
     for (let h = 0; h < 24; h++) {
-      const found = heatmapStats.value.find(item =>
-        item.date.slice(0, 10) === dateStr && item.hour === h,
-      )
+      const found = localHourlyMap.get(`${dateStr}-${h}`)
       cells.push({
         date: dateStr,
         hour: h,
         requests: found ? found.requestSuccess + found.requestFailed : 0,
-        requestSuccess: found ? found.requestSuccess : 0,
-        requestFailed: found ? found.requestFailed : 0,
-        inputToken: found ? found.inputToken : 0,
-        outputToken: found ? found.outputToken : 0,
-        cachedReadInputTokens: found ? found.cachedReadInputTokens : 0,
-        cachedCreationInputTokens: found ? found.cachedCreationInputTokens : 0,
-        totalCostMicros: found ? found.totalCostMicros : 0,
-        totalCost: found ? found.totalCost : 0,
+        requestSuccess: found?.requestSuccess ?? 0,
+        requestFailed: found?.requestFailed ?? 0,
+        inputToken: found?.inputToken ?? 0,
+        outputToken: found?.outputToken ?? 0,
+        cachedReadInputTokens: found?.cachedReadInputTokens ?? 0,
+        cachedCreationInputTokens: found?.cachedCreationInputTokens ?? 0,
+        totalCostMicros: found?.totalCostMicros ?? 0,
+        totalCost: found?.totalCost ?? 0,
       })
     }
   }
@@ -658,21 +776,29 @@ async function loadData() {
       pageSize: 365,
     }
     if (dr) {
-      dailyParams.startTime = toRFC3339(dr.start)
-      dailyParams.endTime = toRFC3339(dr.end)
+      // Query with a one-day buffer to avoid edge clipping around day boundaries.
+      dailyParams.startTime = toRFC3339(startOfDay(addDays(dr.start, -1)))
+      dailyParams.endTime = toRFC3339(endOfDay(addDays(dr.end, 1)))
     }
 
-    // Hourly: for today use today's range; otherwise use the last day of the range
-    const hourlyEnd = dr ? dr.end : new Date()
+    // Hourly query also keeps a small buffer; rendering will filter by selected range.
+    const hourlyStart = dr ? startOfDay(addDays(dr.start, -1)) : startOfDay(addDays(new Date(), -31))
+    const hourlyEnd = dr ? endOfDay(addDays(dr.end, 1)) : endOfDay(new Date())
+    const hourlyPageSize = Math.max(
+      72,
+      Math.ceil((hourlyEnd.getTime() - hourlyStart.getTime()) / (1000 * 60 * 60)),
+    )
     const hourlyParams: Parameters<typeof listUserUsageHourlyStats>[0] = {
       userID: userId,
-      startTime: toRFC3339(startOfDay(hourlyEnd)),
-      endTime: toRFC3339(endOfDay(hourlyEnd)),
-      pageSize: 24,
+      startTime: toRFC3339(hourlyStart),
+      endTime: toRFC3339(hourlyEnd),
+      pageSize: hourlyPageSize,
     }
 
     const heatmapEnd = new Date()
     const heatmapStart = addDays(heatmapEnd, -6)
+    const heatmapQueryStart = startOfDay(addDays(heatmapStart, -1))
+    const heatmapQueryEnd = endOfDay(addDays(heatmapEnd, 1))
 
     const tasks: Promise<any>[] = [
       timeRange.value === 'all' ? getUserStats(userId) : Promise.resolve(null),
@@ -681,9 +807,9 @@ async function loadData() {
       listChannels({ pageSize: 100 }),
       listUserUsageHourlyStats({
         userID: userId,
-        startTime: toRFC3339(startOfDay(heatmapStart)),
-        endTime: toRFC3339(endOfDay(heatmapEnd)),
-        pageSize: 24 * 7,
+        startTime: toRFC3339(heatmapQueryStart),
+        endTime: toRFC3339(heatmapQueryEnd),
+        pageSize: 24 * 10,
       }),
     ]
 
@@ -695,12 +821,7 @@ async function loadData() {
     heatmapStats.value = heatmapRes.items
     channels.value = channelsRes.items
 
-    if (channels.value.length > 0) {
-      const channelIDs = channels.value.map(c => c.id)
-      channelStats.value = await listChannelStats(channelIDs)
-    } else {
-      channelStats.value = []
-    }
+    channelStats.value = await listChannelStats()
   } catch (err: any) {
     loadError.value = err?.response?.data?.message || '加载统计数据失败'
     console.error('Failed to load stats:', err)
@@ -925,16 +1046,6 @@ onMounted(() => {
         </div>
         <div class="rt-card">
           <div ref="rtChartRef" class="echarts-container" />
-          <div class="rt-legend">
-            <span class="legend-item">
-              <span class="legend-dot" style="background: #8bc34a" />
-              请求数
-            </span>
-            <span class="legend-item">
-              <span class="legend-line" style="background: #ffb300" />
-              Token
-            </span>
-          </div>
         </div>
       </div>
 
@@ -947,16 +1058,6 @@ onMounted(() => {
         <div class="chart-body">
           <div v-if="unifiedChartData.length > 0" ref="chartRef" class="echarts-container" />
           <div v-else class="chart-empty">暂无数据</div>
-
-          <!-- Legend -->
-          <div class="unified-legend">
-            <span class="legend-item"><span class="legend-dot" style="background: #8bc34a" />输入 Token</span>
-            <span class="legend-item"><span class="legend-dot" style="background: rgba(139, 195, 74, 0.55)" />输出 Token</span>
-            <span class="legend-item"><span class="legend-dot" style="background: rgba(255, 179, 0, 0.7)" />缓存读</span>
-            <span class="legend-item"><span class="legend-dot" style="background: rgba(255, 213, 79, 0.6)" />缓存创建</span>
-            <span class="legend-item"><span class="legend-line" style="background: #e57373" />请求数</span>
-            <span class="legend-item"><span class="legend-line" style="background: #ffb300" />费用</span>
-          </div>
         </div>
       </div>
 
@@ -1323,13 +1424,6 @@ onMounted(() => {
   padding: 1.25rem;
 }
 
-.rt-legend {
-  display: flex;
-  gap: 1rem;
-  margin-top: 0.75rem;
-  justify-content: center;
-}
-
 /* ── Chart Card ── */
 .chart-card {
   background: var(--color-bg-card);
@@ -1379,36 +1473,6 @@ onMounted(() => {
   justify-content: center;
   color: var(--color-text-muted);
   font-size: 0.875rem;
-}
-
-.unified-legend {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem 1.25rem;
-  margin-top: 0.75rem;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  color: var(--color-text-tertiary);
-}
-
-.legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
-.legend-line {
-  width: 16px;
-  height: 2px;
-  border-radius: 1px;
-  flex-shrink: 0;
 }
 
 /* ── Table Card ── */
