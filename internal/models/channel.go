@@ -159,6 +159,7 @@ func (e *ChannelExtra) Scan(value interface{}) error {
 // ChannelStats 渠道统计信息 仅用于看板统计显示
 type ChannelStats struct {
 	ChannelID                 int64               `gorm:"column:channel_id;primaryKey;index:idx_channel_stats_channel" json:"channelID,string"`
+	ChannelName               string              `gorm:"column:channel_name;type:varchar(128)" json:"channelName"`
 	InputToken                int64               `gorm:"column:input_token;type:bigint;default:0;comment:输入token数" json:"inputToken"`
 	OutputToken               int64               `gorm:"column:output_token;type:bigint;default:0;comment:输出token数" json:"outputToken"`
 	CachedCreationInputTokens int64               `gorm:"column:cached_creation_input_tokens;type:bigint;default:0;comment:缓存创建输入token数" json:"cachedCreationInputTokens"`

@@ -45,6 +45,7 @@ func (r *channelStatsRepo) Upsert(ctx context.Context, stats *models.ChannelStat
 	return r.DB(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "channel_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
+			"channel_name",
 			"input_token",
 			"output_token",
 			"cached_creation_input_tokens",

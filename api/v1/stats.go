@@ -4,6 +4,7 @@ import "time"
 
 type UpsertChannelStatsRequest struct {
 	ChannelID                 int64   `json:"channelID,string" binding:"required"`
+	ChannelName               string  `json:"channelName"`
 	InputToken                int64   `json:"inputToken"`
 	OutputToken               int64   `json:"outputToken"`
 	CachedCreationInputTokens int64   `json:"cachedCreationInputTokens"`
@@ -17,6 +18,7 @@ type UpsertChannelStatsRequest struct {
 
 type ChannelStatsResponse struct {
 	ChannelID                 int64                       `json:"channelID,string"`
+	ChannelName               string                      `json:"channelName"`
 	InputToken                int64                       `json:"inputToken"`
 	OutputToken               int64                       `json:"outputToken"`
 	CachedCreationInputTokens int64                       `json:"cachedCreationInputTokens"`

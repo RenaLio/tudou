@@ -103,6 +103,7 @@ func (s *StatsService) UpsertChannelStats(ctx context.Context, req v1.UpsertChan
 	}
 	stats := &models.ChannelStats{
 		ChannelID:                 req.ChannelID,
+		ChannelName:               strings.TrimSpace(req.ChannelName),
 		InputToken:                req.InputToken,
 		OutputToken:               req.OutputToken,
 		CachedCreationInputTokens: req.CachedCreationInputTokens,
@@ -457,6 +458,7 @@ func toChannelStatsResponse(stats *models.ChannelStats) v1.ChannelStatsResponse 
 	}
 	return v1.ChannelStatsResponse{
 		ChannelID:                 stats.ChannelID,
+		ChannelName:               stats.ChannelName,
 		InputToken:                stats.InputToken,
 		OutputToken:               stats.OutputToken,
 		CachedCreationInputTokens: stats.CachedCreationInputTokens,

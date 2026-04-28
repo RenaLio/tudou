@@ -33,5 +33,5 @@ go.work.sum
 .gocache/
 ai_docs/
 storage/*
-web/
+web/*
 

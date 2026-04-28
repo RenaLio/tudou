@@ -161,6 +161,54 @@ func TestAggregateRequestLogs_UsesUTCForDailyAndHourly(t *testing.T) {
 	}
 }
 
+func TestAggregateRequestLogs_ChannelName(t *testing.T) {
+	logs := []*models.RequestLog{
+		{
+			ChannelID:   101,
+			ChannelName: "",
+			Status:      models.RequestStatusSuccess,
+		},
+		{
+			ChannelID:   101,
+			ChannelName: "Prod-Channel-A",
+			Status:      models.RequestStatusSuccess,
+		},
+	}
+
+	snapshot := aggregateRequestLogs(logs, nil)
+	if len(snapshot.ChannelStats) != 1 {
+		t.Fatalf("expected 1 channel stat, got %d", len(snapshot.ChannelStats))
+	}
+	if snapshot.ChannelStats[0].ChannelName != "Prod-Channel-A" {
+		t.Fatalf("unexpected channel name: %+v", snapshot.ChannelStats[0].ChannelName)
+	}
+}
+
+func TestMergeChannelStats_EmptyDeltaChannelNameKeepsExisting(t *testing.T) {
+	channelID := int64(101)
+	repo := &testChannelStatsRepo{
+		statsByChannelID: map[int64]*models.ChannelStats{
+			channelID: {
+				ChannelID:   channelID,
+				ChannelName: "Existing-Channel",
+			},
+		},
+	}
+	task := &StatsAggregationTask{
+		channelStatsRepo: repo,
+	}
+	merged, err := task.mergeChannelStats(context.Background(), &models.ChannelStats{
+		ChannelID:   channelID,
+		ChannelName: "",
+	}, nil)
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+	if merged.ChannelName != "Existing-Channel" {
+		t.Fatalf("expected existing channel name to be kept, got %q", merged.ChannelName)
+	}
+}
+
 func findChannelModelStat(items []*models.ChannelModelStats, channelID int64, model string) *models.ChannelModelStats {
 	for _, item := range items {
 		if item == nil {

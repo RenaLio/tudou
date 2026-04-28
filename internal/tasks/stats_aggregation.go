@@ -177,12 +177,16 @@ func aggregateRequestLogs(logs []*models.RequestLog, nextID func() int64) *aggre
 
 		// 按渠道维度聚合
 		if item.ChannelID > 0 {
+			channelName := strings.TrimSpace(item.ChannelName)
 			// 如果渠道记录不存在，则创建并关联计数器
 			if _, exists := channelStatsMap[item.ChannelID]; !exists {
 				channelStatsMap[item.ChannelID] = &models.ChannelStats{
-					ChannelID: item.ChannelID,
+					ChannelID:   item.ChannelID,
+					ChannelName: channelName,
 				}
 				channelCounterMap[item.ChannelID] = &statsCounter{}
+			} else if channelName != "" && channelStatsMap[item.ChannelID].ChannelName == "" {
+				channelStatsMap[item.ChannelID].ChannelName = channelName
 			}
 			// 将当前日志累加到对应计数器
 			channelCounterMap[item.ChannelID].add(item)
@@ -667,7 +671,8 @@ func (t *StatsAggregationTask) buildWindowRefreshSnapshot(ctx context.Context) (
 			continue
 		}
 		snapshot.ChannelStats = append(snapshot.ChannelStats, &models.ChannelStats{
-			ChannelID: item.ChannelID,
+			ChannelID:   item.ChannelID,
+			ChannelName: strings.TrimSpace(item.ChannelName),
 		})
 
 		modelStats, err := t.channelModelStatsRepo.ListByChannelID(ctx, item.ChannelID)
@@ -978,6 +983,9 @@ func (t *StatsAggregationTask) mergeChannelStats(ctx context.Context, delta *mod
 		existing = &models.ChannelStats{
 			ChannelID: delta.ChannelID,
 		}
+	}
+	if channelName := strings.TrimSpace(delta.ChannelName); channelName != "" {
+		existing.ChannelName = channelName
 	}
 
 	oldOutput := existing.OutputToken
