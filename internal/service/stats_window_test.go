@@ -116,10 +116,10 @@ func TestBuildObservationWindow3H_AlwaysReturns12Buckets(t *testing.T) {
 		t.Fatalf("expected 12 buckets, got %d", len(window.Buckets))
 	}
 	if !window.Buckets[0].StartAt.Equal(time.Date(2026, 4, 27, 7, 15, 0, 0, time.UTC)) {
-		t.Fatalf("unexpected first bucket start in UTC alignment: %s", window.Buckets[0].StartAt)
+		t.Fatalf("unexpected first bucket start in  alignment: %s", window.Buckets[0].StartAt)
 	}
 	if !window.Buckets[11].EndAt.Equal(time.Date(2026, 4, 27, 10, 15, 0, 0, time.UTC)) {
-		t.Fatalf("unexpected last bucket end in UTC alignment: %s", window.Buckets[11].EndAt)
+		t.Fatalf("unexpected last bucket end in  alignment: %s", window.Buckets[11].EndAt)
 	}
 	for i := range window.Buckets {
 		b := window.Buckets[i]

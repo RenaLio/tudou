@@ -37,4 +37,8 @@ func main() {
 		fmt.Println("json marshal error:", err)
 	}
 	fmt.Println("boxBytes:", string(boxBytes))
+	dateA := "2027-02-02"
+	dateB := "2026-02-02"
+	fmt.Println(dateA <= dateB)
+	_ = time.RFC3339
 }

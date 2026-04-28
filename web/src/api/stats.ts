@@ -12,6 +12,7 @@ export interface ObservationBucket15M {
   requestSuccess: number
   requestFailed: number
   totalCostMicros: number
+  totalCost: number
   avgTTFT: number
   avgTPS: number
 }
@@ -31,6 +32,7 @@ export interface ChannelStatsResponse {
   requestSuccess: number
   requestFailed: number
   totalCostMicros: number
+  totalCost: number
   avgTTFT: number
   avgTPS: number
   window3h: ObservationWindow3H
@@ -46,6 +48,7 @@ export interface ChannelModelStatsResponse {
   requestSuccess: number
   requestFailed: number
   totalCostMicros: number
+  totalCost: number
   avgTTFT: number
   avgTPS: number
   window3h: ObservationWindow3H
@@ -60,6 +63,7 @@ export interface TokenStatsResponse {
   requestSuccess: number
   requestFailed: number
   totalCostMicros: number
+  totalCost: number
 }
 
 export interface UserStatsResponse {
@@ -71,6 +75,7 @@ export interface UserStatsResponse {
   requestSuccess: number
   requestFailed: number
   totalCostMicros: number
+  totalCost: number
 }
 
 export interface UserUsageDailyStatsResponse {
@@ -84,6 +89,7 @@ export interface UserUsageDailyStatsResponse {
   requestSuccess: number
   requestFailed: number
   totalCostMicros: number
+  totalCost: number
   createdAt: string
   updatedAt: string
 }
@@ -100,6 +106,7 @@ export interface UserUsageHourlyStatsResponse {
   requestSuccess: number
   requestFailed: number
   totalCostMicros: number
+  totalCost: number
   createdAt: string
   updatedAt: string
 }
@@ -144,8 +151,8 @@ export interface ListUserUsageDailyStatsParams {
   pageSize?: number
   orderBy?: string
   userID?: string
-  dateFrom?: string
-  dateTo?: string
+  startTime?: string // RFC3339, e.g. 2026-04-28T00:00:00+08:00
+  endTime?: string   // RFC3339
 }
 
 export async function listUserUsageDailyStats(params: ListUserUsageDailyStatsParams = {}) {
@@ -164,10 +171,8 @@ export interface ListUserUsageHourlyStatsParams {
   pageSize?: number
   orderBy?: string
   userID?: string
-  dateFrom?: string
-  hourFrom?: number
-  dateTo?: string
-  hourTo?: number
+  startTime?: string // RFC3339
+  endTime?: string   // RFC3339
 }
 
 export async function listUserUsageHourlyStats(params: ListUserUsageHourlyStatsParams = {}) {

@@ -4,39 +4,40 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/models"
 	"github.com/RenaLio/tudou/internal/repository"
 )
 
-type StatsService interface {
-	UpsertChannelStats(ctx context.Context, req v1.UpsertChannelStatsRequest) (*v1.ChannelStatsResponse, error)
-	GetChannelStatsByChannelID(ctx context.Context, channelID int64) (*v1.ChannelStatsResponse, error)
-	ListChannelStatsByChannelIDs(ctx context.Context, channelIDs []int64) ([]v1.ChannelStatsResponse, error)
+//type StatsService interface {
+//	UpsertChannelStats(ctx context.Context, req v1.UpsertChannelStatsRequest) (*v1.ChannelStatsResponse, error)
+//	GetChannelStatsByChannelID(ctx context.Context, channelID int64) (*v1.ChannelStatsResponse, error)
+//	ListChannelStatsByChannelIDs(ctx context.Context, channelIDs []int64) ([]v1.ChannelStatsResponse, error)
+//
+//	UpsertChannelModelStats(ctx context.Context, req v1.UpsertChannelModelStatsRequest) (*v1.ChannelModelStatsResponse, error)
+//	GetChannelModelStats(ctx context.Context, channelID int64, model string) (*v1.ChannelModelStatsResponse, error)
+//	ListChannelModelStatsByChannelID(ctx context.Context, channelID int64) ([]v1.ChannelModelStatsResponse, error)
+//
+//	UpsertTokenStats(ctx context.Context, req v1.UpsertTokenStatsRequest) (*v1.TokenStatsResponse, error)
+//	GetTokenStatsByTokenID(ctx context.Context, tokenID int64) (*v1.TokenStatsResponse, error)
+//	ListTokenStatsByTokenIDs(ctx context.Context, tokenIDs []int64) ([]v1.TokenStatsResponse, error)
+//
+//	UpsertUserStats(ctx context.Context, req v1.UpsertUserStatsRequest) (*v1.UserStatsResponse, error)
+//	GetUserStatsByUserID(ctx context.Context, userID int64) (*v1.UserStatsResponse, error)
+//	ListUserStatsByUserIDs(ctx context.Context, userIDs []int64) ([]v1.UserStatsResponse, error)
+//
+//	UpsertUserUsageDailyStats(ctx context.Context, req v1.UpsertUserUsageDailyStatsRequest) (*v1.UserUsageDailyStatsResponse, error)
+//	GetUserUsageDailyStatsByUserDate(ctx context.Context, userID int64, date string) (*v1.UserUsageDailyStatsResponse, error)
+//	ListUserUsageDailyStats(ctx context.Context, req v1.ListUserUsageDailyStatsRequest) (*v1.ListResponse[v1.UserUsageDailyStatsResponse], error)
+//
+//	UpsertUserUsageHourlyStats(ctx context.Context, req v1.UpsertUserUsageHourlyStatsRequest) (*v1.UserUsageHourlyStatsResponse, error)
+//	GetUserUsageHourlyStatsByUserDateHour(ctx context.Context, userID int64, date string, hour int) (*v1.UserUsageHourlyStatsResponse, error)
+//	ListUserUsageHourlyStats(ctx context.Context, req v1.ListUserUsageHourlyStatsRequest) (*v1.ListResponse[v1.UserUsageHourlyStatsResponse], error)
+//}
 
-	UpsertChannelModelStats(ctx context.Context, req v1.UpsertChannelModelStatsRequest) (*v1.ChannelModelStatsResponse, error)
-	GetChannelModelStats(ctx context.Context, channelID int64, model string) (*v1.ChannelModelStatsResponse, error)
-	ListChannelModelStatsByChannelID(ctx context.Context, channelID int64) ([]v1.ChannelModelStatsResponse, error)
-
-	UpsertTokenStats(ctx context.Context, req v1.UpsertTokenStatsRequest) (*v1.TokenStatsResponse, error)
-	GetTokenStatsByTokenID(ctx context.Context, tokenID int64) (*v1.TokenStatsResponse, error)
-	ListTokenStatsByTokenIDs(ctx context.Context, tokenIDs []int64) ([]v1.TokenStatsResponse, error)
-
-	UpsertUserStats(ctx context.Context, req v1.UpsertUserStatsRequest) (*v1.UserStatsResponse, error)
-	GetUserStatsByUserID(ctx context.Context, userID int64) (*v1.UserStatsResponse, error)
-	ListUserStatsByUserIDs(ctx context.Context, userIDs []int64) ([]v1.UserStatsResponse, error)
-
-	UpsertUserUsageDailyStats(ctx context.Context, req v1.UpsertUserUsageDailyStatsRequest) (*v1.UserUsageDailyStatsResponse, error)
-	GetUserUsageDailyStatsByUserDate(ctx context.Context, userID int64, date string) (*v1.UserUsageDailyStatsResponse, error)
-	ListUserUsageDailyStats(ctx context.Context, req v1.ListUserUsageDailyStatsRequest) (*v1.ListResponse[v1.UserUsageDailyStatsResponse], error)
-
-	UpsertUserUsageHourlyStats(ctx context.Context, req v1.UpsertUserUsageHourlyStatsRequest) (*v1.UserUsageHourlyStatsResponse, error)
-	GetUserUsageHourlyStatsByUserDateHour(ctx context.Context, userID int64, date string, hour int) (*v1.UserUsageHourlyStatsResponse, error)
-	ListUserUsageHourlyStats(ctx context.Context, req v1.ListUserUsageHourlyStatsRequest) (*v1.ListResponse[v1.UserUsageHourlyStatsResponse], error)
-}
-
-type statsService struct {
+type StatsService struct {
 	*Service
 	channelStatsRepo         repository.ChannelStatsRepo
 	channelModelStatsRepo    repository.ChannelModelStatsRepo
@@ -44,6 +45,21 @@ type statsService struct {
 	userStatsRepo            repository.UserStatsRepo
 	userUsageDailyStatsRepo  repository.UserUsageDailyStatsRepo
 	userUsageHourlyStatsRepo repository.UserUsageHourlyStatsRepo
+}
+
+func (s *StatsService) ListAllTokenStats(ctx context.Context) ([]v1.TokenStatsResponse, error) {
+	items, err := s.tokenStatsRepo.ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]v1.TokenStatsResponse, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		resp = append(resp, toTokenStatsResponse(item))
+	}
+	return resp, nil
 }
 
 func NewStatsService(
@@ -54,8 +70,8 @@ func NewStatsService(
 	userStatsRepo repository.UserStatsRepo,
 	userUsageDailyStatsRepo repository.UserUsageDailyStatsRepo,
 	userUsageHourlyStatsRepo repository.UserUsageHourlyStatsRepo,
-) StatsService {
-	return &statsService{
+) *StatsService {
+	return &StatsService{
 		Service:                  base,
 		channelStatsRepo:         channelStatsRepo,
 		channelModelStatsRepo:    channelModelStatsRepo,
@@ -66,7 +82,22 @@ func NewStatsService(
 	}
 }
 
-func (s *statsService) UpsertChannelStats(ctx context.Context, req v1.UpsertChannelStatsRequest) (*v1.ChannelStatsResponse, error) {
+func (s *StatsService) ListAllChannelStats(ctx context.Context) ([]v1.ChannelStatsResponse, error) {
+	items, err := s.channelStatsRepo.ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]v1.ChannelStatsResponse, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		resp = append(resp, toChannelStatsResponse(item))
+	}
+	return resp, nil
+}
+
+func (s *StatsService) UpsertChannelStats(ctx context.Context, req v1.UpsertChannelStatsRequest) (*v1.ChannelStatsResponse, error) {
 	if req.ChannelID <= 0 {
 		return nil, errors.New("invalid channel id")
 	}
@@ -88,7 +119,7 @@ func (s *statsService) UpsertChannelStats(ctx context.Context, req v1.UpsertChan
 	return s.GetChannelStatsByChannelID(ctx, req.ChannelID)
 }
 
-func (s *statsService) GetChannelStatsByChannelID(ctx context.Context, channelID int64) (*v1.ChannelStatsResponse, error) {
+func (s *StatsService) GetChannelStatsByChannelID(ctx context.Context, channelID int64) (*v1.ChannelStatsResponse, error) {
 	stats, err := s.channelStatsRepo.GetByChannelID(ctx, channelID)
 	if err != nil {
 		return nil, err
@@ -97,7 +128,7 @@ func (s *statsService) GetChannelStatsByChannelID(ctx context.Context, channelID
 	return &resp, nil
 }
 
-func (s *statsService) ListChannelStatsByChannelIDs(ctx context.Context, channelIDs []int64) ([]v1.ChannelStatsResponse, error) {
+func (s *StatsService) ListChannelStatsByChannelIDs(ctx context.Context, channelIDs []int64) ([]v1.ChannelStatsResponse, error) {
 	items, err := s.channelStatsRepo.ListByChannelIDs(ctx, channelIDs)
 	if err != nil {
 		return nil, err
@@ -112,7 +143,7 @@ func (s *statsService) ListChannelStatsByChannelIDs(ctx context.Context, channel
 	return resp, nil
 }
 
-func (s *statsService) UpsertChannelModelStats(ctx context.Context, req v1.UpsertChannelModelStatsRequest) (*v1.ChannelModelStatsResponse, error) {
+func (s *StatsService) UpsertChannelModelStats(ctx context.Context, req v1.UpsertChannelModelStatsRequest) (*v1.ChannelModelStatsResponse, error) {
 	model := strings.TrimSpace(req.Model)
 	if req.ChannelID <= 0 || model == "" {
 		return nil, errors.New("invalid channel id or model")
@@ -136,7 +167,7 @@ func (s *statsService) UpsertChannelModelStats(ctx context.Context, req v1.Upser
 	return s.GetChannelModelStats(ctx, req.ChannelID, model)
 }
 
-func (s *statsService) GetChannelModelStats(ctx context.Context, channelID int64, model string) (*v1.ChannelModelStatsResponse, error) {
+func (s *StatsService) GetChannelModelStats(ctx context.Context, channelID int64, model string) (*v1.ChannelModelStatsResponse, error) {
 	model = strings.TrimSpace(model)
 	stats, err := s.channelModelStatsRepo.GetByChannelModel(ctx, channelID, model)
 	if err != nil {
@@ -146,7 +177,7 @@ func (s *statsService) GetChannelModelStats(ctx context.Context, channelID int64
 	return &resp, nil
 }
 
-func (s *statsService) ListChannelModelStatsByChannelID(ctx context.Context, channelID int64) ([]v1.ChannelModelStatsResponse, error) {
+func (s *StatsService) ListChannelModelStatsByChannelID(ctx context.Context, channelID int64) ([]v1.ChannelModelStatsResponse, error) {
 	items, err := s.channelModelStatsRepo.ListByChannelID(ctx, channelID)
 	if err != nil {
 		return nil, err
@@ -161,7 +192,7 @@ func (s *statsService) ListChannelModelStatsByChannelID(ctx context.Context, cha
 	return resp, nil
 }
 
-func (s *statsService) UpsertTokenStats(ctx context.Context, req v1.UpsertTokenStatsRequest) (*v1.TokenStatsResponse, error) {
+func (s *StatsService) UpsertTokenStats(ctx context.Context, req v1.UpsertTokenStatsRequest) (*v1.TokenStatsResponse, error) {
 	if req.TokenID <= 0 {
 		return nil, errors.New("invalid token id")
 	}
@@ -181,7 +212,7 @@ func (s *statsService) UpsertTokenStats(ctx context.Context, req v1.UpsertTokenS
 	return s.GetTokenStatsByTokenID(ctx, req.TokenID)
 }
 
-func (s *statsService) GetTokenStatsByTokenID(ctx context.Context, tokenID int64) (*v1.TokenStatsResponse, error) {
+func (s *StatsService) GetTokenStatsByTokenID(ctx context.Context, tokenID int64) (*v1.TokenStatsResponse, error) {
 	stats, err := s.tokenStatsRepo.GetByTokenID(ctx, tokenID)
 	if err != nil {
 		return nil, err
@@ -190,7 +221,7 @@ func (s *statsService) GetTokenStatsByTokenID(ctx context.Context, tokenID int64
 	return &resp, nil
 }
 
-func (s *statsService) ListTokenStatsByTokenIDs(ctx context.Context, tokenIDs []int64) ([]v1.TokenStatsResponse, error) {
+func (s *StatsService) ListTokenStatsByTokenIDs(ctx context.Context, tokenIDs []int64) ([]v1.TokenStatsResponse, error) {
 	items, err := s.tokenStatsRepo.ListByTokenIDs(ctx, tokenIDs)
 	if err != nil {
 		return nil, err
@@ -205,7 +236,7 @@ func (s *statsService) ListTokenStatsByTokenIDs(ctx context.Context, tokenIDs []
 	return resp, nil
 }
 
-func (s *statsService) UpsertUserStats(ctx context.Context, req v1.UpsertUserStatsRequest) (*v1.UserStatsResponse, error) {
+func (s *StatsService) UpsertUserStats(ctx context.Context, req v1.UpsertUserStatsRequest) (*v1.UserStatsResponse, error) {
 	if req.UserID <= 0 {
 		return nil, errors.New("invalid user id")
 	}
@@ -225,7 +256,7 @@ func (s *statsService) UpsertUserStats(ctx context.Context, req v1.UpsertUserSta
 	return s.GetUserStatsByUserID(ctx, req.UserID)
 }
 
-func (s *statsService) GetUserStatsByUserID(ctx context.Context, userID int64) (*v1.UserStatsResponse, error) {
+func (s *StatsService) GetUserStatsByUserID(ctx context.Context, userID int64) (*v1.UserStatsResponse, error) {
 	stats, err := s.userStatsRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -234,7 +265,7 @@ func (s *statsService) GetUserStatsByUserID(ctx context.Context, userID int64) (
 	return &resp, nil
 }
 
-func (s *statsService) ListUserStatsByUserIDs(ctx context.Context, userIDs []int64) ([]v1.UserStatsResponse, error) {
+func (s *StatsService) ListUserStatsByUserIDs(ctx context.Context, userIDs []int64) ([]v1.UserStatsResponse, error) {
 	items, err := s.userStatsRepo.ListByUserIDs(ctx, userIDs)
 	if err != nil {
 		return nil, err
@@ -249,11 +280,11 @@ func (s *statsService) ListUserStatsByUserIDs(ctx context.Context, userIDs []int
 	return resp, nil
 }
 
-func (s *statsService) UpsertUserUsageDailyStats(ctx context.Context, req v1.UpsertUserUsageDailyStatsRequest) (*v1.UserUsageDailyStatsResponse, error) {
-	date := strings.TrimSpace(req.Date)
-	if req.UserID <= 0 || date == "" {
+func (s *StatsService) UpsertUserUsageDailyStats(ctx context.Context, req v1.UpsertUserUsageDailyStatsRequest) (*v1.UserUsageDailyStatsResponse, error) {
+	if req.UserID <= 0 || req.Date.IsZero() {
 		return nil, errors.New("invalid user id or date")
 	}
+	date := dateToKey(req.Date)
 
 	stats, err := s.userUsageDailyStatsRepo.GetByUserDate(ctx, req.UserID, date)
 	if err != nil {
@@ -281,7 +312,11 @@ func (s *statsService) UpsertUserUsageDailyStats(ctx context.Context, req v1.Ups
 	return s.GetUserUsageDailyStatsByUserDate(ctx, req.UserID, date)
 }
 
-func (s *statsService) GetUserUsageDailyStatsByUserDate(ctx context.Context, userID int64, date string) (*v1.UserUsageDailyStatsResponse, error) {
+func (s *StatsService) GetUserUsageDailyStatsByUserDate(ctx context.Context, userID int64, date string) (*v1.UserUsageDailyStatsResponse, error) {
+	date = strings.TrimSpace(date)
+	if userID <= 0 || date == "" {
+		return nil, errors.New("invalid user id or date")
+	}
 	stats, err := s.userUsageDailyStatsRepo.GetByUserDate(ctx, userID, date)
 	if err != nil {
 		return nil, err
@@ -290,14 +325,22 @@ func (s *statsService) GetUserUsageDailyStatsByUserDate(ctx context.Context, use
 	return &resp, nil
 }
 
-func (s *statsService) ListUserUsageDailyStats(ctx context.Context, req v1.ListUserUsageDailyStatsRequest) (*v1.ListResponse[v1.UserUsageDailyStatsResponse], error) {
+func (s *StatsService) ListUserUsageDailyStats(ctx context.Context, req v1.ListUserUsageDailyStatsRequest) (*v1.ListResponse[v1.UserUsageDailyStatsResponse], error) {
+	dateFrom := ""
+	if req.StartTime != nil && !req.StartTime.IsZero() {
+		dateFrom = dateToKey(*req.StartTime)
+	}
+	dateTo := ""
+	if req.EndTime != nil && !req.EndTime.IsZero() {
+		dateTo = dateToKey(*req.EndTime)
+	}
 	opt := repository.UserUsageDailyStatsListOption{
 		Page:     req.Page,
 		PageSize: req.PageSize,
 		OrderBy:  req.OrderBy,
 		UserID:   req.UserID,
-		DateFrom: req.DateFrom,
-		DateTo:   req.DateTo,
+		DateFrom: dateFrom,
+		DateTo:   dateTo,
 	}
 	items, total, err := s.userUsageDailyStatsRepo.List(ctx, opt)
 	if err != nil {
@@ -319,11 +362,11 @@ func (s *statsService) ListUserUsageDailyStats(ctx context.Context, req v1.ListU
 	}, nil
 }
 
-func (s *statsService) UpsertUserUsageHourlyStats(ctx context.Context, req v1.UpsertUserUsageHourlyStatsRequest) (*v1.UserUsageHourlyStatsResponse, error) {
-	date := strings.TrimSpace(req.Date)
-	if req.UserID <= 0 || date == "" || req.Hour < 0 || req.Hour > 23 {
+func (s *StatsService) UpsertUserUsageHourlyStats(ctx context.Context, req v1.UpsertUserUsageHourlyStatsRequest) (*v1.UserUsageHourlyStatsResponse, error) {
+	if req.UserID <= 0 || req.Date.IsZero() || req.Hour < 0 || req.Hour > 23 {
 		return nil, errors.New("invalid user id/date/hour")
 	}
+	date := dateToKey(req.Date)
 
 	stats, err := s.userUsageHourlyStatsRepo.GetByUserDateHour(ctx, req.UserID, date, req.Hour)
 	if err != nil {
@@ -352,7 +395,11 @@ func (s *statsService) UpsertUserUsageHourlyStats(ctx context.Context, req v1.Up
 	return s.GetUserUsageHourlyStatsByUserDateHour(ctx, req.UserID, date, req.Hour)
 }
 
-func (s *statsService) GetUserUsageHourlyStatsByUserDateHour(ctx context.Context, userID int64, date string, hour int) (*v1.UserUsageHourlyStatsResponse, error) {
+func (s *StatsService) GetUserUsageHourlyStatsByUserDateHour(ctx context.Context, userID int64, date string, hour int) (*v1.UserUsageHourlyStatsResponse, error) {
+	date = strings.TrimSpace(date)
+	if userID <= 0 || date == "" || hour < 0 || hour > 23 {
+		return nil, errors.New("invalid user id/date/hour")
+	}
 	stats, err := s.userUsageHourlyStatsRepo.GetByUserDateHour(ctx, userID, date, hour)
 	if err != nil {
 		return nil, err
@@ -361,16 +408,28 @@ func (s *statsService) GetUserUsageHourlyStatsByUserDateHour(ctx context.Context
 	return &resp, nil
 }
 
-func (s *statsService) ListUserUsageHourlyStats(ctx context.Context, req v1.ListUserUsageHourlyStatsRequest) (*v1.ListResponse[v1.UserUsageHourlyStatsResponse], error) {
+func (s *StatsService) ListUserUsageHourlyStats(ctx context.Context, req v1.ListUserUsageHourlyStatsRequest) (*v1.ListResponse[v1.UserUsageHourlyStatsResponse], error) {
+	dateFrom := ""
+	hourFrom := 0
+	if req.StartTime != nil && !req.StartTime.IsZero() {
+		dateFrom = dateToKey(*req.StartTime)
+		hourFrom = req.StartTime.Hour()
+	}
+	dateTo := ""
+	hourTo := 0
+	if req.EndTime != nil && !req.EndTime.IsZero() {
+		dateTo = dateToKey(*req.EndTime)
+		hourTo = req.EndTime.Hour()
+	}
 	opt := repository.UserUsageHourlyStatsListOption{
 		Page:     req.Page,
 		PageSize: req.PageSize,
 		OrderBy:  req.OrderBy,
 		UserID:   req.UserID,
-		DateFrom: req.DateFrom,
-		HourFrom: req.HourFrom,
-		DateTo:   req.DateTo,
-		HourTo:   req.HourTo,
+		DateFrom: dateFrom,
+		HourFrom: hourFrom,
+		DateTo:   dateTo,
+		HourTo:   hourTo,
 	}
 	items, total, err := s.userUsageHourlyStatsRepo.List(ctx, opt)
 	if err != nil {
@@ -426,6 +485,7 @@ func toChannelModelStatsResponse(stats *models.ChannelModelStats) v1.ChannelMode
 		RequestSuccess:            stats.RequestSuccess,
 		RequestFailed:             stats.RequestFailed,
 		TotalCostMicros:           stats.TotalCostMicros,
+		TotalCost:                 models.MoneyMicrosToFloat(stats.TotalCostMicros),
 		AvgTTFT:                   stats.AvgTTFT,
 		AvgTPS:                    stats.AvgTPS,
 		Window3H:                  toObservationWindow3HResponse(stats.Window3H),
@@ -445,6 +505,7 @@ func toTokenStatsResponse(stats *models.TokenStats) v1.TokenStatsResponse {
 		RequestSuccess:            stats.RequestSuccess,
 		RequestFailed:             stats.RequestFailed,
 		TotalCostMicros:           stats.TotalCostMicros,
+		TotalCost:                 models.MoneyMicrosToFloat(stats.TotalCostMicros),
 	}
 }
 
@@ -461,6 +522,7 @@ func toUserStatsResponse(stats *models.UserStats) v1.UserStatsResponse {
 		RequestSuccess:            stats.RequestSuccess,
 		RequestFailed:             stats.RequestFailed,
 		TotalCostMicros:           stats.TotalCostMicros,
+		TotalCost:                 models.MoneyMicrosToFloat(stats.TotalCostMicros),
 	}
 }
 
@@ -471,7 +533,7 @@ func toUserUsageDailyStatsResponse(stats *models.UserUsageDailyStats) v1.UserUsa
 	return v1.UserUsageDailyStatsResponse{
 		ID:                        stats.ID,
 		UserID:                    stats.UserID,
-		Date:                      stats.Date,
+		Date:                      parseDateKey(stats.Date),
 		InputToken:                stats.InputToken,
 		OutputToken:               stats.OutputToken,
 		CachedCreationInputTokens: stats.CachedCreationInputTokens,
@@ -479,6 +541,7 @@ func toUserUsageDailyStatsResponse(stats *models.UserUsageDailyStats) v1.UserUsa
 		RequestSuccess:            stats.RequestSuccess,
 		RequestFailed:             stats.RequestFailed,
 		TotalCostMicros:           stats.TotalCostMicros,
+		TotalCost:                 models.MoneyMicrosToFloat(stats.TotalCostMicros),
 		CreatedAt:                 stats.CreatedAt,
 		UpdatedAt:                 stats.UpdatedAt,
 	}
@@ -491,7 +554,7 @@ func toUserUsageHourlyStatsResponse(stats *models.UserUsageHourlyStats) v1.UserU
 	return v1.UserUsageHourlyStatsResponse{
 		ID:                        stats.ID,
 		UserID:                    stats.UserID,
-		Date:                      stats.Date,
+		Date:                      parseDateKey(stats.Date),
 		Hour:                      stats.Hour,
 		InputToken:                stats.InputToken,
 		OutputToken:               stats.OutputToken,
@@ -500,7 +563,20 @@ func toUserUsageHourlyStatsResponse(stats *models.UserUsageHourlyStats) v1.UserU
 		RequestSuccess:            stats.RequestSuccess,
 		RequestFailed:             stats.RequestFailed,
 		TotalCostMicros:           stats.TotalCostMicros,
+		TotalCost:                 models.MoneyMicrosToFloat(stats.TotalCostMicros),
 		CreatedAt:                 stats.CreatedAt,
 		UpdatedAt:                 stats.UpdatedAt,
 	}
+}
+
+func dateToKey(value time.Time) string {
+	return value.Format("2006-01-02")
+}
+
+func parseDateKey(value string) time.Time {
+	date, err := time.Parse("2006-01-02", strings.TrimSpace(value))
+	if err != nil {
+		return time.Time{}
+	}
+	return date
 }

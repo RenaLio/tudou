@@ -491,12 +491,12 @@ onMounted(() => {
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   &.groups {
-    background: rgba(16, 185, 129, 0.1);
+    background: rgba(129, 199, 132, 0.1);
     color: var(--color-primary);
   }
 
   &.security {
-    background: rgba(245, 158, 11, 0.1);
+    background: rgba(255, 213, 79, 0.1);
     color: var(--color-warning);
   }
 }
@@ -535,11 +535,11 @@ onMounted(() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb, 99, 102, 241), 0.3);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb, 139, 195, 74), 0.3);
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(var(--color-primary-rgb, 99, 102, 241), 0.4);
+    box-shadow: 0 4px 12px rgba(var(--color-primary-rgb, 139, 195, 74), 0.4);
   }
 
   &:active {
@@ -761,11 +761,11 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   align-self: flex-start;
-  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb, 99, 102, 241), 0.3);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb, 139, 195, 74), 0.3);
 
   &:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(var(--color-primary-rgb, 99, 102, 241), 0.4);
+    box-shadow: 0 4px 12px rgba(var(--color-primary-rgb, 139, 195, 74), 0.4);
   }
 
   &:active:not(:disabled) {

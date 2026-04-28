@@ -690,7 +690,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+  background: linear-gradient(135deg, rgba(139, 195, 74, 0.15), rgba(124, 179, 66, 0.15));
   color: var(--color-primary);
 }
 

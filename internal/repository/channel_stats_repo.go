@@ -13,12 +13,21 @@ import (
 type ChannelStatsRepo interface {
 	Upsert(ctx context.Context, stats *models.ChannelStats) error
 	GetByChannelID(ctx context.Context, channelID int64) (*models.ChannelStats, error)
+	ListAll(ctx context.Context) ([]*models.ChannelStats, error)
 	ListByChannelIDs(ctx context.Context, channelIDs []int64) ([]*models.ChannelStats, error)
 	ListRequestLogsByChannelIDsAndRange(ctx context.Context, channelIDs []int64, start, end time.Time) ([]*models.RequestLog, error)
 }
 
 type channelStatsRepo struct {
 	*Repository
+}
+
+func (r *channelStatsRepo) ListAll(ctx context.Context) ([]*models.ChannelStats, error) {
+	items := make([]*models.ChannelStats, 0)
+	if err := r.DB(ctx).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func NewChannelStatsRepo(r *Repository) ChannelStatsRepo {
@@ -50,14 +59,7 @@ func (r *channelStatsRepo) Upsert(ctx context.Context, stats *models.ChannelStat
 }
 
 func (r *channelStatsRepo) GetByChannelID(ctx context.Context, channelID int64) (*models.ChannelStats, error) {
-	if channelID <= 0 {
-		return nil, errors.New("invalid channel id")
-	}
-	stats := new(models.ChannelStats)
-	if err := r.DB(ctx).Where("channel_id = ?", channelID).First(stats).Error; err != nil {
-		return nil, err
-	}
-	return stats, nil
+	return GetByKey[models.ChannelStats](ctx, "channel_id", string(channelID), r.DB(ctx))
 }
 
 func (r *channelStatsRepo) ListByChannelIDs(ctx context.Context, channelIDs []int64) ([]*models.ChannelStats, error) {

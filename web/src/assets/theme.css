@@ -1,72 +1,132 @@
-/* Theme Variables */
+/* ============================================
+   Tudou Gateway — Design System
+   Theme: Subterranean Luminous Network
+   ============================================ */
+
+/* ── Base ── */
 :root {
-  /* Light Theme (default) */
-  --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f9fafb;
-  --color-bg-tertiary: #f3f4f6;
-  --color-bg-card: #ffffff;
+  /* Backgrounds — deep underground */
+  --color-bg-primary: #080a08;
+  --color-bg-secondary: #0d110d;
+  --color-bg-tertiary: #141a14;
+  --color-bg-card: rgba(16, 22, 16, 0.72);
+  --color-bg-glass: rgba(16, 22, 16, 0.45);
 
-  --color-text-primary: #111827;
-  --color-text-secondary: #374151;
-  --color-text-tertiary: #6b7280;
-  --color-text-muted: #9ca3af;
+  /* Text — warm, organic tones */
+  --color-text-primary: #eef2e8;
+  --color-text-secondary: #b8c4a8;
+  --color-text-tertiary: #7a8a6a;
+  --color-text-muted: #4a5a40;
 
-  --color-border: #e5e7eb;
-  --color-border-light: #f3f4f6;
+  /* Borders — subtle, moss-like */
+  --color-border: rgba(124, 179, 66, 0.12);
+  --color-border-hover: rgba(124, 179, 66, 0.25);
+  --color-border-focus: rgba(124, 179, 66, 0.45);
 
-  --color-primary: #10b981;
-  --color-primary-light: #d1fae5;
-  --color-primary-dark: #059669;
+  /* Primary — moss green (土豆藤蔓/根系) */
+  --color-primary: #8bc34a;
+  --color-primary-light: rgba(139, 195, 74, 0.12);
+  --color-primary-glow: rgba(139, 195, 74, 0.35);
+  --color-primary-dark: #558b2f;
+  --color-primary-rgb: 139, 195, 74;
 
-  --color-danger: #ef4444;
-  --color-danger-light: #fef2f2;
+  /* Accent — amber gold (土壤/光) */
+  --color-accent: #ffb300;
+  --color-accent-light: rgba(255, 179, 0, 0.12);
+  --color-accent-glow: rgba(255, 179, 0, 0.3);
 
-  --color-success: #22c55e;
-  --color-success-light: #f0fdf4;
+  /* Semantic */
+  --color-danger: #e57373;
+  --color-danger-light: rgba(229, 115, 115, 0.1);
+  --color-danger-glow: rgba(229, 115, 115, 0.25);
 
-  --color-warning: #f59e0b;
-  --color-warning-light: #fffbeb;
+  --color-success: #81c784;
+  --color-success-light: rgba(129, 199, 132, 0.1);
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --color-warning: #ffd54f;
+  --color-warning-light: rgba(255, 213, 79, 0.1);
+
+  /* Shadows — soft, diffused like underground light */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-glow-primary: 0 0 24px rgba(139, 195, 74, 0.15);
+  --shadow-glow-accent: 0 0 24px rgba(255, 179, 0, 0.12);
+
+  /* Typography */
+  --font-display: 'Outfit', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-body: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Spacing scale */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
 }
 
-[data-theme='dark'] {
-  --color-bg-primary: #0a0a0f;
-  --color-bg-secondary: #111118;
-  --color-bg-tertiary: #1a1a24;
-  --color-bg-card: #18181f;
+/* ── Light theme (minimal, clean surface) ── */
+[data-theme='light'] {
+  --color-bg-primary: #f5f7f2;
+  --color-bg-secondary: #eef1ea;
+  --color-bg-tertiary: #e4e8de;
+  --color-bg-card: rgba(255, 255, 255, 0.82);
+  --color-bg-glass: rgba(255, 255, 255, 0.55);
 
-  --color-text-primary: #f4f4f5;
-  --color-text-secondary: #d4d4d8;
-  --color-text-tertiary: #a1a1aa;
-  --color-text-muted: #71717a;
+  --color-text-primary: #1a1f14;
+  --color-text-secondary: #3d4a30;
+  --color-text-tertiary: #6b7d5a;
+  --color-text-muted: #9aaa88;
 
-  --color-border: #27272a;
-  --color-border-light: #1f1f26;
+  --color-border: rgba(124, 179, 66, 0.15);
+  --color-border-hover: rgba(124, 179, 66, 0.3);
+  --color-border-focus: rgba(124, 179, 66, 0.5);
 
-  --color-primary: #10b981;
-  --color-primary-light: rgba(16, 185, 129, 0.15);
-  --color-primary-dark: #059669;
-
-  --color-danger: #f87171;
-  --color-danger-light: rgba(239, 68, 68, 0.15);
-
-  --color-success: #4ade80;
-  --color-success-light: rgba(34, 197, 94, 0.15);
-
-  --color-warning: #fbbf24;
-  --color-warning-light: rgba(245, 158, 11, 0.15);
-
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --shadow-glow-primary: 0 0 20px rgba(139, 195, 74, 0.2);
+  --shadow-glow-accent: 0 0 20px rgba(255, 179, 0, 0.15);
 }
 
-/* Base Styles */
+/* ── Base styles ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
+  margin: 0;
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
-  transition: background-color 0.3s, color 0.3s;
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Selection — organic glow */
+::selection {
+  background: var(--color-primary-light);
+  color: var(--color-text-primary);
+}
+
+/* Scrollbar — minimal */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-hover);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }

@@ -94,8 +94,8 @@ function selectOption(option: Option, e: Event) {
 
 function clearSelection(e: Event) {
   e.stopPropagation()
-  emit('update:modelValue', '' as '')
-  emit('change', '' as '')
+  emit('update:modelValue', '' as const)
+  emit('change', '' as const)
   isOpen.value = false
 }
 
@@ -275,7 +275,7 @@ onUnmounted(() => {
 
 .custom-select:focus-within .select-trigger {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb, 99, 102, 241), 0.1);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb, 139, 195, 74), 0.1);
 }
 
 .custom-select.open .select-trigger {

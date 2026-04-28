@@ -30,9 +30,6 @@ func BatchCreate[T any](ctx context.Context, inputItems []T, db *gorm.DB) error 
 }
 
 func GetByID[T any](ctx context.Context, id int64, db *gorm.DB) (*T, error) {
-	//if id <= 0 {
-	//	return nil, errors.New("invalid id")
-	//}
 	item, err := gorm.G[T](db).Where("id = ?", id).First(ctx)
 	if err != nil {
 		return nil, err
@@ -53,6 +50,13 @@ func GetByKey[T any](ctx context.Context, filterKey string, filterVal string, db
 		return nil, err
 	}
 	return &item, nil
+}
+
+func GetSomeByKey[T any](ctx context.Context, filterKey string, filterVal string, db *gorm.DB) ([]T, error) {
+	if filterKey == "" {
+		return nil, errors.New("filterKey is required")
+	}
+	return gorm.G[T](db).Where(fmt.Sprintf("%s = ?", filterKey), filterVal).Find(ctx)
 }
 
 func GetByIDWithPreload[T any](ctx context.Context, id int64, db *gorm.DB, preload string, query func(db gorm.PreloadBuilder) error) (*T, error) {
@@ -76,20 +80,11 @@ func GetByIDWithPreloads[T any](ctx context.Context, id int64, db *gorm.DB, prel
 }
 
 func Update[T any](ctx context.Context, item *T, id int64, omits []string, db *gorm.DB) error {
-	//if item == nil {
-	//	return errors.New("item is nil")
-	//}
-	//if id <= 0 {
-	//	return errors.New("invalid id")
-	//}
 	_, err := gorm.G[T](db).Where("id = ?", id).Select("*").Omit(omits...).Updates(ctx, *item)
 	return err
 }
 
 func SetField[T any](ctx context.Context, field string, value any, id int64, db *gorm.DB) error {
-	//if id <= 0 {
-	//	return errors.New("invalid id")
-	//}
 	if field == "" {
 		return errors.New("field is required")
 	}

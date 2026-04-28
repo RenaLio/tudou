@@ -12,11 +12,20 @@ import (
 type TokenStatsRepo interface {
 	Upsert(ctx context.Context, stats *models.TokenStats) error
 	GetByTokenID(ctx context.Context, tokenID int64) (*models.TokenStats, error)
+	ListAll(ctx context.Context) ([]*models.TokenStats, error)
 	ListByTokenIDs(ctx context.Context, tokenIDs []int64) ([]*models.TokenStats, error)
 }
 
 type tokenStatsRepo struct {
 	*Repository
+}
+
+func (r *tokenStatsRepo) ListAll(ctx context.Context) ([]*models.TokenStats, error) {
+	items := make([]*models.TokenStats, 0)
+	if err := r.DB(ctx).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func NewTokenStatsRepo(r *Repository) TokenStatsRepo {

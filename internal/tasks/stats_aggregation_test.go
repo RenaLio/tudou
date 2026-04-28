@@ -140,18 +140,18 @@ func TestAggregateRequestLogs_UsesUTCForDailyAndHourly(t *testing.T) {
 			Status:       models.RequestStatusSuccess,
 			TTFT:         10,
 			TransferTime: 100,
-			CreatedAt:    time.Date(2026, 5, 1, 0, 5, 0, 0, cst), // UTC => 2026-04-30 16:05
+			CreatedAt:    time.Date(2026, 5, 1, 0, 5, 0, 0, cst), // 2026-04-30 16:05
 		},
 	}
 
 	snapshot := aggregateRequestLogs(logs, func() int64 { return 10001 })
 	day := findDailyStat(snapshot.UserUsageDailyStats, 3, "2026-04-30")
 	if day == nil {
-		t.Fatal("expected UTC daily stats key 2026-04-30")
+		t.Fatal("expected  daily stats key 2026-04-30")
 	}
 	hour := findHourlyStat(snapshot.UserUsageHourlyStats, 3, "2026-04-30", 16)
 	if hour == nil {
-		t.Fatal("expected UTC hourly stats key 16")
+		t.Fatal("expected  hourly stats key 16")
 	}
 }
 
@@ -214,4 +214,3 @@ func findHourlyStat(items []*models.UserUsageHourlyStats, userID int64, date str
 	}
 	return nil
 }
-

@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"errors"
-	"strconv"
 	"strings"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
@@ -14,18 +13,27 @@ import (
 
 type StatsService interface {
 	GetChannelStatsByChannelID(ctx context.Context, channelID int64) (*v1.ChannelStatsResponse, error)
-	ListChannelStats(ctx context.Context) ([]v1.ChannelStatsResponse, error)
+	ListAllChannelStats(ctx context.Context) ([]v1.ChannelStatsResponse, error)
+	ListChannelModelStatsByChannelID(ctx context.Context, channelID int64) ([]v1.ChannelModelStatsResponse, error)
+	GetChannelModelStats(ctx context.Context, channelID int64, model string) (*v1.ChannelModelStatsResponse, error)
+	GetTokenStatsByTokenID(ctx context.Context, tokenID int64) (*v1.TokenStatsResponse, error)
+	ListAllTokenStats(ctx context.Context) ([]v1.TokenStatsResponse, error)
+	GetUserStatsByUserID(ctx context.Context, userID int64) (*v1.UserStatsResponse, error)
+	ListUserUsageDailyStats(ctx context.Context, req v1.ListUserUsageDailyStatsRequest) (*v1.ListResponse[v1.UserUsageDailyStatsResponse], error)
+	ListUserUsageHourlyStats(ctx context.Context, req v1.ListUserUsageHourlyStatsRequest) (*v1.ListResponse[v1.UserUsageHourlyStatsResponse], error)
 }
+
+var _ StatsService = (*service.StatsService)(nil) // Ensure StatsService is implemented by service.StatsService
 
 type StatsHandler struct {
 	*Handler
-	StatsService service.StatsService
+	svc StatsService
 }
 
-func NewStatsHandler(base *Handler, statsService service.StatsService) *StatsHandler {
+func NewStatsHandler(base *Handler, statsService StatsService) *StatsHandler {
 	return &StatsHandler{
-		Handler:      base,
-		StatsService: statsService,
+		Handler: base,
+		svc:     statsService,
 	}
 }
 
@@ -34,7 +42,7 @@ func (h *StatsHandler) RegisterRoutes(r gin.IRouter) {
 
 	// 渠道统计（只读）
 	stats.GET("/channel/:channelID", h.GetChannelStatsByChannelID)
-	stats.GET("/channel", h.ListChannelStatsByChannelIDs)
+	stats.GET("/channel", h.ListAllChannelStats)
 	stats.GET("/channel/:channelID/model", h.ListChannelModelStatsByChannelID)
 	stats.GET("/channel/:channelID/model/:model", h.GetChannelModelStats)
 
@@ -44,11 +52,9 @@ func (h *StatsHandler) RegisterRoutes(r gin.IRouter) {
 
 	// 用户统计（只读）
 	stats.GET("/user/:userID", h.GetUserStatsByUserID)
-	stats.GET("/user", h.ListUserStatsByUserIDs)
 	stats.GET("/user/usage/daily", h.ListUserUsageDailyStats)
-	stats.GET("/user/:userID/usage/daily/:date", h.GetUserUsageDailyStatsByUserDate)
 	stats.GET("/user/usage/hourly", h.ListUserUsageHourlyStats)
-	stats.GET("/user/:userID/usage/hourly/:date/:hour", h.GetUserUsageHourlyStatsByUserDateHour)
+
 }
 
 func (h *StatsHandler) GetChannelStatsByChannelID(ctx *gin.Context) {
@@ -56,7 +62,7 @@ func (h *StatsHandler) GetChannelStatsByChannelID(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	resp, err := h.StatsService.GetChannelStatsByChannelID(ctx.Request.Context(), channelID)
+	resp, err := h.svc.GetChannelStatsByChannelID(ctx.Request.Context(), channelID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			HandleNotFound(ctx)
@@ -68,12 +74,8 @@ func (h *StatsHandler) GetChannelStatsByChannelID(ctx *gin.Context) {
 	v1.Success(ctx, resp)
 }
 
-func (h *StatsHandler) ListChannelStatsByChannelIDs(ctx *gin.Context) {
-	ids, ok := parseIDListQuery(ctx, "ids")
-	if !ok {
-		return
-	}
-	resp, err := h.StatsService.ListChannelStatsByChannelIDs(ctx.Request.Context(), ids)
+func (h *StatsHandler) ListAllChannelStats(ctx *gin.Context) {
+	resp, err := h.svc.ListAllChannelStats(ctx.Request.Context())
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -91,7 +93,7 @@ func (h *StatsHandler) GetChannelModelStats(ctx *gin.Context) {
 		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("model is required"), nil)
 		return
 	}
-	resp, err := h.StatsService.GetChannelModelStats(ctx.Request.Context(), channelID, model)
+	resp, err := h.svc.GetChannelModelStats(ctx.Request.Context(), channelID, model)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			HandleNotFound(ctx)
@@ -108,7 +110,7 @@ func (h *StatsHandler) ListChannelModelStatsByChannelID(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	resp, err := h.StatsService.ListChannelModelStatsByChannelID(ctx.Request.Context(), channelID)
+	resp, err := h.svc.ListChannelModelStatsByChannelID(ctx.Request.Context(), channelID)
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -121,7 +123,7 @@ func (h *StatsHandler) GetTokenStatsByTokenID(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	resp, err := h.StatsService.GetTokenStatsByTokenID(ctx.Request.Context(), tokenID)
+	resp, err := h.svc.GetTokenStatsByTokenID(ctx.Request.Context(), tokenID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			HandleNotFound(ctx)
@@ -134,11 +136,7 @@ func (h *StatsHandler) GetTokenStatsByTokenID(ctx *gin.Context) {
 }
 
 func (h *StatsHandler) ListTokenStatsByTokenIDs(ctx *gin.Context) {
-	ids, ok := parseIDListQuery(ctx, "ids")
-	if !ok {
-		return
-	}
-	resp, err := h.StatsService.ListTokenStatsByTokenIDs(ctx.Request.Context(), ids)
+	resp, err := h.svc.ListAllTokenStats(ctx.Request.Context())
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
@@ -151,42 +149,7 @@ func (h *StatsHandler) GetUserStatsByUserID(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	resp, err := h.StatsService.GetUserStatsByUserID(ctx.Request.Context(), userID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			HandleNotFound(ctx)
-			return
-		}
-		HandleServiceError(ctx, err)
-		return
-	}
-	v1.Success(ctx, resp)
-}
-
-func (h *StatsHandler) ListUserStatsByUserIDs(ctx *gin.Context) {
-	ids, ok := parseIDListQuery(ctx, "ids")
-	if !ok {
-		return
-	}
-	resp, err := h.StatsService.ListUserStatsByUserIDs(ctx.Request.Context(), ids)
-	if err != nil {
-		HandleServiceError(ctx, err)
-		return
-	}
-	v1.Success(ctx, resp)
-}
-
-func (h *StatsHandler) GetUserUsageDailyStatsByUserDate(ctx *gin.Context) {
-	userID, ok := h.ParseIDParam(ctx, "userID")
-	if !ok {
-		return
-	}
-	date := strings.TrimSpace(ctx.Param("date"))
-	if date == "" {
-		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("date is required"), nil)
-		return
-	}
-	resp, err := h.StatsService.GetUserUsageDailyStatsByUserDate(ctx.Request.Context(), userID, date)
+	resp, err := h.svc.GetUserStatsByUserID(ctx.Request.Context(), userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			HandleNotFound(ctx)
@@ -203,35 +166,8 @@ func (h *StatsHandler) ListUserUsageDailyStats(ctx *gin.Context) {
 	if !h.BindQuery(ctx, &req) {
 		return
 	}
-	resp, err := h.StatsService.ListUserUsageDailyStats(ctx.Request.Context(), req)
+	resp, err := h.svc.ListUserUsageDailyStats(ctx.Request.Context(), req)
 	if err != nil {
-		HandleServiceError(ctx, err)
-		return
-	}
-	v1.Success(ctx, resp)
-}
-
-func (h *StatsHandler) GetUserUsageHourlyStatsByUserDateHour(ctx *gin.Context) {
-	userID, ok := h.ParseIDParam(ctx, "userID")
-	if !ok {
-		return
-	}
-	date := strings.TrimSpace(ctx.Param("date"))
-	if date == "" {
-		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("date is required"), nil)
-		return
-	}
-	hour, err := strconv.Atoi(strings.TrimSpace(ctx.Param("hour")))
-	if err != nil || hour < 0 || hour > 23 {
-		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("invalid hour"), nil)
-		return
-	}
-	resp, err := h.StatsService.GetUserUsageHourlyStatsByUserDateHour(ctx.Request.Context(), userID, date, hour)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			HandleNotFound(ctx)
-			return
-		}
 		HandleServiceError(ctx, err)
 		return
 	}
@@ -243,37 +179,10 @@ func (h *StatsHandler) ListUserUsageHourlyStats(ctx *gin.Context) {
 	if !h.BindQuery(ctx, &req) {
 		return
 	}
-	resp, err := h.StatsService.ListUserUsageHourlyStats(ctx.Request.Context(), req)
+	resp, err := h.svc.ListUserUsageHourlyStats(ctx.Request.Context(), req)
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}
 	v1.Success(ctx, resp)
-}
-
-func parseIDListQuery(ctx *gin.Context, key string) ([]int64, bool) {
-	raw := strings.TrimSpace(ctx.Query(key))
-	if raw == "" {
-		v1.Fail(ctx, v1.ErrBadRequest.WithMessage(key+" is required"), nil)
-		return nil, false
-	}
-	parts := strings.Split(raw, ",")
-	ids := make([]int64, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		id, err := strconv.ParseInt(part, 10, 64)
-		if err != nil || id <= 0 {
-			v1.Fail(ctx, v1.ErrBadRequest.WithMessage("invalid ids"), nil)
-			return nil, false
-		}
-		ids = append(ids, id)
-	}
-	if len(ids) == 0 {
-		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("invalid ids"), nil)
-		return nil, false
-	}
-	return ids, true
 }

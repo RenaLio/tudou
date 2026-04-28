@@ -1436,8 +1436,8 @@ onMounted(() => {
     font-size: 0.75rem;
 
     &.system {
-      background: rgba(99, 102, 241, 0.08);
-      border-color: rgba(99, 102, 241, 0.3);
+      background: rgba(139, 195, 74, 0.08);
+      border-color: rgba(139, 195, 74, 0.3);
       color: var(--color-primary);
 
       &:hover {
@@ -1451,8 +1451,8 @@ onMounted(() => {
     }
 
     &.custom {
-      background: rgba(245, 158, 11, 0.08);
-      border-color: rgba(245, 158, 11, 0.3);
+      background: rgba(255, 213, 79, 0.08);
+      border-color: rgba(255, 213, 79, 0.3);
       color: var(--color-warning);
       display: flex;
       align-items: center;
@@ -1467,7 +1467,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(245, 158, 11, 0.2);
+  background: rgba(255, 213, 79, 0.2);
   border: none;
   border-radius: 50%;
   color: var(--color-warning);
@@ -1509,7 +1509,7 @@ onMounted(() => {
   }
 
   &.custom {
-    background: rgba(245, 158, 11, 0.15);
+    background: rgba(255, 213, 79, 0.15);
     color: var(--color-warning);
   }
 }

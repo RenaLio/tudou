@@ -71,6 +71,7 @@ var serviceSet = wire.NewSet(
 	service.NewSystemConfigService,
 	service.NewRelayService,
 	service.NewStatsService,
+	wire.Bind(new(handler.StatsService), new(*service.StatsService)),
 	service.NewRequestLogService,
 	wire.Bind(new(service.RequestLogService), new(*service.RequestLogServiceImpl)),
 	wire.Bind(new(service.RequestLogCreator), new(*service.RequestLogServiceImpl)),

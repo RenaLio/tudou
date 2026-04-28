@@ -148,8 +148,9 @@ func toObservationWindow3HResponse(window models.ObservationWindow3H) v1.Observa
 			RequestSuccess:            b.RequestSuccess,            // 成功请求数
 			RequestFailed:             b.RequestFailed,             // 失败请求数
 			TotalCostMicros:           b.TotalCostMicros,           // 总消耗 (微单位)
-			AvgTTFT:                   b.AvgTTFT,                   // 平均首token时间
-			AvgTPS:                    b.AvgTPS,                    // 平均输出tokens/秒
+			TotalCost:                 models.MoneyMicrosToFloat(b.TotalCostMicros),
+			AvgTTFT:                   b.AvgTTFT, // 平均首token时间
+			AvgTPS:                    b.AvgTPS,  // 平均输出tokens/秒
 		})
 	}
 	return resp // 返回转换后的响应

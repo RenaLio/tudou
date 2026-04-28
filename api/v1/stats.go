@@ -54,6 +54,7 @@ type ChannelModelStatsResponse struct {
 	RequestSuccess            int64                       `json:"requestSuccess"`
 	RequestFailed             int64                       `json:"requestFailed"`
 	TotalCostMicros           int64                       `json:"totalCostMicros"`
+	TotalCost                 float64                     `json:"totalCost"`
 	AvgTTFT                   int                         `json:"avgTTFT"`
 	AvgTPS                    float64                     `json:"avgTPS"`
 	Window3H                  ObservationWindow3HResponse `json:"window3h"`
@@ -75,6 +76,7 @@ type ObservationBucket15MResponse struct {
 	RequestSuccess            int64     `json:"requestSuccess"`
 	RequestFailed             int64     `json:"requestFailed"`
 	TotalCostMicros           int64     `json:"totalCostMicros"`
+	TotalCost                 float64   `json:"totalCost"`
 	AvgTTFT                   int       `json:"avgTTFT"`
 	AvgTPS                    float64   `json:"avgTPS"`
 }
@@ -91,14 +93,15 @@ type UpsertTokenStatsRequest struct {
 }
 
 type TokenStatsResponse struct {
-	TokenID                   int64 `json:"tokenID,string"`
-	InputToken                int64 `json:"inputToken"`
-	OutputToken               int64 `json:"outputToken"`
-	CachedCreationInputTokens int64 `json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64 `json:"cachedReadInputTokens"`
-	RequestSuccess            int64 `json:"requestSuccess"`
-	RequestFailed             int64 `json:"requestFailed"`
-	TotalCostMicros           int64 `json:"totalCostMicros"`
+	TokenID                   int64   `json:"tokenID,string"`
+	InputToken                int64   `json:"inputToken"`
+	OutputToken               int64   `json:"outputToken"`
+	CachedCreationInputTokens int64   `json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64   `json:"cachedReadInputTokens"`
+	RequestSuccess            int64   `json:"requestSuccess"`
+	RequestFailed             int64   `json:"requestFailed"`
+	TotalCostMicros           int64   `json:"totalCostMicros"`
+	TotalCost                 float64 `json:"totalCost"`
 }
 
 type UpsertUserStatsRequest struct {
@@ -113,41 +116,20 @@ type UpsertUserStatsRequest struct {
 }
 
 type UserStatsResponse struct {
-	UserID                    int64 `json:"userID,string"`
-	InputToken                int64 `json:"inputToken"`
-	OutputToken               int64 `json:"outputToken"`
-	CachedCreationInputTokens int64 `json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64 `json:"cachedReadInputTokens"`
-	RequestSuccess            int64 `json:"requestSuccess"`
-	RequestFailed             int64 `json:"requestFailed"`
-	TotalCostMicros           int64 `json:"totalCostMicros"`
+	UserID                    int64   `json:"userID,string"`
+	InputToken                int64   `json:"inputToken"`
+	OutputToken               int64   `json:"outputToken"`
+	CachedCreationInputTokens int64   `json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64   `json:"cachedReadInputTokens"`
+	RequestSuccess            int64   `json:"requestSuccess"`
+	RequestFailed             int64   `json:"requestFailed"`
+	TotalCostMicros           int64   `json:"totalCostMicros"`
+	TotalCost                 float64 `json:"totalCost"`
 }
 
 type UpsertUserUsageDailyStatsRequest struct {
-	UserID                    int64  `json:"userID,string" binding:"required"`
-	Date                      string `json:"date" binding:"required"`
-	InputToken                int64  `json:"inputToken"`
-	OutputToken               int64  `json:"outputToken"`
-	CachedCreationInputTokens int64  `json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64  `json:"cachedReadInputTokens"`
-	RequestSuccess            int64  `json:"requestSuccess"`
-	RequestFailed             int64  `json:"requestFailed"`
-	TotalCostMicros           int64  `json:"totalCostMicros"`
-}
-
-type ListUserUsageDailyStatsRequest struct {
-	Page     int    `form:"page"`
-	PageSize int    `form:"pageSize"`
-	OrderBy  string `form:"orderBy"`
-	UserID   int64  `form:"userID"`
-	DateFrom string `form:"dateFrom"`
-	DateTo   string `form:"dateTo"`
-}
-
-type UserUsageDailyStatsResponse struct {
-	ID                        int64     `json:"id,string"`
-	UserID                    int64     `json:"userID,string"`
-	Date                      string    `json:"date"`
+	UserID                    int64     `json:"userID,string" binding:"required"`
+	Date                      time.Time `json:"date" binding:"required"`
 	InputToken                int64     `json:"inputToken"`
 	OutputToken               int64     `json:"outputToken"`
 	CachedCreationInputTokens int64     `json:"cachedCreationInputTokens"`
@@ -155,38 +137,59 @@ type UserUsageDailyStatsResponse struct {
 	RequestSuccess            int64     `json:"requestSuccess"`
 	RequestFailed             int64     `json:"requestFailed"`
 	TotalCostMicros           int64     `json:"totalCostMicros"`
+}
+
+type ListUserUsageDailyStatsRequest struct {
+	Page      int        `form:"page"`
+	PageSize  int        `form:"pageSize"`
+	OrderBy   string     `form:"orderBy"`
+	UserID    int64      `form:"userID"`
+	StartTime *time.Time `form:"startTime"`
+	EndTime   *time.Time `form:"endTime"`
+}
+
+type UserUsageDailyStatsResponse struct {
+	ID                        int64     `json:"id,string"`
+	UserID                    int64     `json:"userID,string"`
+	Date                      time.Time `json:"date"`
+	InputToken                int64     `json:"inputToken"`
+	OutputToken               int64     `json:"outputToken"`
+	CachedCreationInputTokens int64     `json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64     `json:"cachedReadInputTokens"`
+	RequestSuccess            int64     `json:"requestSuccess"`
+	RequestFailed             int64     `json:"requestFailed"`
+	TotalCostMicros           int64     `json:"totalCostMicros"`
+	TotalCost                 float64   `json:"totalCost"`
 	CreatedAt                 time.Time `json:"createdAt"`
 	UpdatedAt                 time.Time `json:"updatedAt"`
 }
 
 type UpsertUserUsageHourlyStatsRequest struct {
-	UserID                    int64  `json:"userID,string" binding:"required"`
-	Date                      string `json:"date" binding:"required"`
-	Hour                      int    `json:"hour" binding:"required"`
-	InputToken                int64  `json:"inputToken"`
-	OutputToken               int64  `json:"outputToken"`
-	CachedCreationInputTokens int64  `json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64  `json:"cachedReadInputTokens"`
-	RequestSuccess            int64  `json:"requestSuccess"`
-	RequestFailed             int64  `json:"requestFailed"`
-	TotalCostMicros           int64  `json:"totalCostMicros"`
+	UserID                    int64     `json:"userID,string" binding:"required"`
+	Date                      time.Time `json:"date" binding:"required"`
+	Hour                      int       `json:"hour" binding:"required"`
+	InputToken                int64     `json:"inputToken"`
+	OutputToken               int64     `json:"outputToken"`
+	CachedCreationInputTokens int64     `json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64     `json:"cachedReadInputTokens"`
+	RequestSuccess            int64     `json:"requestSuccess"`
+	RequestFailed             int64     `json:"requestFailed"`
+	TotalCostMicros           int64     `json:"totalCostMicros"`
 }
 
 type ListUserUsageHourlyStatsRequest struct {
-	Page     int    `form:"page"`
-	PageSize int    `form:"pageSize"`
-	OrderBy  string `form:"orderBy"`
-	UserID   int64  `form:"userID"`
-	DateFrom string `form:"dateFrom"`
-	HourFrom int    `form:"hourFrom"`
-	DateTo   string `form:"dateTo"`
-	HourTo   int    `form:"hourTo"`
+	Page      int        `form:"page"`
+	PageSize  int        `form:"pageSize"`
+	OrderBy   string     `form:"orderBy"`
+	UserID    int64      `form:"userID"`
+	StartTime *time.Time `form:"startTime" time_format:"2006-01-02T15:04:05Z07:00"`
+	EndTime   *time.Time `form:"endTime" time_format:"2006-01-02T15:04:05Z07:00"`
 }
 
 type UserUsageHourlyStatsResponse struct {
 	ID                        int64     `json:"id,string"`
 	UserID                    int64     `json:"userID,string"`
-	Date                      string    `json:"date"`
+	Date                      time.Time `json:"date"`
 	Hour                      int       `json:"hour"`
 	InputToken                int64     `json:"inputToken"`
 	OutputToken               int64     `json:"outputToken"`
@@ -195,6 +198,7 @@ type UserUsageHourlyStatsResponse struct {
 	RequestSuccess            int64     `json:"requestSuccess"`
 	RequestFailed             int64     `json:"requestFailed"`
 	TotalCostMicros           int64     `json:"totalCostMicros"`
+	TotalCost                 float64   `json:"totalCost"`
 	CreatedAt                 time.Time `json:"createdAt"`
 	UpdatedAt                 time.Time `json:"updatedAt"`
 }

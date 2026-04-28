@@ -56,10 +56,6 @@ func (r *channelModelStatsRepo) Upsert(ctx context.Context, stats *models.Channe
 }
 
 func (r *channelModelStatsRepo) GetByChannelModel(ctx context.Context, channelID int64, model string) (*models.ChannelModelStats, error) {
-	model = strings.TrimSpace(model)
-	if channelID <= 0 || model == "" {
-		return nil, errors.New("invalid channel id or model")
-	}
 	stats := new(models.ChannelModelStats)
 	if err := r.DB(ctx).Where("channel_id = ? AND model = ?", channelID, model).First(stats).Error; err != nil {
 		return nil, err
@@ -68,10 +64,7 @@ func (r *channelModelStatsRepo) GetByChannelModel(ctx context.Context, channelID
 }
 
 func (r *channelModelStatsRepo) ListByChannelID(ctx context.Context, channelID int64) ([]*models.ChannelModelStats, error) {
-	if channelID <= 0 {
-		return nil, errors.New("invalid channel id")
-	}
-	items := make([]*models.ChannelModelStats, 0, 8)
+	items := make([]*models.ChannelModelStats, 0)
 	if err := r.DB(ctx).Where("channel_id = ?", channelID).Find(&items).Error; err != nil {
 		return nil, err
 	}

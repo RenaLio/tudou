@@ -697,11 +697,11 @@ onMounted(() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb, 99, 102, 241), 0.3);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb, 139, 195, 74), 0.3);
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(var(--color-primary-rgb, 99, 102, 241), 0.4);
+    box-shadow: 0 4px 16px rgba(var(--color-primary-rgb, 139, 195, 74), 0.4);
   }
 
   &:active {

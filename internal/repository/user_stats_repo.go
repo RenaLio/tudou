@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	"github.com/RenaLio/tudou/internal/models"
 	"gorm.io/gorm"
@@ -45,14 +46,7 @@ func (r *userStatsRepo) Upsert(ctx context.Context, stats *models.UserStats) err
 }
 
 func (r *userStatsRepo) GetByUserID(ctx context.Context, userID int64) (*models.UserStats, error) {
-	if userID <= 0 {
-		return nil, errors.New("invalid user id")
-	}
-	stats := new(models.UserStats)
-	if err := r.DB(ctx).Where("user_id = ?", userID).First(stats).Error; err != nil {
-		return nil, err
-	}
-	return stats, nil
+	return GetByKey[models.UserStats](ctx, "user_id", strconv.FormatInt(userID, 10), r.DB(ctx))
 }
 
 func (r *userStatsRepo) ListByUserIDs(ctx context.Context, userIDs []int64) ([]*models.UserStats, error) {

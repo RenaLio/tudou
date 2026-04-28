@@ -126,7 +126,7 @@ func newAsyncMetricsCollector(reg *loadbalancer.Registry) *loadbalancer.AsyncMet
 	return loadbalancer.NewAsyncMetricsCollector(reg, 1024)
 }
 
-var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService, service.NewStatsService, service.NewRequestLogService, wire.Bind(new(service.RequestLogService), new(*service.RequestLogServiceImpl)), wire.Bind(new(service.RequestLogCreator), new(*service.RequestLogServiceImpl)))
+var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService, service.NewStatsService, wire.Bind(new(handler.StatsService), new(*service.StatsService)), service.NewRequestLogService, wire.Bind(new(service.RequestLogService), new(*service.RequestLogServiceImpl)), wire.Bind(new(service.RequestLogCreator), new(*service.RequestLogServiceImpl)))
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handler.NewChannelHandler, handler.NewChannelGroupHandler, handler.NewTokenHandler, handler.NewUserHandler, handler.NewSystemConfigHandler, handler.NewStatsHandler, handler.NewRelayHandler, handler.NewRequestLogHandler, handler.NewDebugHelperHandler)
 
