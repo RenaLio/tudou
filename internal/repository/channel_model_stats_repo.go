@@ -83,8 +83,6 @@ func (r *channelModelStatsRepo) ListRequestLogsByChannelModelAndRange(ctx contex
 	if channelID <= 0 || model == "" {
 		return nil, errors.New("invalid channel id or model")
 	}
-	start = start.UTC()
-	end = end.UTC()
 	if !start.Before(end) {
 		return nil, errors.New("invalid range: start must be before end")
 	}
@@ -106,8 +104,6 @@ func (r *channelModelStatsRepo) ListRequestLogsByChannelAndRange(ctx context.Con
 	if channelID <= 0 {
 		return nil, errors.New("invalid channel id")
 	}
-	start = start.UTC()
-	end = end.UTC()
 	if !start.Before(end) {
 		return nil, errors.New("invalid range: start must be before end")
 	}

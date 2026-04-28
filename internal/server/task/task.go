@@ -151,7 +151,7 @@ func (t *TaskServer) Start(ctx context.Context) error {
 			t.logger.Info("task server stopped")
 			return nil
 		case <-ticker.C:
-			t.dispatchDueTasks(runCtx, time.Now().UTC())
+			t.dispatchDueTasks(runCtx, time.Now())
 		}
 	}
 }
@@ -241,7 +241,7 @@ func (t *TaskServer) UpdateTaskConfig(name string, cfg TaskConfig) error {
 	entry.state.AllowOverlap = cfg.AllowOverlap
 	if cfg.Enabled {
 		if entry.state.NextRunAt == nil || previous.Interval != cfg.Interval {
-			nextRunAt := time.Now().UTC().Add(cfg.Interval)
+			nextRunAt := time.Now().Add(cfg.Interval)
 			entry.state.NextRunAt = &nextRunAt
 		}
 	} else {
@@ -267,7 +267,7 @@ func (t *TaskServer) SetTaskEnabled(name string, enabled bool) error {
 	entry.config.Enabled = enabled
 	entry.state.Enabled = enabled
 	if enabled {
-		nextRunAt := time.Now().UTC().Add(entry.config.Interval)
+		nextRunAt := time.Now().Add(entry.config.Interval)
 		entry.state.NextRunAt = &nextRunAt
 	} else {
 		entry.state.NextRunAt = nil
@@ -296,7 +296,7 @@ func (t *TaskServer) SetTaskInterval(name string, interval time.Duration) error 
 	entry.config.Interval = interval
 	entry.state.Interval = interval
 	if entry.state.NextRunAt != nil {
-		nextRunAt := time.Now().UTC().Add(interval)
+		nextRunAt := time.Now().Add(interval)
 		entry.state.NextRunAt = &nextRunAt
 	}
 	return nil
@@ -387,7 +387,7 @@ func (t *TaskServer) executeTask(ctx context.Context, request taskRunRequest) {
 	defer cancel()
 
 	err := request.task.Run(runCtx)
-	finishedAt := time.Now().UTC()
+	finishedAt := time.Now()
 	duration := finishedAt.Sub(request.startedAt)
 
 	t.mu.Lock()
@@ -429,7 +429,7 @@ func buildEntry(task Task, cfg TaskConfig) (*taskEntry, error) {
 		return nil, ErrTaskNameEmpty
 	}
 
-	now := time.Now().UTC()
+	now := time.Now()
 
 	entry := &taskEntry{
 		task:   task,

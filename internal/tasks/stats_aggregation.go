@@ -230,10 +230,9 @@ func aggregateRequestLogs(logs []*models.RequestLog, nextID func() int64) *aggre
 
 		// 按用户每日、每小时维度聚合
 		if item.UserID > 0 {
-			//createdAtUTC := item.CreatedAt.UTC()      // 使用 UTC 时间
-			createdAtUTC := item.CreatedAt            // 使用 UTC 时间
-			date := createdAtUTC.Format("2006-01-02") // 格式化为日期字符串 yyyy-MM-dd
-			hour := createdAtUTC.Hour()               // 获取一天中的小时数(0-23)
+			createdAt := item.CreatedAt            // 使用记录时间
+			date := createdAt.Format("2006-01-02") // 格式化为日期字符串 yyyy-MM-dd
+			hour := createdAt.Hour()               // 获取一天中的小时数(0-23)
 
 			// 按日期维度
 			dKey := dailyKey{
@@ -450,7 +449,7 @@ func NewStatsAggregationTask(
 func sidIDGenerator(s *sid.Sid) func() int64 {
 	if s == nil {
 		return func() int64 {
-			return time.Now().UTC().UnixNano()
+			return time.Now().UnixNano()
 		}
 	}
 	return s.GenInt64
@@ -465,7 +464,6 @@ func (t *StatsAggregationTask) Run(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background() // 若未传入 context，使用默认背景 context
 	}
-	//startedAt := time.Now().UTC() // 记录任务开始时间
 	startedAt := time.Now() // 记录任务开始时间
 	now := startedAt
 
@@ -502,7 +500,7 @@ func (t *StatsAggregationTask) Run(ctx context.Context) error {
 	}
 	// 如果 ID 生成返回 0（如 sid 未初始化），则使用时间戳作为后备
 	if taskRecord.ID <= 0 {
-		taskRecord.ID = time.Now().UTC().UnixNano()
+		taskRecord.ID = time.Now().UnixNano()
 	}
 	// 检查仓库依赖
 	if t.aggregationTaskRepo == nil {
@@ -614,7 +612,6 @@ func (t *StatsAggregationTask) mergeAndPersistSnapshot(
 			return err
 		}
 		// 3. 更新任务记录为已完成
-		//finishedAt := time.Now().UTC()
 		finishedAt := time.Now()
 		taskRecord.Status = int8(models.AggregationTaskStatusDone)
 		taskRecord.ErrorMsg = ""
@@ -626,7 +623,6 @@ func (t *StatsAggregationTask) mergeAndPersistSnapshot(
 	}
 
 	// 事务失败，记录失败状态
-	//failedAt := time.Now().UTC()
 	failedAt := time.Now()
 	taskRecord.Status = int8(models.AggregationTaskStatusFailed)
 	taskRecord.RetryCount++             // 增加重试次数
@@ -1047,7 +1043,6 @@ func (t *StatsAggregationTask) updateRuntimeState(
 	taskID int64,
 	runErr error,
 ) {
-	//finishedAt := time.Now().UTC()
 	finishedAt := time.Now()
 
 	t.mu.Lock()
@@ -1125,7 +1120,6 @@ func buildObservationWindow3H(now time.Time, logs []*models.RequestLog) models.O
 		if item == nil {
 			continue
 		}
-		//createdAt := item.CreatedAt.UTC()
 		createdAt := item.CreatedAt
 		if createdAt.Before(windowStart) || !createdAt.Before(windowEnd) {
 			continue
@@ -1156,7 +1150,6 @@ func buildObservationWindow3H(now time.Time, logs []*models.RequestLog) models.O
 
 func observationWindowRange(now time.Time) (time.Time, time.Time) {
 	bucketDuration := time.Duration(models.ObservationBucket15MMinutes) * time.Minute
-	//alignedBucketStart := now.UTC().Truncate(bucketDuration)
 	alignedBucketStart := now.Truncate(bucketDuration)
 	windowStart := alignedBucketStart.Add(-time.Duration(models.ObservationBucketCount-1) * bucketDuration)
 	windowEnd := alignedBucketStart.Add(bucketDuration)

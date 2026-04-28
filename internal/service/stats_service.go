@@ -94,7 +94,7 @@ func (s *statsService) GetChannelStatsByChannelID(ctx context.Context, channelID
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now().UTC()
+	now := time.Now()
 	windowStart, windowEnd := observationWindowRange(now)
 	logs, err := s.channelStatsRepo.ListRequestLogsByChannelIDsAndRange(ctx, []int64{channelID}, windowStart, windowEnd)
 	if err != nil {
@@ -111,7 +111,7 @@ func (s *statsService) ListChannelStatsByChannelIDs(ctx context.Context, channel
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now().UTC()
+	now := time.Now()
 	windowStart, windowEnd := observationWindowRange(now)
 	idList := make([]int64, 0, len(items))
 	for _, item := range items {
@@ -174,7 +174,7 @@ func (s *statsService) GetChannelModelStats(ctx context.Context, channelID int64
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now().UTC()
+	now := time.Now()
 	windowStart, windowEnd := observationWindowRange(now)
 	logs, err := s.channelModelStatsRepo.ListRequestLogsByChannelModelAndRange(ctx, channelID, model, windowStart, windowEnd)
 	if err != nil {
@@ -191,7 +191,7 @@ func (s *statsService) ListChannelModelStatsByChannelID(ctx context.Context, cha
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now().UTC()
+	now := time.Now()
 	windowStart, windowEnd := observationWindowRange(now)
 	logs, err := s.channelModelStatsRepo.ListRequestLogsByChannelAndRange(ctx, channelID, windowStart, windowEnd)
 	if err != nil {

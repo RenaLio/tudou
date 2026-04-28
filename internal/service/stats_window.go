@@ -52,7 +52,6 @@ func buildObservationWindow3H(now time.Time, logs []*models.RequestLog) models.O
 		if log == nil {
 			continue // 跳过空日志
 		}
-		//createdAt := log.CreatedAt.UTC() // 统一使用UTC时间比较
 		createdAt := log.CreatedAt
 		// 如果日志时间不在 [windowStart, windowEnd) 范围内，则忽略这条日志
 		if createdAt.Before(windowStart) || !createdAt.Before(windowEnd) {
@@ -120,7 +119,6 @@ func buildObservationWindow3H(now time.Time, logs []*models.RequestLog) models.O
 // 窗口结束时间为当前时间所在桶的结束时间，开始时间为结束时间向前推3小时
 func observationWindowRange(now time.Time) (time.Time, time.Time) {
 	// 将当前时间向下对齐到15分钟桶的起点（如 10:07 对齐到 10:00）
-	//alignedBucketStart := now.UTC().Truncate(bucketDuration)
 	alignedBucketStart := now.Truncate(bucketDuration)
 	// 窗口开始时间 = 对齐后的桶起点 - (12-1) * 15分钟 = 对齐桶起点 - 2小时45分钟
 	// 这样得到的窗口正好包含12个完整桶（如 [07:00, 10:00) 共3小时）
