@@ -24,6 +24,7 @@ type ChannelStatsResponse struct {
 	RequestSuccess            int64                       `json:"requestSuccess"`
 	RequestFailed             int64                       `json:"requestFailed"`
 	TotalCostMicros           int64                       `json:"totalCostMicros"`
+	TotalCost                 float64                     `json:"totalCost"`
 	AvgTTFT                   int                         `json:"avgTTFT"`
 	AvgTPS                    float64                     `json:"avgTPS"`
 	Window3H                  ObservationWindow3HResponse `json:"window3h"`

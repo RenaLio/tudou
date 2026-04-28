@@ -13,14 +13,14 @@ func GetMoneyMicrosPerUnit() int64 {
 	return moneyMicrosPerUnit
 }
 
-func moneyFloatToMicros(amount float64) int64 {
+func MoneyFloatToMicros(amount float64) int64 {
 	return int64(math.Round(amount * float64(moneyMicrosPerUnit)))
 }
 
-func moneyMicrosToFloat(amountMicros int64) float64 {
+func MoneyMicrosToFloat(amountMicros int64) float64 {
 	return float64(amountMicros) / float64(moneyMicrosPerUnit)
 }
 
 func pricingPerMillionToMicros(price float64) int64 {
-	return moneyFloatToMicros(price)
+	return MoneyFloatToMicros(price)
 }

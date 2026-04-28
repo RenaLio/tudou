@@ -30,8 +30,6 @@ const (
 // UserSettings 用户配置
 type UserSettings struct {
 	Theme       string `json:"theme,omitempty"`       // 主题
-	Language    string `json:"language,omitempty"`    // 语言
-	Timezone    string `json:"timezone,omitempty"`    // 时区
 	NotifyEmail bool   `json:"notifyEmail,omitempty"` // 邮件通知
 	NotifySMS   bool   `json:"notifySMS,omitempty"`   // 短信通知
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -10,6 +11,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+type StatsService interface {
+	GetChannelStatsByChannelID(ctx context.Context, channelID int64) (*v1.ChannelStatsResponse, error)
+	ListChannelStats(ctx context.Context) ([]v1.ChannelStatsResponse, error)
+}
 
 type StatsHandler struct {
 	*Handler

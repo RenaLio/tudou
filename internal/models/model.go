@@ -73,7 +73,7 @@ func (m *AIModel) CalculateByTokensDetailedMicros(inputTokens, outputTokens, cac
 
 // CalculateByRequestMicros 按次计费（返回 micros）
 func (m *AIModel) CalculateByRequestMicros() int64 {
-	return moneyFloatToMicros(m.Pricing.PerRequestPrice)
+	return MoneyFloatToMicros(m.Pricing.PerRequestPrice)
 }
 
 // CalculateByRequestDetailedMicros 按次计费（返回详细 breakdown，单位 micros）
