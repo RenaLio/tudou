@@ -41,7 +41,7 @@ func GetByIDs[T any](ctx context.Context, ids []int64, db *gorm.DB) ([]T, error)
 	return gorm.G[T](db).Where("id IN ?", ids).Find(ctx)
 }
 
-func GetByKey[T any](ctx context.Context, filterKey string, filterVal string, db *gorm.DB) (*T, error) {
+func GetByKey[T any](ctx context.Context, filterKey string, filterVal any, db *gorm.DB) (*T, error) {
 	if filterKey == "" {
 		return nil, errors.New("filterKey is required")
 	}

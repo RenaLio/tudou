@@ -84,18 +84,20 @@ type ObservationBucket15MResponse struct {
 }
 
 type UpsertTokenStatsRequest struct {
-	TokenID                   int64 `json:"tokenID,string" binding:"required"`
-	InputToken                int64 `json:"inputToken"`
-	OutputToken               int64 `json:"outputToken"`
-	CachedCreationInputTokens int64 `json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64 `json:"cachedReadInputTokens"`
-	RequestSuccess            int64 `json:"requestSuccess"`
-	RequestFailed             int64 `json:"requestFailed"`
-	TotalCostMicros           int64 `json:"totalCostMicros"`
+	TokenID                   int64  `json:"tokenID,string" binding:"required"`
+	TokenName                 string `json:"tokenName"`
+	InputToken                int64  `json:"inputToken"`
+	OutputToken               int64  `json:"outputToken"`
+	CachedCreationInputTokens int64  `json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64  `json:"cachedReadInputTokens"`
+	RequestSuccess            int64  `json:"requestSuccess"`
+	RequestFailed             int64  `json:"requestFailed"`
+	TotalCostMicros           int64  `json:"totalCostMicros"`
 }
 
 type TokenStatsResponse struct {
 	TokenID                   int64   `json:"tokenID,string"`
+	TokenName                 string  `json:"tokenName"`
 	InputToken                int64   `json:"inputToken"`
 	OutputToken               int64   `json:"outputToken"`
 	CachedCreationInputTokens int64   `json:"cachedCreationInputTokens"`

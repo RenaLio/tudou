@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/RenaLio/tudou/internal/models"
@@ -61,7 +62,7 @@ func (r *channelStatsRepo) Upsert(ctx context.Context, stats *models.ChannelStat
 }
 
 func (r *channelStatsRepo) GetByChannelID(ctx context.Context, channelID int64) (*models.ChannelStats, error) {
-	return GetByKey[models.ChannelStats](ctx, "channel_id", string(channelID), r.DB(ctx))
+	return GetByKey[models.ChannelStats](ctx, "channel_id", strconv.FormatInt(channelID, 10), r.DB(ctx))
 }
 
 func (r *channelStatsRepo) ListByChannelIDs(ctx context.Context, channelIDs []int64) ([]*models.ChannelStats, error) {

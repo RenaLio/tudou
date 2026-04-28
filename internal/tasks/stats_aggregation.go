@@ -212,11 +212,15 @@ func aggregateRequestLogs(logs []*models.RequestLog, nextID func() int64) *aggre
 
 		// 按 Token 维度聚合
 		if item.TokenID > 0 {
+			tokenName := strings.TrimSpace(item.TokenName)
 			if _, exists := tokenStatsMap[item.TokenID]; !exists {
 				tokenStatsMap[item.TokenID] = &models.TokenStats{
-					TokenID: item.TokenID,
+					TokenID:   item.TokenID,
+					TokenName: tokenName,
 				}
 				tokenCounterMap[item.TokenID] = &statsCounter{}
+			} else if tokenName != "" && tokenStatsMap[item.TokenID].TokenName == "" {
+				tokenStatsMap[item.TokenID].TokenName = tokenName
 			}
 			tokenCounterMap[item.TokenID].add(item)
 		}
@@ -1061,6 +1065,9 @@ func (t *StatsAggregationTask) mergeTokenStats(ctx context.Context, delta *model
 		existing = &models.TokenStats{
 			TokenID: delta.TokenID,
 		}
+	}
+	if tokenName := strings.TrimSpace(delta.TokenName); tokenName != "" {
+		existing.TokenName = tokenName
 	}
 
 	existing.InputToken += delta.InputToken

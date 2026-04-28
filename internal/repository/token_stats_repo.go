@@ -42,6 +42,7 @@ func (r *tokenStatsRepo) Upsert(ctx context.Context, stats *models.TokenStats) e
 	return r.DB(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "token_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
+			"token_name",
 			"input_token",
 			"output_token",
 			"cached_creation_input_tokens",

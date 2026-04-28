@@ -199,6 +199,7 @@ func (s *StatsService) UpsertTokenStats(ctx context.Context, req v1.UpsertTokenS
 	}
 	stats := &models.TokenStats{
 		TokenID:                   req.TokenID,
+		TokenName:                 strings.TrimSpace(req.TokenName),
 		InputToken:                req.InputToken,
 		OutputToken:               req.OutputToken,
 		CachedCreationInputTokens: req.CachedCreationInputTokens,
@@ -500,6 +501,7 @@ func toTokenStatsResponse(stats *models.TokenStats) v1.TokenStatsResponse {
 	}
 	return v1.TokenStatsResponse{
 		TokenID:                   stats.TokenID,
+		TokenName:                 stats.TokenName,
 		InputToken:                stats.InputToken,
 		OutputToken:               stats.OutputToken,
 		CachedCreationInputTokens: stats.CachedCreationInputTokens,

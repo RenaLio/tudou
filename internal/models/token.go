@@ -117,12 +117,13 @@ const (
 )
 
 type TokenStats struct {
-	TokenID                   int64 `gorm:"column:token_id;primaryKey;uniqueIndex" json:"tokenID"`
-	InputToken                int64 `gorm:"column:input_token;type:bigint;default:0;comment:输入token数" json:"inputToken"`
-	OutputToken               int64 `gorm:"column:output_token;type:bigint;default:0;comment:输出token数" json:"outputToken"`
-	CachedCreationInputTokens int64 `gorm:"column:cached_creation_input_tokens;type:bigint;default:0;comment:缓存创建输入token数" json:"cachedCreationInputTokens"`
-	CachedReadInputTokens     int64 `gorm:"column:cached_read_input_tokens;type:bigint;default:0;comment:缓存读取输入token数" json:"cachedReadInputTokens"`
-	RequestSuccess            int64 `gorm:"column:request_success;type:bigint;default:0;comment:请求成功数" json:"requestSuccess"`
-	RequestFailed             int64 `gorm:"column:request_failed;type:bigint;default:0;comment:请求失败数" json:"requestFailed"`
-	TotalCostMicros           int64 `gorm:"column:total_cost_micros;type:bigint;default:0;comment:总成本，单位 micros" json:"totalCostMicros"`
+	TokenID                   int64  `gorm:"column:token_id;primaryKey;uniqueIndex" json:"tokenID"`
+	TokenName                 string `gorm:"column:token_name;type:varchar(256)" json:"tokenName"`
+	InputToken                int64  `gorm:"column:input_token;type:bigint;default:0;comment:输入token数" json:"inputToken"`
+	OutputToken               int64  `gorm:"column:output_token;type:bigint;default:0;comment:输出token数" json:"outputToken"`
+	CachedCreationInputTokens int64  `gorm:"column:cached_creation_input_tokens;type:bigint;default:0;comment:缓存创建输入token数" json:"cachedCreationInputTokens"`
+	CachedReadInputTokens     int64  `gorm:"column:cached_read_input_tokens;type:bigint;default:0;comment:缓存读取输入token数" json:"cachedReadInputTokens"`
+	RequestSuccess            int64  `gorm:"column:request_success;type:bigint;default:0;comment:请求成功数" json:"requestSuccess"`
+	RequestFailed             int64  `gorm:"column:request_failed;type:bigint;default:0;comment:请求失败数" json:"requestFailed"`
+	TotalCostMicros           int64  `gorm:"column:total_cost_micros;type:bigint;default:0;comment:总成本，单位 micros" json:"totalCostMicros"`
 }

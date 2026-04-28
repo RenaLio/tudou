@@ -209,6 +209,54 @@ func TestMergeChannelStats_EmptyDeltaChannelNameKeepsExisting(t *testing.T) {
 	}
 }
 
+func TestAggregateRequestLogs_TokenName(t *testing.T) {
+	logs := []*models.RequestLog{
+		{
+			TokenID:   201,
+			TokenName: "",
+			Status:    models.RequestStatusSuccess,
+		},
+		{
+			TokenID:   201,
+			TokenName: "token-a",
+			Status:    models.RequestStatusSuccess,
+		},
+	}
+
+	snapshot := aggregateRequestLogs(logs, nil)
+	if len(snapshot.TokenStats) != 1 {
+		t.Fatalf("expected 1 token stat, got %d", len(snapshot.TokenStats))
+	}
+	if snapshot.TokenStats[0].TokenName != "token-a" {
+		t.Fatalf("unexpected token name: %+v", snapshot.TokenStats[0].TokenName)
+	}
+}
+
+func TestMergeTokenStats_EmptyDeltaTokenNameKeepsExisting(t *testing.T) {
+	tokenID := int64(201)
+	repo := &testTokenStatsRepo{
+		statsByTokenID: map[int64]*models.TokenStats{
+			tokenID: {
+				TokenID:   tokenID,
+				TokenName: "existing-token",
+			},
+		},
+	}
+	task := &StatsAggregationTask{
+		tokenStatsRepo: repo,
+	}
+	merged, err := task.mergeTokenStats(context.Background(), &models.TokenStats{
+		TokenID:   tokenID,
+		TokenName: "",
+	})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+	if merged.TokenName != "existing-token" {
+		t.Fatalf("expected existing token name to be kept, got %q", merged.TokenName)
+	}
+}
+
 func findChannelModelStat(items []*models.ChannelModelStats, channelID int64, model string) *models.ChannelModelStats {
 	for _, item := range items {
 		if item == nil {
@@ -541,4 +589,48 @@ func (r *testChannelModelStatsRepo) ListRequestLogsByChannelModelAndRange(ctx co
 
 func (r *testChannelModelStatsRepo) ListRequestLogsByChannelAndRange(ctx context.Context, channelID int64, start, end time.Time) ([]*models.RequestLog, error) {
 	return nil, nil
+}
+
+type testTokenStatsRepo struct {
+	statsByTokenID map[int64]*models.TokenStats
+}
+
+func (r *testTokenStatsRepo) Upsert(ctx context.Context, stats *models.TokenStats) error {
+	if stats == nil {
+		return errors.New("token stats is nil")
+	}
+	if r.statsByTokenID == nil {
+		r.statsByTokenID = make(map[int64]*models.TokenStats)
+	}
+	cloned := *stats
+	r.statsByTokenID[stats.TokenID] = &cloned
+	return nil
+}
+
+func (r *testTokenStatsRepo) GetByTokenID(ctx context.Context, tokenID int64) (*models.TokenStats, error) {
+	if item, ok := r.statsByTokenID[tokenID]; ok {
+		cloned := *item
+		return &cloned, nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (r *testTokenStatsRepo) ListAll(ctx context.Context) ([]*models.TokenStats, error) {
+	items := make([]*models.TokenStats, 0, len(r.statsByTokenID))
+	for _, item := range r.statsByTokenID {
+		cloned := *item
+		items = append(items, &cloned)
+	}
+	return items, nil
+}
+
+func (r *testTokenStatsRepo) ListByTokenIDs(ctx context.Context, tokenIDs []int64) ([]*models.TokenStats, error) {
+	items := make([]*models.TokenStats, 0, len(tokenIDs))
+	for _, id := range tokenIDs {
+		if item, ok := r.statsByTokenID[id]; ok {
+			cloned := *item
+			items = append(items, &cloned)
+		}
+	}
+	return items, nil
 }
