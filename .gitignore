@@ -33,5 +33,6 @@ go.work.sum
 .gocache/
 ai_docs/
 storage/*
-web/*
+.DS_Store
+
 

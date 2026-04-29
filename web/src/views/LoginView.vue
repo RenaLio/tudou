@@ -3,6 +3,9 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { login } from '@/api/auth'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppInput from '@/components/ui/AppInput.vue'
+import AppFormField from '@/components/ui/AppFormField.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -19,7 +22,6 @@ let animFrame: number
 
 onMounted(() => {
   initCanvas()
-  // Staggered reveal
   setTimeout(() => { showForm.value = true }, 400)
 })
 
@@ -31,13 +33,12 @@ function initCanvas() {
   const canvas = canvasRef.value
   if (!canvas) return
 
-  const ctx = canvas.getContext('2d')
+  const ctx = canvas.getContext('2d')!
   if (!ctx) return
 
   let w = canvas.width = window.innerWidth
   let h = canvas.height = window.innerHeight
 
-  // Network nodes — like root system junctions
   const nodeCount = Math.floor((w * h) / 25000)
   const nodes: {
     x: number
@@ -79,40 +80,35 @@ function initCanvas() {
   function draw() {
     ctx.clearRect(0, 0, w, h)
 
-    // Deep underground gradient
     const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h))
     grad.addColorStop(0, 'rgba(13, 20, 13, 0)')
     grad.addColorStop(1, 'rgba(8, 12, 8, 0.4)')
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, w, h)
 
-    // Update and draw connections
     const connectDist = 160
     for (let i = 0; i < nodes.length; i++) {
-      const a = nodes[i]
+      const a = nodes[i]!
       a.x += a.vx
       a.y += a.vy
       a.pulsePhase += a.pulseSpeed
 
-      // Wrap around
       if (a.x < -10) a.x = w + 10
       if (a.x > w + 10) a.x = -10
       if (a.y < -10) a.y = h + 10
       if (a.y > h + 10) a.y = -10
 
-      // Mouse attraction (subtle)
       const dMouse = Math.hypot(a.x - mouseX, a.y - mouseY)
       if (dMouse < 200) {
         const force = (200 - dMouse) / 200 * 0.02
         a.vx += (mouseX - a.x) / dMouse * force
         a.vy += (mouseY - a.y) / dMouse * force
-        // Dampen
         a.vx *= 0.99
         a.vy *= 0.99
       }
 
       for (let j = i + 1; j < nodes.length; j++) {
-        const b = nodes[j]
+        const b = nodes[j]!
         const dx = a.x - b.x
         const dy = a.y - b.y
         const dist = Math.hypot(dx, dy)
@@ -132,12 +128,10 @@ function initCanvas() {
       }
     }
 
-    // Draw nodes
     for (const n of nodes) {
       const pulse = (Math.sin(n.pulsePhase) + 1) / 2
       const glowRadius = n.radius * (2 + pulse * 2)
 
-      // Glow
       const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowRadius)
       glow.addColorStop(0, `rgba(139, 195, 74, ${0.3 * pulse})`)
       glow.addColorStop(1, 'rgba(139, 195, 74, 0)')
@@ -146,7 +140,6 @@ function initCanvas() {
       ctx.arc(n.x, n.y, glowRadius, 0, Math.PI * 2)
       ctx.fill()
 
-      // Core
       ctx.fillStyle = `rgba(139, 195, 74, ${0.5 + pulse * 0.5})`
       ctx.beginPath()
       ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2)
@@ -158,13 +151,11 @@ function initCanvas() {
 
   draw()
 
-  // Cleanup
   const cleanup = () => {
     window.removeEventListener('mousemove', onMove)
     window.removeEventListener('resize', onResize)
     cancelAnimationFrame(animFrame)
   }
-  // Store cleanup for unmount
   ;(canvas as any).__cleanup = cleanup
 }
 
@@ -194,124 +185,104 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="login-page">
+  <div class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-bg-primary">
     <!-- Animated network background -->
-    <canvas ref="canvasRef" class="network-canvas" />
+    <canvas ref="canvasRef" class="fixed inset-0 z-0 pointer-events-none" />
 
     <!-- Ambient gradient orbs -->
-    <div class="ambient-orb orb-top" />
-    <div class="ambient-orb orb-bottom" />
+    <div class="fixed -top-[200px] -right-[150px] w-[500px] h-[500px] rounded-full blur-[120px] pointer-events-none z-[1] bg-primary/5 animate-pulse" />
+    <div class="fixed -bottom-[150px] -left-[100px] w-[400px] h-[400px] rounded-full blur-[120px] pointer-events-none z-[1] bg-accent/5" />
 
     <!-- Main content -->
-    <div class="login-content">
+    <div class="relative z-10 flex flex-col items-center gap-10 px-8 w-full max-w-[400px]">
       <!-- Brand -->
-      <div class="brand">
-        <div class="logo-ring">
-          <div class="logo-core">
-            <span class="logo-mark">T</span>
+      <div class="flex flex-col items-center gap-4">
+        <div class="w-16 h-16 rounded-full p-0.5 bg-gradient-to-br from-primary/40 via-accent/30 to-primary/40">
+          <div class="w-full h-full rounded-full bg-bg-primary flex items-center justify-center">
+            <span class="font-display text-[1.75rem] font-bold bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">T</span>
           </div>
         </div>
-        <h1 class="brand-title">
-          <span class="title-main">Tudou</span>
-          <span class="title-divider" />
-          <span class="title-sub">Gateway</span>
+        <h1 class="flex items-center gap-3 m-0 font-display">
+          <span class="text-[1.875rem] font-bold text-text-primary tracking-tight">Tudou</span>
+          <span class="w-px h-5 bg-border-hover"></span>
+          <span class="text-lg font-normal text-text-tertiary tracking-widest uppercase">Gateway</span>
         </h1>
-        <p class="brand-tagline">根系深处的智能通道</p>
+        <p class="m-0 text-[13px] text-text-muted tracking-[0.15em]">根系深处的智能通道</p>
       </div>
 
       <!-- Login card -->
-      <Transition name="card-rise">
-        <div v-if="showForm" class="login-card">
-          <!-- Card glow border -->
-          <div class="card-glow" />
+      <Transition
+        enter-active-class="transition-all duration-[600ms]"
+        enter-from-class="opacity-0 translate-y-8 scale-[0.96]"
+        enter-to-class="opacity-100 translate-y-0 scale-100"
+      >
+        <div v-if="showForm" class="relative w-full">
+          <!-- Glow border -->
+          <div class="absolute -inset-px rounded-[calc(var(--radius-xl)+1px)] bg-gradient-to-br from-primary/20 via-accent/10 to-primary/20 z-0 animate-pulse" />
 
-          <div class="card-inner">
+          <div class="relative z-[1] bg-bg-card/90 backdrop-blur-xl rounded-xl p-7 border border-border">
             <!-- Header -->
-            <div class="card-header">
-              <div class="header-line" />
-              <span class="header-label">secure_access</span>
-              <div class="header-line" />
+            <div class="flex items-center gap-3 mb-6">
+              <div class="flex-1 h-px bg-gradient-to-r from-transparent via-border-hover to-transparent" />
+              <span class="font-mono text-[11px] text-text-muted tracking-widest uppercase whitespace-nowrap">secure_access</span>
+              <div class="flex-1 h-px bg-gradient-to-r from-transparent via-border-hover to-transparent" />
             </div>
 
             <!-- Error -->
-            <Transition name="error-shake">
-              <div v-if="errorMessage" class="error-banner">
-                <span class="error-dot" />
-                <span class="error-text">{{ errorMessage }}</span>
+            <Transition
+              enter-active-class="transition-all duration-300"
+              enter-from-class="opacity-0 -translate-y-2"
+              enter-to-class="opacity-100 translate-y-0"
+            >
+              <div v-if="errorMessage" class="flex items-center gap-2.5 px-3.5 py-2.5 bg-danger-light border border-danger/15 rounded-lg mb-5"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-danger shrink-0 animate-pulse" />
+                <span class="text-sm text-danger">{{ errorMessage }}</span>
               </div>
             </Transition>
 
             <!-- Form -->
-            <form @submit.prevent="handleSubmit" class="login-form">
-              <div class="field">
-                <label class="field-label">
-                  <span class="label-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                      <circle cx="12" cy="7" r="4"/>
-                    </svg>
-                  </span>
-                  用户名
-                </label>
-                <div class="input-wrap">
-                  <input
-                    v-model="username"
-                    type="text"
-                    placeholder="admin"
-                    class="input-field"
-                    required
-                    autofocus
-                  />
-                  <div class="input-line" />
-                  <div class="input-glow" />
-                </div>
-              </div>
+            <form @submit.prevent="handleSubmit" class="flex flex-col gap-5">
+              <AppFormField label="用户名">
+                <AppInput
+                  v-model="username"
+                  type="text"
+                  placeholder="admin"
+                  required
+                  autofocus
+                />
+              </AppFormField>
 
-              <div class="field">
-                <label class="field-label">
-                  <span class="label-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                  </span>
-                  密码
-                </label>
-                <div class="input-wrap">
-                  <input
-                    v-model="password"
-                    type="password"
-                    placeholder="••••••••"
-                    class="input-field"
-                    required
-                  />
-                  <div class="input-line" />
-                  <div class="input-glow" />
-                </div>
-              </div>
+              <AppFormField label="密码">
+                <AppInput
+                  v-model="password"
+                  type="password"
+                  placeholder="••••••••"
+                  required
+                />
+              </AppFormField>
 
-              <button
+              <AppButton
                 type="submit"
-                :disabled="loading"
-                class="submit-btn"
+                variant="primary"
+                size="lg"
+                class="w-full mt-2"
+                :loading="loading"
               >
-                <span v-if="loading" class="btn-loading">
-                  <span class="spinner" />
-                  <span>连接中...</span>
-                </span>
-                <span v-else class="btn-content">
-                  <span>进入系统</span>
+                <span v-if="!loading" class="flex items-center justify-center gap-2">
+                  进入系统
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                    <polyline points="12 5 19 12 12 19"/>
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
                   </svg>
                 </span>
-              </button>
+                <span v-else>连接中...</span>
+              </AppButton>
             </form>
 
             <!-- Footer -->
-            <div class="card-footer">
-              <span class="footer-hint">默认账号: admin / admin</span>
+            <div class="mt-5 text-center">
+              <span class="font-mono text-[11px] text-text-muted tracking-wider">默认账号: admin / admin</span>
             </div>
           </div>
         </div>
@@ -319,496 +290,10 @@ async function handleSubmit() {
     </div>
 
     <!-- Bottom attribution -->
-    <div class="page-footer">
-      <span class="footer-brand">tudou</span>
-      <span class="footer-sep">·</span>
-      <span class="footer-version">v1.0</span>
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 font-mono text-[11px] text-text-muted tracking-wider">
+      <span class="text-primary">tudou</span>
+      <span class="opacity-40">·</span>
+      <span>v1.0</span>
     </div>
   </div>
 </template>
-
-<style scoped>
-/* ── Page layout ── */
-.login-page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  background: var(--color-bg-primary);
-  font-family: var(--font-body);
-}
-
-/* ── Canvas background ── */
-.network-canvas {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-/* ── Ambient orbs ── */
-.ambient-orb {
-  position: fixed;
-  border-radius: 50%;
-  filter: blur(120px);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.orb-top {
-  width: 500px;
-  height: 500px;
-  top: -200px;
-  right: -150px;
-  background: radial-gradient(circle, rgba(139, 195, 74, 0.08) 0%, transparent 70%);
-  animation: orbFloat 20s ease-in-out infinite;
-}
-
-.orb-bottom {
-  width: 400px;
-  height: 400px;
-  bottom: -150px;
-  left: -100px;
-  background: radial-gradient(circle, rgba(255, 179, 0, 0.05) 0%, transparent 70%);
-  animation: orbFloat 25s ease-in-out infinite reverse;
-}
-
-@keyframes orbFloat {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -20px) scale(1.05); }
-  66% { transform: translate(-20px, 15px) scale(0.95); }
-}
-
-/* ── Content area ── */
-.login-content {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2.5rem;
-  padding: 2rem;
-  width: 100%;
-  max-width: 400px;
-}
-
-/* ── Brand ── */
-.brand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-.logo-ring {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  padding: 2px;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0%,
-    rgba(139, 195, 74, 0.4) 25%,
-    rgba(255, 179, 0, 0.3) 50%,
-    rgba(139, 195, 74, 0.4) 75%,
-    transparent 100%
-  );
-  animation: ringRotate 8s linear infinite;
-}
-
-@keyframes ringRotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.logo-core {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: var(--color-bg-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.logo-mark {
-  font-family: var(--font-display);
-  font-size: 1.75rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.brand-title {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0;
-  font-family: var(--font-display);
-}
-
-.title-main {
-  font-size: 1.875rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  letter-spacing: -0.02em;
-}
-
-.title-divider {
-  width: 1px;
-  height: 1.25rem;
-  background: var(--color-border-hover);
-}
-
-.title-sub {
-  font-size: 1.125rem;
-  font-weight: 400;
-  color: var(--color-text-tertiary);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.brand-tagline {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-  letter-spacing: 0.15em;
-}
-
-/* ── Login card ── */
-.login-card {
-  position: relative;
-  width: 100%;
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-}
-
-.card-glow {
-  position: absolute;
-  inset: -1px;
-  border-radius: calc(var(--radius-xl) + 1px);
-  background: linear-gradient(
-    135deg,
-    rgba(139, 195, 74, 0.2) 0%,
-    rgba(255, 179, 0, 0.1) 50%,
-    rgba(139, 195, 74, 0.2) 100%
-  );
-  z-index: 0;
-  animation: glowShift 6s ease-in-out infinite;
-}
-
-@keyframes glowShift {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
-.card-inner {
-  position: relative;
-  z-index: 1;
-  background: var(--color-bg-card);
-  backdrop-filter: blur(20px);
-  border-radius: var(--radius-xl);
-  padding: 1.75rem;
-  border: 1px solid var(--color-border);
-}
-
-/* ── Card header ── */
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.header-line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--color-border-hover) 50%,
-    transparent 100%
-  );
-}
-
-.header-label {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  color: var(--color-text-muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-/* ── Error banner ── */
-.error-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.625rem 0.875rem;
-  background: var(--color-danger-light);
-  border: 1px solid rgba(229, 115, 115, 0.15);
-  border-radius: var(--radius-md);
-  margin-bottom: 1.25rem;
-}
-
-.error-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-danger);
-  animation: errorPulse 1.5s ease-in-out infinite;
-  flex-shrink: 0;
-}
-
-@keyframes errorPulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--color-danger-glow); }
-  50% { opacity: 0.7; box-shadow: 0 0 8px 2px var(--color-danger-glow); }
-}
-
-.error-text {
-  font-size: 0.8125rem;
-  color: var(--color-danger);
-}
-
-/* ── Form fields ── */
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.field-label {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-text-tertiary);
-  letter-spacing: 0.05em;
-}
-
-.label-icon {
-  display: flex;
-  align-items: center;
-  color: var(--color-text-muted);
-}
-
-.input-wrap {
-  position: relative;
-}
-
-.input-field {
-  width: 100%;
-  padding: 0.75rem 0;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-  font-size: 0.9375rem;
-  font-family: var(--font-body);
-  outline: none;
-  transition: border-color 0.3s ease;
-}
-
-.input-field::placeholder {
-  color: var(--color-text-muted);
-}
-
-.input-line {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 1px;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
-  transition: width 0.3s ease, left 0.3s ease;
-}
-
-.input-glow {
-  position: absolute;
-  bottom: -1px;
-  left: 50%;
-  width: 0;
-  height: 2px;
-  background: var(--color-primary-glow);
-  filter: blur(4px);
-  transition: width 0.3s ease, left 0.3s ease;
-}
-
-.input-field:focus ~ .input-line,
-.input-field:focus ~ .input-glow {
-  left: 0;
-  width: 100%;
-}
-
-.input-field:focus {
-  border-bottom-color: transparent;
-}
-
-/* ── Submit button ── */
-.submit-btn {
-  width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.875rem 1.5rem;
-  background: linear-gradient(135deg, rgba(139, 195, 74, 0.15) 0%, rgba(255, 179, 0, 0.08) 100%);
-  border: 1px solid var(--color-border-hover);
-  border-radius: var(--radius-md);
-  color: var(--color-primary);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  font-family: var(--font-body);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.submit-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.submit-btn:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-glow-primary);
-  transform: translateY(-1px);
-}
-
-.submit-btn:hover:not(:disabled)::before {
-  opacity: 1;
-}
-
-.submit-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.submit-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-content,
-.btn-loading {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.submit-btn:hover:not(:disabled) .btn-content {
-  color: var(--color-bg-primary);
-}
-
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--color-primary);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ── Card footer ── */
-.card-footer {
-  margin-top: 1.25rem;
-  text-align: center;
-}
-
-.footer-hint {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  color: var(--color-text-muted);
-  letter-spacing: 0.05em;
-}
-
-/* ── Page footer ── */
-.page-footer {
-  position: fixed;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  z-index: 10;
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  color: var(--color-text-muted);
-  letter-spacing: 0.05em;
-}
-
-.footer-brand {
-  color: var(--color-primary);
-}
-
-.footer-sep {
-  opacity: 0.4;
-}
-
-/* ── Transitions ── */
-.card-rise-enter-active {
-  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.card-rise-enter-from {
-  opacity: 0;
-  transform: translateY(30px) scale(0.96);
-}
-
-.error-shake-enter-active {
-  animation: errorIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes errorIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ── Responsive ── */
-@media (max-width: 480px) {
-  .login-content {
-    padding: 1.5rem;
-    gap: 2rem;
-  }
-
-  .title-main {
-    font-size: 1.5rem;
-  }
-
-  .title-sub {
-    font-size: 1rem;
-  }
-
-  .card-inner {
-    padding: 1.25rem;
-  }
-}
-</style>

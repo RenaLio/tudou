@@ -1,19 +1,19 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, } from '@/stores/auth';
+import { createRouter, createWebHistory, } from 'vue-router';
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory(import.meta.env.BASE_URL,),
   routes: [
     {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
-      meta: { requiresAuth: false },
+      meta: { requiresAuth: false, },
     },
     {
       path: '/',
       component: () => import('@/layouts/MainLayout.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, },
       children: [
         {
           path: '',
@@ -23,6 +23,11 @@ const router = createRouter({
           path: 'dashboard',
           name: 'dashboard',
           component: () => import('@/views/DashboardView.vue'),
+        },
+        {
+          path: 'request-logs',
+          name: 'request-logs',
+          component: () => import('@/views/RequestLogsView.vue'),
         },
         {
           path: 'tokens',
@@ -47,19 +52,19 @@ const router = createRouter({
       ],
     },
   ],
-})
+},);
 
 // Navigation guard
-router.beforeEach((to, _from, next) => {
-  const authStore = useAuthStore()
+router.beforeEach((to, _from, next,) => {
+  const authStore = useAuthStore();
 
   if (to.meta.requiresAuth !== false && !authStore.isAuthenticated) {
-    next('/login')
+    next('/login',);
   } else if (to.path === '/login' && authStore.isAuthenticated) {
-    next('/dashboard')
+    next('/dashboard',);
   } else {
-    next()
+    next();
   }
-})
+},);
 
-export default router
+export default router;

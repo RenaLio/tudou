@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import dayjs from 'dayjs'
 import {
   DialogRoot,
   DialogPortal,
@@ -8,6 +9,12 @@ import {
   DialogTitle,
   DialogDescription,
   DialogClose,
+  TooltipProvider,
+  TooltipRoot,
+  TooltipTrigger,
+  TooltipPortal,
+  TooltipContent,
+  TooltipArrow,
 } from 'reka-ui'
 import {
   listChannels,
@@ -23,18 +30,23 @@ import {
 } from '@/api/channel'
 import { listChannelGroups } from '@/api/channel-group'
 import { formatTokens, formatNumber, calcSuccessRate } from '@/api/stats'
-import type { Channel, ChannelGroup, ChannelType, ChannelStatus } from '@/types'
+import type { Channel, ChannelGroup, ChannelType, ChannelStatus, ChannelExtra } from '@/types'
 import {
   fadeUp,
   slideUp,
   tableRow,
   dialogContent as dialogAnim,
 } from '@/utils/motion'
-import CustomSelect from '@/components/CustomSelect.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppInput from '@/components/ui/AppInput.vue'
+import AppBadge from '@/components/ui/AppBadge.vue'
+import AppDialog from '@/components/ui/AppDialog.vue'
+import AppFormField from '@/components/ui/AppFormField.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 
 // Type options for filter
 const typeOptions = computed(() => {
-  const options = [{ value: '', label: '全部类型' }]
+  const options = [{ value: 'all', label: '全部类型' }]
   for (const [key, label] of Object.entries(CHANNEL_TYPE_LABELS)) {
     options.push({ value: key, label })
   }
@@ -44,16 +56,26 @@ const typeOptions = computed(() => {
 // Status options for filter
 const statusOptions = computed(() => {
   return [
-    { value: '', label: '全部状态' },
+    { value: 'all', label: '全部状态' },
     { value: 'enabled', label: '启用', color: 'var(--color-success)' },
     { value: 'disabled', label: '禁用', color: 'var(--color-warning)' },
     { value: 'expired', label: '过期', color: 'var(--color-danger)' },
   ]
 })
 
+// Form select options
+const channelTypeOptions = computed(() => {
+  return Object.entries(CHANNEL_TYPE_LABELS).map(([value, label]) => ({ value, label }))
+})
+
+const channelStatusOptions = [
+  { value: 'enabled', label: '启用' },
+  { value: 'disabled', label: '禁用' },
+]
+
 // Group options for filter (computed from loaded groups)
 const groupOptions = computed(() => {
-  const options = [{ value: '', label: '全部分组' }]
+  const options = [{ value: 'all', label: '全部分组' }]
   for (const group of groups.value) {
     options.push({ value: group.id, label: group.name })
   }
@@ -70,9 +92,9 @@ const pageSize = ref(20)
 
 // Filters
 const keyword = ref('')
-const filterType = ref<ChannelType | ''>('')
-const filterStatus = ref<ChannelStatus | ''>('')
-const filterGroupID = ref<string | ''>('')
+const filterType = ref<ChannelType | 'all'>('all')
+const filterStatus = ref<ChannelStatus | 'all'>('all')
+const filterGroupID = ref<string | 'all'>('all')
 
 // Dialog
 const dialogOpen = ref(false)
@@ -94,6 +116,9 @@ const formData = ref<CreateChannelRequest>({
   customModel: '',
   priceRate: 1,
   groupIDs: [],
+  extra: {
+    modelMappings: {},
+  },
 })
 
 // Edit form status (separate from create)
@@ -137,6 +162,35 @@ function addCustomModel() {
   }
 }
 
+// Model mappings
+const modelMappings = ref<Array<{ key: string; value: string }>>([])
+
+function syncMappingsToForm() {
+  const mappings: Record<string, string> = {}
+  for (const m of modelMappings.value) {
+    if (m.key.trim()) {
+      mappings[m.key.trim()] = m.value.trim()
+    }
+  }
+  if (!formData.value.extra) {
+    formData.value.extra = { modelMappings: {} }
+  }
+  formData.value.extra.modelMappings = mappings
+}
+
+function addModelMapping() {
+  modelMappings.value = [...modelMappings.value, { key: '', value: '' }]
+}
+
+function removeModelMapping(index: number) {
+  modelMappings.value = [...modelMappings.value.slice(0, index), ...modelMappings.value.slice(index + 1)]
+}
+
+function loadModelMappings(extra?: ChannelExtra) {
+  const mappings = extra?.modelMappings || {}
+  modelMappings.value = Object.entries(mappings).map(([key, value]) => ({ key, value }))
+}
+
 // Delete confirmation
 const deletingChannel = ref<Channel | null>(null)
 const deleteLoading = ref(false)
@@ -155,9 +209,9 @@ async function loadChannels() {
       page: page.value,
       pageSize: pageSize.value,
       keyword: keyword.value || undefined,
-      type: filterType.value || undefined,
-      status: filterStatus.value !== '' ? filterStatus.value : undefined,
-      groupID: filterGroupID.value || undefined,
+      type: filterType.value === 'all' ? undefined : filterType.value,
+      status: filterStatus.value === 'all' ? undefined : filterStatus.value,
+      groupID: filterGroupID.value === 'all' ? undefined : filterGroupID.value,
       preloadGroups: true,
       preloadStats: true,
     })
@@ -193,8 +247,12 @@ function openCreateDialog() {
     customModel: '',
     priceRate: 1,
     groupIDs: [],
+    extra: {
+      modelMappings: {},
+    },
   }
   availableModels.value = []
+  loadModelMappings()
   activeTab.value = 'basic'
   formError.value = ''
   dialogOpen.value = true
@@ -215,7 +273,11 @@ function openEditDialog(channel: Channel) {
     priceRate: channel.priceRate,
     expiredAt: channel.expiredAt || undefined,
     groupIDs: channel.groupIDs || [],
+    extra: {
+      modelMappings: channel.extra?.modelMappings ? { ...channel.extra.modelMappings } : {},
+    },
   }
+  loadModelMappings(channel.extra)
   // 解析已有模型作为可用模型
   const models = channel.model ? channel.model.split(',').map(m => m.trim()).filter(Boolean) : []
   availableModels.value = models
@@ -262,6 +324,8 @@ async function handleFormSubmit() {
     formError.value = '请填写 API Key'
     return
   }
+
+  syncMappingsToForm()
 
   formLoading.value = true
   formError.value = ''
@@ -319,9 +383,46 @@ function handleSearch() {
   loadChannels()
 }
 
+function getWindow3hOpacity(requests: number, maxRequests: number): number {
+  if (requests === 0) return 0.04
+  return 0.12 + (requests / maxRequests) * 0.78
+}
+
+function getWindow3hMaxRequests(buckets: Array<{ requestSuccess: number; requestFailed: number }>): number {
+  return Math.max(...buckets.map(b => b.requestSuccess + b.requestFailed), 1)
+}
+
+function getWindow3hColor(bucket: { requestSuccess: number; requestFailed: number }, maxRequests: number): string {
+  const total = bucket.requestSuccess + bucket.requestFailed
+  const opacity = getWindow3hOpacity(total, maxRequests)
+  const failRate = total > 0 ? bucket.requestFailed / total : 0
+  if (failRate >= 0.3) {
+    return `rgba(239, 83, 80, ${opacity})`
+  }
+  return `rgba(139, 195, 74, ${opacity})`
+}
+
 function handlePageChange(newPage: number) {
   page.value = newPage
   loadChannels()
+}
+
+function formatCost(cost: number): string {
+  if (!cost) return '¥0.00'
+  return `¥${cost.toFixed(4)}`
+}
+
+function sumWindow3h(buckets: Array<{ requestSuccess: number; requestFailed: number; inputToken: number; outputToken: number; totalCost: number }>) {
+  return buckets.reduce(
+    (acc, b) => ({
+      requestSuccess: acc.requestSuccess + (b.requestSuccess || 0),
+      requestFailed: acc.requestFailed + (b.requestFailed || 0),
+      inputToken: acc.inputToken + (b.inputToken || 0),
+      outputToken: acc.outputToken + (b.outputToken || 0),
+      totalCost: acc.totalCost + (b.totalCost || 0),
+    }),
+    { requestSuccess: 0, requestFailed: 0, inputToken: 0, outputToken: 0, totalCost: 0 },
+  )
 }
 
 onMounted(() => {
@@ -331,156 +432,258 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-motion="fadeUp" class="page-container">
+  <TooltipProvider>
+    <div v-motion="fadeUp" class="max-w-[1600px]">
     <!-- Page Header -->
-    <header class="page-header">
-      <div class="header-left">
-        <span class="page-label">渠道管理</span>
-        <div class="stats-bar">
-          <div class="stat">
-            <span class="stat-dot success"></span>
-            <span class="stat-num">{{ statsEnabled }}</span>
-            <span class="stat-text">运行中</span>
+    <header class="flex items-start justify-between mb-6">
+      <div class="flex flex-col gap-3">
+        <span class="text-2xl font-semibold tracking-tight text-text-primary">渠道管理</span>
+        <div class="flex gap-6">
+          <div class="flex items-center gap-2 text-sm">
+            <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+            <span class="font-semibold text-text-primary">{{ statsEnabled }}</span>
+            <span class="text-text-muted">运行中</span>
           </div>
-          <div class="stat">
-            <span class="stat-dot warning"></span>
-            <span class="stat-num">{{ statsDisabled }}</span>
-            <span class="stat-text">已暂停</span>
+          <div class="flex items-center gap-2 text-sm">
+            <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
+            <span class="font-semibold text-text-primary">{{ statsDisabled }}</span>
+            <span class="text-text-muted">已暂停</span>
           </div>
-          <div class="stat">
-            <span class="stat-num">{{ total }}</span>
-            <span class="stat-text">总计</span>
+          <div class="flex items-center gap-2 text-sm">
+            <span class="font-semibold text-text-primary">{{ total }}</span>
+            <span class="text-text-muted">总计</span>
           </div>
         </div>
       </div>
-      <button class="btn-create" @click="openCreateDialog">
+      <AppButton variant="primary" @click="openCreateDialog">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
         新建渠道
-      </button>
+      </AppButton>
     </header>
 
     <!-- Filter Bar -->
-    <div class="filter-bar">
-      <div class="filter-inputs">
-        <input
+    <div class="flex gap-3 mb-4 p-4 bg-bg-card rounded-lg border border-border">
+      <div class="flex gap-2 flex-1">
+        <AppInput
           v-model="keyword"
           type="text"
           placeholder="搜索渠道名称..."
-          class="input-search"
+          size="sm"
+          class="flex-1 max-w-[280px]"
           @keyup.enter="handleSearch"
         />
-        <CustomSelect
-          v-model="filterType"
-          :options="typeOptions"
-          placeholder="全部类型"
-          size="sm"
-          @change="handleSearch"
-        />
-        <CustomSelect
-          v-model="filterStatus"
-          :options="statusOptions"
-          placeholder="全部状态"
-          size="sm"
-          @change="handleSearch"
-        />
-        <CustomSelect
-          v-model="filterGroupID"
-          :options="groupOptions"
-          placeholder="全部分组"
-          size="sm"
-          @change="handleSearch"
-        />
+        <div class="w-[130px]">
+          <AppSelect
+            v-model="filterType"
+            :options="typeOptions"
+            size="sm"
+            @update:modelValue="handleSearch"
+          />
+        </div>
+        <div class="w-[130px]">
+          <AppSelect
+            v-model="filterStatus"
+            :options="statusOptions"
+            size="sm"
+            @update:modelValue="handleSearch"
+          />
+        </div>
+        <div class="w-[130px]">
+          <AppSelect
+            v-model="filterGroupID"
+            :options="groupOptions"
+            size="sm"
+            @update:modelValue="handleSearch"
+          />
+        </div>
       </div>
-      <button class="btn-search" @click="handleSearch">搜索</button>
+      <AppButton variant="secondary" size="sm" @click="handleSearch">搜索</AppButton>
     </div>
 
     <!-- Data Table -->
-    <div class="table-wrapper">
-      <table class="data-table">
+    <div class="bg-bg-card rounded-lg border border-border">
+      <table class="w-full border-collapse">
         <thead>
           <tr>
-            <th>渠道名称</th>
-            <th>类型</th>
-            <th>状态</th>
-            <th>权重</th>
-            <th>用量统计</th>
-            <th>分组</th>
-            <th>创建时间</th>
-            <th class="text-right">操作</th>
+            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border">渠道名称</th>
+            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border">类型</th>
+            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border">状态</th>
+            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border">权重</th>
+            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border">用量统计</th>
+            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border whitespace-nowrap">近 3h</th>
+            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border">分组</th>
+            <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border">创建时间</th>
+            <th class="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="8" class="cell-loading">
-              <div class="spinner"></div>
+            <td colspan="9" class="px-4 py-12 text-center text-text-muted">
+              <div class="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
               <span>加载中...</span>
             </td>
           </tr>
           <tr v-else-if="channels.length === 0">
-            <td colspan="8" class="cell-empty">
-              <div class="empty-icon">○</div>
+            <td colspan="9" class="px-4 py-12 text-center text-text-muted">
+              <div class="text-3xl mb-2 opacity-30">○</div>
               <span>暂无渠道数据</span>
             </td>
           </tr>
-          <tr v-else v-for="(channel, index) in channels" :key="channel.id" v-motion="tableRow" :style="{ transitionDelay: `${index * 50}ms` }" class="data-row">
-            <td>
-              <div class="channel-info">
-                <div class="channel-avatar" :class="channel.type">
+          <tr v-else v-for="(channel, index) in channels" :key="channel.id" v-motion="tableRow" :style="{ transitionDelay: `${index * 50}ms` }" class="transition-colors duration-150 hover:bg-bg-secondary">
+            <td class="px-4 py-4 border-b border-border align-middle">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-md flex items-center justify-center text-sm font-semibold text-white" :class="{
+                  'bg-[#10a37f]': channel.type === 'openai',
+                  'bg-[#d97706]': channel.type === 'claude',
+                  'bg-[#0078d4]': channel.type === 'azure',
+                  'bg-gray-500': channel.type === 'custom',
+                }">
                   {{ channel.name.charAt(0) }}
                 </div>
-                <div class="channel-meta">
-                  <span class="channel-name">{{ channel.name }}</span>
-                  <span class="channel-url">{{ channel.baseURL }}</span>
+                <div class="flex flex-col gap-0.5">
+                  <span class="font-medium text-text-primary">{{ channel.name }}</span>
+                  <span class="text-xs font-mono text-text-muted max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">{{ channel.baseURL }}</span>
                 </div>
               </div>
             </td>
-            <td>
-              <span class="type-tag" :class="channel.type">
+            <td class="px-4 py-4 border-b border-border align-middle">
+              <span class="inline-block px-2 py-0.5 rounded text-xs font-medium" :class="{
+                'bg-[rgba(16,163,127,0.1)] text-[#10a37f]': channel.type === 'openai',
+                'bg-[rgba(217,119,6,0.1)] text-[#d97706]': channel.type === 'claude',
+                'bg-[rgba(0,120,212,0.1)] text-[#0078d4]': channel.type === 'azure',
+                'bg-bg-tertiary text-text-secondary': channel.type === 'custom',
+              }">
                 {{ CHANNEL_TYPE_LABELS[channel.type] }}
               </span>
             </td>
-            <td>
-              <span class="status-badge" :class="{ active: channel.status === 'enabled', paused: channel.status === 'disabled', expired: channel.status === 'expired' }">
+            <td class="px-4 py-4 border-b border-border align-middle">
+              <AppBadge
+                :variant="channel.status === 'enabled' ? 'success' : channel.status === 'disabled' ? 'warning' : 'danger'"
+                size="md"
+                pulse
+              >
                 {{ CHANNEL_STATUS_LABELS[channel.status]?.label }}
-              </span>
+              </AppBadge>
             </td>
-            <td><span class="weight-value">{{ channel.weight }}</span></td>
-            <td>
-              <div v-if="channel.stats" class="stats-cell">
-                <div class="stat-row">
-                  <span class="stat-label">请求</span>
-                  <span class="stat-val">{{ formatNumber(channel.stats.requestSuccess + channel.stats.requestFailed) }}</span>
-                  <span class="stat-rate" :class="{ good: calcSuccessRate(channel.stats.requestSuccess, channel.stats.requestFailed) >= 95 }">
-                    {{ calcSuccessRate(channel.stats.requestSuccess, channel.stats.requestFailed) }}%
-                  </span>
-                </div>
-                <div class="stat-row">
-                  <span class="stat-label">输入</span>
-                  <span class="stat-val">{{ formatTokens(channel.stats.inputToken) }}</span>
-                </div>
-                <div class="stat-row">
-                  <span class="stat-label">输出</span>
-                  <span class="stat-val">{{ formatTokens(channel.stats.outputToken) }}</span>
+            <td class="px-4 py-4 border-b border-border align-middle">
+              <span class="text-sm text-text-secondary">{{ channel.weight }}</span>
+            </td>
+            <td class="px-4 py-4 border-b border-border align-middle">
+              <TooltipRoot v-if="channel.stats">
+                <TooltipTrigger as-child>
+                  <span class="text-sm text-text-secondary font-medium cursor-help">{{ formatCost(channel.stats.totalCost) }}</span>
+                </TooltipTrigger>
+                <TooltipPortal to="body">
+                  <TooltipContent side="bottom" class="bg-bg-secondary border border-border-hover rounded-md px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.3)] text-[0.6875rem] font-mono text-text-primary whitespace-nowrap">
+                    <div class="flex flex-col gap-1">
+                      <div class="flex gap-2">
+                        <span class="text-text-muted min-w-[40px]">请求</span>
+                        <span class="font-medium">{{ formatNumber(channel.stats.requestSuccess + channel.stats.requestFailed) }}</span>
+                        <span class="text-[10px] px-1 rounded bg-bg-tertiary" :class="{ 'bg-success-light text-success': calcSuccessRate(channel.stats.requestSuccess, channel.stats.requestFailed) >= 95 }">
+                          {{ calcSuccessRate(channel.stats.requestSuccess, channel.stats.requestFailed) }}%
+                        </span>
+                      </div>
+                      <div class="flex gap-2">
+                        <span class="text-text-muted min-w-[40px]">成功</span>
+                        <span class="font-medium text-success">{{ formatNumber(channel.stats.requestSuccess) }}</span>
+                      </div>
+                      <div class="flex gap-2">
+                        <span class="text-text-muted min-w-[40px]">失败</span>
+                        <span class="font-medium text-danger">{{ formatNumber(channel.stats.requestFailed) }}</span>
+                      </div>
+                      <div class="flex gap-2">
+                        <span class="text-text-muted min-w-[40px]">输入</span>
+                        <span class="font-medium">{{ formatTokens(channel.stats.inputToken) }}</span>
+                      </div>
+                      <div class="flex gap-2">
+                        <span class="text-text-muted min-w-[40px]">输出</span>
+                        <span class="font-medium">{{ formatTokens(channel.stats.outputToken) }}</span>
+                      </div>
+                    </div>
+                    <template v-if="channel.stats.window3h?.buckets?.length">
+                      <div class="border-t border-border my-1.5"></div>
+                      <div class="text-[10px] text-text-muted uppercase tracking-wider mb-0.5">近 3h</div>
+                      <div class="flex flex-col gap-1">
+                        <div class="flex gap-2">
+                          <span class="text-text-muted min-w-[40px]">请求</span>
+                          <span class="font-medium">{{ formatNumber(sumWindow3h(channel.stats.window3h.buckets).requestSuccess + sumWindow3h(channel.stats.window3h.buckets).requestFailed) }}</span>
+                        </div>
+                        <div class="flex gap-2">
+                          <span class="text-text-muted min-w-[40px]">输入</span>
+                          <span class="font-medium">{{ formatTokens(sumWindow3h(channel.stats.window3h.buckets).inputToken) }}</span>
+                        </div>
+                        <div class="flex gap-2">
+                          <span class="text-text-muted min-w-[40px]">输出</span>
+                          <span class="font-medium">{{ formatTokens(sumWindow3h(channel.stats.window3h.buckets).outputToken) }}</span>
+                        </div>
+                        <div class="flex gap-2">
+                          <span class="text-text-muted min-w-[40px]">费用</span>
+                          <span class="font-medium">{{ formatCost(sumWindow3h(channel.stats.window3h.buckets).totalCost) }}</span>
+                        </div>
+                      </div>
+                    </template>
+                    <TooltipArrow class="fill-bg-secondary" />
+                  </TooltipContent>
+                </TooltipPortal>
+              </TooltipRoot>
+              <span v-else class="text-sm text-text-muted">—</span>
+            </td>
+            <td class="px-4 py-4 border-b border-border align-middle">
+              <div v-if="channel.stats?.window3h?.buckets?.length" class="flex items-center gap-[2px]">
+                <div
+                  v-for="(bucket, idx) in channel.stats.window3h.buckets"
+                  :key="idx"
+                  class="w-2 h-4 rounded-[2px] border border-[rgba(139,195,74,0.06)] box-border relative cursor-pointer group z-[1] hover:z-10 transition-transform duration-150 hover:scale-125"
+                  :style="{ background: getWindow3hColor(bucket, getWindow3hMaxRequests(channel.stats.window3h.buckets)) }"
+                >
+                  <div class="hidden group-hover:block absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 bg-bg-secondary border border-border-hover rounded-md px-3 py-2 min-w-[180px] pointer-events-none shadow-[0_8px_24px_rgba(0,0,0,0.25)] z-[100]">
+                    <div class="text-xs font-semibold text-text-primary mb-1 font-mono">{{ dayjs(bucket.startAt).format('HH:mm') }} - {{ dayjs(bucket.endAt).format('HH:mm') }}</div>
+                    <div class="flex justify-between items-baseline text-[0.6875rem] py-0.5">
+                      <span class="text-text-muted">请求</span>
+                      <span class="text-text-primary font-mono font-medium">{{ bucket.requestSuccess + bucket.requestFailed }} <span class="text-text-tertiary font-normal text-[0.625rem]">(成功 {{ bucket.requestSuccess }} / 失败 {{ bucket.requestFailed }})</span></span>
+                    </div>
+                    <div class="flex justify-between items-baseline text-[0.6875rem] py-0.5">
+                      <span class="text-text-muted">Token</span>
+                      <span class="text-text-primary font-mono font-medium">{{ formatTokens(bucket.inputToken + bucket.outputToken) }}</span>
+                    </div>
+                    <div class="flex justify-between items-baseline text-[0.6875rem] py-0.5">
+                      <span class="text-text-muted">费用</span>
+                      <span class="text-accent font-mono font-semibold">{{ formatCost(bucket.totalCost) }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <span v-else class="no-stats">—</span>
+              <span v-else class="text-xs text-text-muted">-</span>
             </td>
-            <td><span class="groups-count">{{ channel.groupIDs?.length || 0 }} 个</span></td>
-            <td><span class="date-text">{{ new Date(channel.createdAt).toLocaleDateString() }}</span></td>
-            <td class="text-right">
-              <div class="row-actions">
-                <button
-                  class="action-link"
-                  :class="channel.status === 'enabled' ? 'warn' : 'success'"
+            <td class="px-4 py-4 border-b border-border align-middle">
+              <div v-if="channel.groups?.length" class="flex flex-wrap gap-1">
+                <span
+                  v-for="g in channel.groups"
+                  :key="g.id"
+                  class="inline-block px-2 py-0.5 bg-bg-tertiary rounded text-[11px] text-text-secondary"
+                >
+                  {{ g.name }}
+                </span>
+              </div>
+              <span v-else class="text-sm text-text-muted">-</span>
+            </td>
+            <td class="px-4 py-4 border-b border-border align-middle">
+              <span class="text-sm text-text-secondary">{{ dayjs(channel.createdAt).format('YYYY-MM-DD') }}</span>
+            </td>
+            <td class="px-4 py-4 border-b border-border align-middle text-right">
+              <div class="flex justify-end gap-2">
+                <AppButton
+                  :variant="channel.status === 'enabled' ? 'warning' : 'success'"
+                  size="sm"
                   @click="handleToggleStatus(channel)"
                 >
                   {{ channel.status === 'enabled' ? '暂停' : '启用' }}
-                </button>
-                <button class="action-link" @click="openEditDialog(channel)">编辑</button>
-                <button class="action-link danger" @click="deletingChannel = channel">删除</button>
+                </AppButton>
+                <AppButton variant="ghost" size="sm" @click="openEditDialog(channel)">编辑</AppButton>
+                <AppButton variant="danger" size="sm" @click="deletingChannel = channel">删除</AppButton>
               </div>
             </td>
           </tr>
@@ -488,16 +691,26 @@ onMounted(() => {
       </table>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1" class="table-footer">
-        <span class="total-info">共 {{ total }} 条</span>
-        <div class="pagination">
-          <button class="page-btn" :disabled="page === 1" @click="handlePageChange(page - 1)">
+      <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3.5 border-t border-border">
+        <span class="text-[13px] text-text-muted">共 {{ total }} 条</span>
+        <div class="flex items-center gap-3">
+          <AppButton
+            variant="secondary"
+            size="sm"
+            :disabled="page === 1"
+            @click="handlePageChange(page - 1)"
+          >
             ←
-          </button>
-          <span class="page-info">{{ page }} / {{ totalPages }}</span>
-          <button class="page-btn" :disabled="page === totalPages" @click="handlePageChange(page + 1)">
+          </AppButton>
+          <span class="text-[13px] text-text-secondary">{{ page }} / {{ totalPages }}</span>
+          <AppButton
+            variant="secondary"
+            size="sm"
+            :disabled="page === totalPages"
+            @click="handlePageChange(page + 1)"
+          >
             →
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
@@ -510,187 +723,376 @@ onMounted(() => {
           :initial="{ opacity: 0 }"
           :enter="{ opacity: 1, transition: { duration: 200 } }"
           :leave="{ opacity: 0, transition: { duration: 150 } }"
-          class="dlg-overlay"
+          class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
         />
         <DialogContent
           v-motion="dialogAnim"
-          class="dlg-content"
+          class="fixed inset-0 m-auto w-[92%] max-w-[620px] h-fit max-h-[88vh] bg-gradient-to-b from-[var(--color-bg-card)] to-[var(--color-bg-primary)] backdrop-blur-2xl rounded-2xl border border-primary/15 flex flex-col z-50 overflow-hidden shadow-lg ring-1 ring-primary/10"
         >
-          <div class="dlg-header">
-            <DialogTitle class="dlg-title">
-              {{ editingChannel ? '编辑渠道' : '新建渠道' }}
-            </DialogTitle>
-            <DialogClose class="dlg-close">×</DialogClose>
+          <!-- Scanline texture overlay -->
+          <div class="pointer-events-none absolute inset-0 opacity-[0.02]" style="background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--color-primary-rgb), 0.12) 2px, rgba(var(--color-primary-rgb), 0.12) 4px);"></div>
+
+          <div class="relative flex items-center justify-between px-6 py-5 border-b border-primary/10 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-primary-light flex items-center justify-center text-primary shadow-glow-primary ring-1 ring-primary/20">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <div class="flex flex-col">
+                <DialogTitle class="text-lg font-semibold text-text-primary tracking-tight">
+                  {{ editingChannel ? '编辑渠道' : '新建渠道' }}
+                </DialogTitle>
+                <span class="text-[11px] text-text-muted font-mono tracking-wider uppercase">{{ editingChannel ? 'CHANNEL EDIT' : 'CHANNEL CREATE' }}</span>
+              </div>
+            </div>
+            <DialogClose class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-text-muted hover:text-text-secondary hover:bg-bg-tertiary transition-all duration-200 hover:rotate-90">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </DialogClose>
           </div>
 
           <DialogDescription class="sr-only">
             {{ editingChannel ? '编辑渠道配置' : '创建新渠道' }}
           </DialogDescription>
 
-          <div class="dlg-tabs">
-            <button
-              v-for="tab in ['basic', 'models'] as const"
-              :key="tab"
-              class="dlg-tab"
-              :class="{ active: activeTab === tab }"
-              @click="activeTab = tab"
-            >
-              {{ tab === 'basic' ? '基本信息' : '模型配置' }}
-            </button>
+          <div class="relative flex px-6 py-3 bg-bg-secondary/60 border-b border-primary/10">
+            <div class="flex gap-1 p-1 bg-bg-tertiary/60 rounded-xl">
+              <button
+                v-for="tab in ['basic', 'models'] as const"
+                :key="tab"
+                class="px-5 py-2 rounded-lg text-[13px] font-medium cursor-pointer relative transition-all duration-300"
+                :class="activeTab === tab
+                  ? 'bg-primary-light text-primary shadow-glow-primary ring-1 ring-primary/20'
+                  : 'text-text-muted hover:text-text-secondary hover:bg-bg-secondary/50'"
+                @click="activeTab = tab"
+              >
+                {{ tab === 'basic' ? '基本信息' : '模型配置' }}
+              </button>
+            </div>
           </div>
 
-          <form @submit.prevent="handleFormSubmit" class="dlg-body">
-            <div v-if="formError" class="form-err">{{ formError }}</div>
+          <form @submit.prevent="handleFormSubmit" class="flex-1 overflow-y-auto p-6">
+            <!-- Error Banner -->
+            <div
+              v-if="formError"
+              class="px-4 py-3 bg-danger-light/60 text-danger rounded-lg text-[13px] mb-5 border border-danger/20 shadow-[0_0_16px_rgba(229,115,115,0.08)] relative overflow-hidden"
+            >
+              <div class="absolute left-0 top-0 bottom-0 w-[3px] bg-danger/60"></div>
+              <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                {{ formError }}
+              </div>
+            </div>
 
-            <div v-show="activeTab === 'basic'" class="form-grid">
-              <div class="field">
-                <label>渠道类型 <span class="req">*</span></label>
-                <select v-model="formData.type">
-                  <option v-for="(label, key) in CHANNEL_TYPE_LABELS" :key="key" :value="key">
-                    {{ label }}
-                  </option>
-                </select>
+            <div v-show="activeTab === 'basic'" class="flex flex-col gap-5">
+              <!-- Section: Identity -->
+              <div>
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-1 h-3.5 rounded-full bg-primary/60"></div>
+                  <span class="text-[11px] font-mono tracking-wider uppercase text-text-muted">身份标识</span>
+                  <div class="flex-1 h-px bg-border/40"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <AppFormField label="渠道类型" required>
+                    <AppSelect v-model="formData.type" :options="channelTypeOptions" />
+                  </AppFormField>
+                  <AppFormField label="渠道名称" required>
+                    <AppInput v-model="formData.name" type="text" placeholder="如: OpenAI 主账号" />
+                  </AppFormField>
+                  <AppFormField label="标签" class="col-span-2">
+                    <AppInput v-model="formData.tag" type="text" placeholder="用于分类" />
+                  </AppFormField>
+                </div>
               </div>
-              <div class="field">
-                <label>渠道名称 <span class="req">*</span></label>
-                <input v-model="formData.name" type="text" placeholder="如: OpenAI 主账号" />
-              </div>
-              <div class="field full">
-                <label>Base URL <span class="req">*</span></label>
-                <input v-model="formData.baseURL" type="text" placeholder="https://api.openai.com/v1" autocomplete="off" />
-              </div>
-              <div class="field full">
-                <label>API Key <span v-if="!editingChannel" class="req">*</span></label>
-                <input
-                  v-model="formData.apiKey"
-                  type="text"
-                  :placeholder="editingChannel ? '留空保持不变' : 'sk-...'"
-                  autocomplete="off"
-                />
-              </div>
-              <div class="field">
-                <label>权重</label>
-                <input v-model.number="formData.weight" type="number" min="0" />
-              </div>
-              <div v-if="editingChannel" class="field">
-                <label>状态</label>
-                <select v-model="editStatus">
-                  <option value="enabled">启用</option>
-                  <option value="disabled">禁用</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>价格倍率</label>
-                <input v-model.number="formData.priceRate" type="number" step="0.01" min="0" />
-              </div>
-              <div class="field full">
-                <label>标签</label>
-                <input v-model="formData.tag" type="text" placeholder="用于分类" />
-              </div>
-              <div class="field full">
-                <label>备注</label>
-                <textarea v-model="formData.remark" rows="2" placeholder="渠道备注"></textarea>
-              </div>
-              <div class="field full">
-                <label>所属分组</label>
-                <div class="chip-group">
-                  <label
-                    v-for="group in groups"
-                    :key="group.id"
-                    class="chip"
-                    :class="{ on: formData.groupIDs?.includes(group.id) }"
-                  >
-                    <input
-                      type="checkbox"
-                      :checked="formData.groupIDs?.includes(group.id)"
-                      class="sr-only"
-                      @change="() => {
-                        if (!formData.groupIDs) formData.groupIDs = []
-                        const idx = formData.groupIDs.indexOf(group.id)
-                        if (idx > -1) formData.groupIDs.splice(idx, 1)
-                        else formData.groupIDs.push(group.id)
-                      }"
+
+              <!-- Section: Connection -->
+              <div>
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-1 h-3.5 rounded-full bg-primary/60"></div>
+                  <span class="text-[11px] font-mono tracking-wider uppercase text-text-muted">连接配置</span>
+                  <div class="flex-1 h-px bg-border/40"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <AppFormField label="Base URL" required class="col-span-2">
+                    <AppInput v-model="formData.baseURL" type="text" placeholder="https://api.openai.com/v1" autocomplete="off" />
+                  </AppFormField>
+                  <AppFormField label="API Key" :required="!editingChannel" class="col-span-2">
+                    <AppInput
+                      v-model="formData.apiKey"
+                      type="text"
+                      :placeholder="editingChannel ? '留空保持不变' : 'sk-...'"
+                      autocomplete="off"
                     />
-                    {{ group.name }}
-                  </label>
-                  <span v-if="groups.length === 0" class="no-data">暂无分组</span>
+                  </AppFormField>
+                </div>
+              </div>
+
+              <!-- Section: Parameters -->
+              <div>
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-1 h-3.5 rounded-full bg-primary/60"></div>
+                  <span class="text-[11px] font-mono tracking-wider uppercase text-text-muted">参数调节</span>
+                  <div class="flex-1 h-px bg-border/40"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <AppFormField label="权重">
+                    <AppInput v-model.number="formData.weight" type="number" min="0" />
+                  </AppFormField>
+                  <AppFormField v-if="editingChannel" label="状态">
+                    <AppSelect v-model="editStatus" :options="channelStatusOptions" />
+                  </AppFormField>
+                  <AppFormField label="价格倍率">
+                    <AppInput v-model.number="formData.priceRate" type="number" step="0.01" min="0" />
+                  </AppFormField>
+                </div>
+              </div>
+
+              <!-- Section: Extended -->
+              <div>
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-1 h-3.5 rounded-full bg-primary/60"></div>
+                  <span class="text-[11px] font-mono tracking-wider uppercase text-text-muted">扩展信息</span>
+                  <div class="flex-1 h-px bg-border/40"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <AppFormField label="备注" class="col-span-2">
+                    <textarea
+                      v-model="formData.remark"
+                      rows="2"
+                      placeholder="渠道备注"
+                      class="w-full px-3 py-2.5 bg-bg-secondary text-text-primary placeholder:text-text-muted border border-border rounded-lg text-sm transition-all duration-200 focus:outline-none focus:border-border-focus focus:shadow-[0_0_12px_rgba(139,195,74,0.08)] focus:ring-1 focus:ring-primary/20 resize-y min-h-[68px]"
+                    ></textarea>
+                  </AppFormField>
+
+                  <AppFormField label="所属分组" class="col-span-2">
+                    <div class="flex flex-wrap gap-2">
+                      <label
+                        v-for="group in groups"
+                        :key="group.id"
+                        class="px-3 py-1.5 bg-bg-secondary border border-border/60 rounded-lg text-[13px] text-text-secondary cursor-pointer transition-all duration-200 hover:border-border-hover"
+                        :class="formData.groupIDs?.includes(group.id)
+                          ? 'bg-primary-light/60 border-primary/50 text-primary shadow-[0_0_10px_rgba(139,195,74,0.1)]'
+                          : ''
+                        "
+                      >
+                        <input
+                          type="checkbox"
+                          :checked="formData.groupIDs?.includes(group.id)"
+                          class="sr-only"
+                          @change="() => {
+                            if (!formData.groupIDs) formData.groupIDs = []
+                            const idx = formData.groupIDs.indexOf(group.id)
+                            if (idx > -1) formData.groupIDs.splice(idx, 1)
+                            else formData.groupIDs.push(group.id)
+                          }"
+                        />
+                        <span class="flex items-center gap-1.5">
+                          <span
+                            class="w-1.5 h-1.5 rounded-full transition-all duration-200"
+                            :class="formData.groupIDs?.includes(group.id) ? 'bg-primary shadow-[0_0_6px_rgba(139,195,74,0.6)]' : 'bg-text-muted/40'"
+                          ></span>
+                          {{ group.name }}
+                        </span>
+                      </label>
+                      <span v-if="groups.length === 0" class="text-[13px] text-text-muted italic">暂无分组</span>
+                    </div>
+                  </AppFormField>
                 </div>
               </div>
             </div>
 
-            <div v-show="activeTab === 'models'" class="form-grid">
-              <div class="field full">
-                <div class="field-header">
-                  <label>模型配置</label>
-                  <button
+            <div v-show="activeTab === 'models'" class="flex flex-col gap-5">
+              <div>
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-1 h-3.5 rounded-full bg-primary/60"></div>
+                  <span class="text-[11px] font-mono tracking-wider uppercase text-text-muted">模型配置</span>
+                  <div class="flex-1 h-px bg-border/40"></div>
+                </div>
+
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm text-text-secondary">从 API 端点拉取模型列表</span>
+                  <AppButton
                     type="button"
-                    class="btn-fetch"
-                    :disabled="fetchingModels || !formData.baseURL || !formData.apiKey"
+                    variant="primary"
+                    size="sm"
+                    :loading="fetchingModels"
+                    :disabled="!formData.baseURL || !formData.apiKey"
                     @click="handleFetchModels"
                   >
-                    <span v-if="fetchingModels">获取中...</span>
-                    <span v-else>自动获取</span>
-                  </button>
+                    {{ fetchingModels ? '获取中...' : '自动获取' }}
+                  </AppButton>
                 </div>
-                <p class="hint">点击"自动获取"从 API 拉取模型列表，点击模型芯片选择/取消</p>
+                <p class="text-xs text-text-muted mb-4">点击"自动获取"从 API 拉取模型列表，点击模型芯片选择/取消</p>
 
-                <div class="model-section">
-                  <div class="model-section-header">
-                    <span class="model-tag system">系统模型</span>
-                    <span class="model-count">{{ selectedModels.length }} 个已选</span>
+                <!-- Unified Model Tags -->
+                <div class="p-4 bg-bg-secondary/50 rounded-xl border border-border/50">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="px-2 py-0.5 rounded-md text-[11px] font-medium uppercase bg-primary-light text-primary border border-primary/20">模型列表</span>
+                    <span class="text-xs text-text-muted font-mono">{{ selectedModels.length + customModels.length }} 已选</span>
                   </div>
-                  <div class="chip-group models">
-                    <button
-                      v-for="model in availableModels"
-                      :key="model"
-                      type="button"
-                      class="chip model system"
-                      :class="{ on: selectedModels.includes(model) }"
-                      @click="toggleModel(model)"
+
+                  <!-- Model tags scrollable area -->
+                  <div class="max-h-40 overflow-y-auto flex flex-col gap-2">
+                    <!-- Selected tags: system (green) + custom (amber) -->
+                    <div class="flex flex-wrap gap-1.5">
+                      <!-- System models (selected) -->
+                      <button
+                        v-for="model in selectedModels"
+                        :key="'sel-' + model"
+                        type="button"
+                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md font-mono text-[11px] cursor-pointer transition-all duration-200 border bg-primary text-[#080a08] border-primary shadow-[0_0_8px_rgba(139,195,74,0.2)] hover:shadow-[0_0_12px_rgba(139,195,74,0.3)] active:scale-[0.96]"
+                        @click="toggleModel(model)"
+                      >
+                        {{ model }}
+                        <span class="inline-flex items-center justify-center w-3 h-3 rounded-full bg-[#080a08]/20 text-[#080a08] text-[9px] leading-none">×</span>
+                      </button>
+
+                      <!-- Custom models (amber) -->
+                      <span
+                        v-for="model in customModels"
+                        :key="'cust-' + model"
+                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md font-mono text-[11px] bg-warning text-[#080a08] border border-warning shadow-[0_0_8px_rgba(255,213,79,0.15)] transition-all duration-200 hover:shadow-[0_0_12px_rgba(255,213,79,0.25)]"
+                      >
+                        {{ model }}
+                        <button
+                          type="button"
+                          class="inline-flex items-center justify-center w-3 h-3 rounded-full bg-[#080a08]/15 text-[#080a08] text-[9px] leading-none cursor-pointer transition-all duration-150 hover:bg-[#080a08]/30"
+                          @click="removeCustomModel(model)"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    </div>
+
+                    <!-- Unselected available models -->
+                    <div
+                      v-if="availableModels.filter(m => !selectedModels.includes(m)).length > 0"
+                      class="flex flex-wrap gap-1.5 pt-2 border-t border-border/40"
                     >
-                      {{ model }}
-                    </button>
-                    <span v-if="availableModels.length === 0" class="no-models">
+                      <button
+                        v-for="model in availableModels.filter(m => !selectedModels.includes(m))"
+                        :key="model"
+                        type="button"
+                        class="px-2 py-1 rounded-md font-mono text-[11px] cursor-pointer transition-all duration-200 border bg-[rgba(139,195,74,0.06)] text-primary border-[rgba(139,195,74,0.25)] hover:border-primary/60 hover:bg-[rgba(139,195,74,0.1)] active:scale-[0.96]"
+                        @click="toggleModel(model)"
+                      >
+                        {{ model }}
+                      </button>
+                    </div>
+
+                    <span v-if="availableModels.length === 0 && selectedModels.length === 0 && customModels.length === 0" class="text-[12px] text-text-muted italic py-1">
                       请先填写 Base URL 和 API Key，然后点击"自动获取"
                     </span>
                   </div>
-                </div>
 
-                <div class="model-section">
-                  <div class="model-section-header">
-                    <span class="model-tag custom">自定义模型</span>
-                    <span class="model-count">{{ customModels.length }} 个</span>
-                  </div>
-                  <div class="chip-group models">
-                    <span
-                      v-for="model in customModels"
-                      :key="model"
-                      class="chip model custom"
-                    >
-                      {{ model }}
-                      <button type="button" class="chip-remove" @click="removeCustomModel(model)">×</button>
-                    </span>
-                  </div>
-                  <div class="add-model-row">
-                    <input
+                  <!-- Add custom model input -->
+                  <div class="flex gap-2 mt-3 pt-3 border-t border-border/40">
+                    <AppInput
                       v-model="newCustomModel"
                       type="text"
-                      placeholder="输入模型名称"
+                      placeholder="输入模型名称，回车添加"
+                      size="sm"
                       @keyup.enter="addCustomModel"
                     />
-                    <button type="button" class="btn-add-model" @click="addCustomModel">添加</button>
+                    <AppButton type="button" variant="warning" size="sm" @click="addCustomModel">添加</AppButton>
+                  </div>
+                </div>
+
+                <!-- Model Mappings: Data Pipeline -->
+                <div class="mt-4 p-4 bg-bg-secondary/50 rounded-xl border border-border/50">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="px-2 py-0.5 rounded-md text-[11px] font-medium uppercase bg-[rgba(139,195,74,0.08)] text-primary border border-primary/20">模型映射</span>
+                    <span class="text-xs text-text-muted font-mono">{{ modelMappings.length }} 条</span>
+                  </div>
+                  <div class="flex flex-col gap-2.5">
+                    <div
+                      v-if="modelMappings.length === 0"
+                      class="text-[13px] text-text-muted italic py-2 px-3 border border-dashed border-border/50 rounded-lg"
+                    >
+                      暂无映射，点击下方按钮添加数据流
+                    </div>
+                    <div
+                      v-for="(m, index) in modelMappings"
+                      :key="index"
+                      class="group flex items-center gap-2 p-2.5 bg-bg-secondary/60 border border-border/60 rounded-lg transition-all duration-200 hover:border-primary/30 hover:shadow-[0_0_12px_rgba(139,195,74,0.06)] relative overflow-hidden"
+                    >
+                      <div class="absolute left-0 top-0 bottom-0 w-[2px] bg-primary/40 group-hover:bg-primary/70 transition-colors"></div>
+                      <AppInput
+                        v-model="m.key"
+                        type="text"
+                        placeholder="请求模型"
+                        size="sm"
+                        class="flex-1"
+                      />
+                      <div class="flex items-center justify-center w-6 h-6 rounded-md bg-bg-tertiary border border-border/50 shrink-0">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-text-muted">
+                          <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                      <AppInput
+                        v-model="m.value"
+                        type="text"
+                        placeholder="实际请求模型"
+                        size="sm"
+                        class="flex-1"
+                      />
+                      <AppButton
+                        variant="ghost"
+                        size="sm"
+                        class="hover:text-danger hover:bg-danger-light shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                        @click="removeModelMapping(index)"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </AppButton>
+                    </div>
+                    <AppButton
+                      variant="secondary"
+                      size="sm"
+                      class="self-start border-dashed border-border-hover hover:border-primary/40 hover:bg-primary-light/40 hover:text-primary transition-all duration-200"
+                      @click="addModelMapping"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline-block mr-1">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      添加映射
+                    </AppButton>
                   </div>
                 </div>
               </div>
             </div>
           </form>
 
-          <div class="dlg-footer">
+          <!-- Footer -->
+          <div class="flex justify-end gap-3 px-6 py-4 border-t border-primary/10 bg-bg-secondary/30">
             <DialogClose as-child>
-              <button type="button" class="btn-cancel">取消</button>
+              <button
+                type="button"
+                class="px-5 py-2 rounded-lg text-sm font-medium text-text-secondary bg-bg-tertiary/60 border border-border/60 hover:border-border-hover hover:text-text-primary hover:bg-bg-tertiary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                取消
+              </button>
             </DialogClose>
-            <button type="button" class="btn-save" :disabled="formLoading" @click="handleFormSubmit">
-              {{ formLoading ? '处理中...' : (editingChannel ? '保存' : '创建') }}
+            <button
+              type="button"
+              :disabled="formLoading"
+              class="px-5 py-2 rounded-lg text-sm font-medium bg-primary text-[#080a08] hover:bg-primary-dark hover:shadow-[0_0_24px_rgba(139,195,74,0.3)] active:scale-[0.97] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+              @click="handleFormSubmit"
+            >
+              <span v-if="formLoading" class="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              {{ formLoading ? '处理中...' : (editingChannel ? '保存配置' : '创建渠道') }}
             </button>
           </div>
         </DialogContent>
@@ -698,953 +1100,20 @@ onMounted(() => {
     </DialogRoot>
 
     <!-- Delete Dialog -->
-    <DialogRoot :open="!!deletingChannel" @update:open="(v) => !v && (deletingChannel = null)">
-      <DialogPortal>
-        <DialogOverlay
-          v-motion
-          :initial="{ opacity: 0 }"
-          :enter="{ opacity: 1, transition: { duration: 200 } }"
-          :leave="{ opacity: 0, transition: { duration: 150 } }"
-          class="dlg-overlay"
-        />
-        <DialogContent
-          v-motion="dialogAnim"
-          class="dlg-content dlg-sm"
-        >
-          <DialogTitle class="dlg-title dlg-center">确认删除</DialogTitle>
-          <DialogDescription class="dlg-desc">
-            确定要删除「{{ deletingChannel?.name }}」吗？此操作无法撤销。
-          </DialogDescription>
-          <div class="dlg-footer dlg-center">
-            <button class="btn-cancel" @click="deletingChannel = null">取消</button>
-            <button class="btn-danger" :disabled="deleteLoading" @click="handleDelete">
-              {{ deleteLoading ? '删除中...' : '删除' }}
-            </button>
-          </div>
-        </DialogContent>
-      </DialogPortal>
-    </DialogRoot>
+    <AppDialog
+      :open="!!deletingChannel"
+      @update:open="(v: boolean) => !v && (deletingChannel = null)"
+      title="确认删除"
+      description="确定要删除「{{ deletingChannel?.name }}」吗？此操作无法撤销。"
+      size="sm"
+    >
+      <template #footer>
+        <AppButton variant="secondary" @click="deletingChannel = null">取消</AppButton>
+        <AppButton variant="danger" :loading="deleteLoading" @click="handleDelete">
+          {{ deleteLoading ? '删除中...' : '删除' }}
+        </AppButton>
+      </template>
+    </AppDialog>
   </div>
+  </TooltipProvider>
 </template>
-
-<style scoped>
-.page-container {
-  max-width: 1400px;
-}
-
-/* Header */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.page-label {
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--color-text-primary);
-}
-
-.stats-bar {
-  display: flex;
-  gap: 1.5rem;
-}
-
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-}
-
-.stat-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-text-muted);
-
-  &.success {
-    background: var(--color-success);
-  }
-
-  &.warning {
-    background: var(--color-warning);
-  }
-}
-
-.stat-num {
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.stat-text {
-  color: var(--color-text-muted);
-}
-
-.btn-create {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-  }
-}
-
-/* Filter Bar */
-.filter-bar {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  padding: 1rem;
-  background: var(--color-bg-card);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.filter-inputs {
-  display: flex;
-  gap: 0.5rem;
-  flex: 1;
-}
-
-.input-search {
-  flex: 1;
-  max-width: 280px;
-  padding: 0.5rem 0.875rem;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  color: var(--color-text-primary);
-  transition: border-color 0.15s;
-
-  &::placeholder {
-    color: var(--color-text-muted);
-  }
-
-  &:focus {
-    outline: none;
-    border-color: var(--color-primary);
-  }
-}
-
-/* CustomSelect in filter bar */
-.filter-inputs .custom-select {
-  min-width: 110px;
-  max-width: 140px;
-}
-
-.btn-search {
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    background: var(--color-bg-tertiary);
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-}
-
-/* Table */
-.table-wrapper {
-  background: var(--color-bg-card);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  overflow: hidden;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th {
-  padding: 0.875rem 1rem;
-  text-align: left;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.data-table td {
-  padding: 1rem;
-  border-bottom: 1px solid var(--color-border);
-  vertical-align: middle;
-}
-
-.data-row {
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--color-bg-secondary);
-  }
-}
-
-.text-right {
-  text-align: right;
-}
-
-.cell-loading,
-.cell-empty {
-  padding: 3rem !important;
-  text-align: center;
-  color: var(--color-text-muted);
-}
-
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 0.5rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.empty-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-  opacity: 0.3;
-}
-
-/* Channel Info */
-.channel-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.channel-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: white;
-
-  &.openai { background: #10a37f; }
-  &.claude { background: #d97706; }
-  &.azure { background: #0078d4; }
-  &.custom { background: #6b7280; }
-}
-
-.channel-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.channel-name {
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-.channel-url {
-  font-size: 0.75rem;
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--color-text-muted);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Type & Status */
-.type-tag {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-
-  &.openai {
-    background: rgba(16, 163, 127, 0.1);
-    color: #10a37f;
-  }
-  &.claude {
-    background: rgba(217, 119, 6, 0.1);
-    color: #d97706;
-  }
-  &.azure {
-    background: rgba(0, 120, 212, 0.1);
-    color: #0078d4;
-  }
-  &.custom {
-    background: var(--color-bg-tertiary);
-    color: var(--color-text-secondary);
-  }
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.625rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-
-  &::before {
-    content: '';
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-
-  &.active {
-    background: var(--color-success-light);
-    color: var(--color-success);
-  }
-  &.paused {
-    background: var(--color-warning-light);
-    color: var(--color-warning);
-  }
-  &.expired {
-    background: var(--color-danger-light);
-    color: var(--color-danger);
-  }
-}
-
-.weight-value,
-.groups-count,
-.date-text {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-}
-
-/* Stats Cell */
-.stats-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-}
-
-.stat-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.stat-label {
-  width: 28px;
-  color: var(--color-text-muted);
-}
-
-.stat-val {
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--color-text-secondary);
-  min-width: 48px;
-}
-
-.stat-rate {
-  font-size: 0.6875rem;
-  padding: 0.125rem 0.375rem;
-  background: var(--color-bg-tertiary);
-  border-radius: 3px;
-  color: var(--color-text-muted);
-
-  &.good {
-    background: var(--color-success-light);
-    color: var(--color-success);
-  }
-}
-
-.no-stats {
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-}
-
-/* Row Actions */
-.row-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.action-link {
-  padding: 0.25rem 0.5rem;
-  background: transparent;
-  border: none;
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s;
-
-  &:hover {
-    color: var(--color-primary);
-    background: var(--color-primary-light);
-  }
-
-  &.success:hover {
-    color: var(--color-success);
-    background: var(--color-success-light);
-  }
-
-  &.warn:hover {
-    color: var(--color-warning);
-    background: var(--color-warning-light);
-  }
-
-  &.danger:hover {
-    color: var(--color-danger);
-    background: var(--color-danger-light);
-  }
-}
-
-/* Table Footer */
-.table-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.875rem 1rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.total-info {
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.page-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover:not(:disabled) {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-}
-
-.page-info {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-}
-</style>
-
-<!-- Global Dialog Styles -->
-<style>
-.dlg-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(2px);
-  z-index: 40;
-}
-
-.dlg-content {
-  position: fixed;
-  inset: 0;
-  margin: auto;
-  width: 90%;
-  max-width: 560px;
-  height: fit-content;
-  max-height: 85vh;
-  background: var(--color-bg-card);
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  z-index: 50;
-  overflow: hidden;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2), 0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
-.dlg-sm {
-  max-width: 400px;
-}
-
-.dlg-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.dlg-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.dlg-center {
-  text-align: center;
-  justify-content: center;
-}
-
-.dlg-close {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  font-size: 1.25rem;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  border-radius: 6px;
-
-  &:hover {
-    background: var(--color-bg-tertiary);
-    color: var(--color-text-primary);
-  }
-}
-
-.dlg-tabs {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0 1.25rem;
-  background: var(--color-bg-secondary);
-}
-
-.dlg-tab {
-  padding: 0.75rem 1rem;
-  background: transparent;
-  border: none;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  position: relative;
-  transition: color 0.15s;
-
-  &:hover {
-    color: var(--color-text-secondary);
-  }
-
-  &.active {
-    color: var(--color-primary);
-
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: var(--color-primary);
-    }
-  }
-}
-
-.dlg-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.25rem;
-}
-
-.dlg-desc {
-  padding: 1rem 1.25rem;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  text-align: center;
-}
-
-.form-err {
-  padding: 0.625rem 0.875rem;
-  background: var(--color-danger-light);
-  color: var(--color-danger);
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  margin-bottom: 1rem;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-
-  &.full {
-    grid-column: 1 / -1;
-  }
-
-  label {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-  }
-
-  .req {
-    color: var(--color-danger);
-  }
-
-  .hint {
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-    margin-top: -0.125rem;
-  }
-
-  .field-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    label {
-      margin: 0;
-    }
-  }
-
-  .btn-fetch {
-    padding: 0.25rem 0.625rem;
-    background: var(--color-primary-light);
-    border: 1px solid var(--color-primary);
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--color-primary);
-    cursor: pointer;
-    transition: all 0.15s;
-
-    &:hover:not(:disabled) {
-      background: var(--color-primary);
-      color: white;
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-  }
-
-  input,
-  select,
-  textarea {
-    padding: 0.5rem 0.75rem;
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border);
-    border-radius: 6px;
-    font-size: 0.875rem;
-    color: var(--color-text-primary);
-    transition: border-color 0.15s;
-
-    &.mono {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8125rem;
-    }
-
-    &:focus {
-      outline: none;
-      border-color: var(--color-primary);
-    }
-  }
-
-  textarea {
-    resize: vertical;
-    min-height: 60px;
-  }
-}
-
-.chip-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-
-  &.models {
-    min-height: 2rem;
-  }
-}
-
-.chip {
-  padding: 0.375rem 0.75rem;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    border-color: var(--color-primary);
-  }
-
-  &.on {
-    background: var(--color-primary-light);
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-
-  &.model {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-
-    &.system {
-      background: rgba(139, 195, 74, 0.08);
-      border-color: rgba(139, 195, 74, 0.3);
-      color: var(--color-primary);
-
-      &:hover {
-        border-color: var(--color-primary);
-      }
-
-      &.on {
-        background: var(--color-primary);
-        color: white;
-      }
-    }
-
-    &.custom {
-      background: rgba(255, 213, 79, 0.08);
-      border-color: rgba(255, 213, 79, 0.3);
-      color: var(--color-warning);
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-  }
-}
-
-.chip-remove {
-  width: 14px;
-  height: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 213, 79, 0.2);
-  border: none;
-  border-radius: 50%;
-  color: var(--color-warning);
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    background: var(--color-warning);
-    color: white;
-  }
-}
-
-.model-section {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: var(--color-bg-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.model-section-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.model-tag {
-  padding: 0.125rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  text-transform: uppercase;
-
-  &.system {
-    background: var(--color-primary-light);
-    color: var(--color-primary);
-  }
-
-  &.custom {
-    background: rgba(255, 213, 79, 0.15);
-    color: var(--color-warning);
-  }
-}
-
-.model-count {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
-.no-models {
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
-.add-model-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-
-  input {
-    flex: 1;
-    padding: 0.375rem 0.5rem;
-    background: var(--color-bg-card);
-    border: 1px solid var(--color-border);
-    border-radius: 4px;
-    font-size: 0.8125rem;
-    color: var(--color-text-primary);
-    font-family: 'JetBrains Mono', monospace;
-
-    &:focus {
-      outline: none;
-      border-color: var(--color-warning);
-    }
-  }
-
-  .btn-add-model {
-    padding: 0.375rem 0.75rem;
-    background: var(--color-warning);
-    border: none;
-    border-radius: 4px;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: white;
-    cursor: pointer;
-    transition: all 0.15s;
-
-    &:hover {
-      opacity: 0.9;
-    }
-  }
-}
-
-.no-data {
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
-.check-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-
-  input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--color-primary);
-  }
-}
-
-.dlg-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid var(--color-border);
-
-  &.dlg-center {
-    justify-content: center;
-  }
-}
-
-.btn-cancel {
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-
-  &:hover {
-    background: var(--color-bg-tertiary);
-  }
-}
-
-.btn-save {
-  padding: 0.5rem 1rem;
-  background: var(--color-primary);
-  border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: white;
-  cursor: pointer;
-
-  &:hover {
-    opacity: 0.9;
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
-
-.btn-danger {
-  padding: 0.5rem 1rem;
-  background: var(--color-danger);
-  border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: white;
-  cursor: pointer;
-
-  &:hover {
-    opacity: 0.9;
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
-</style>

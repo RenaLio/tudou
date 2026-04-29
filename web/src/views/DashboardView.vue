@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, watch, shallowRef } from 'vue'
 import * as echarts from 'echarts'
+import dayjs from 'dayjs'
 import { useAuthStore } from '@/stores/auth'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppBadge from '@/components/ui/AppBadge.vue'
 import {
   listUserUsageDailyStats,
   listUserUsageHourlyStats,
@@ -16,42 +19,16 @@ import {
   type UserStatsResponse,
   type ChannelStatsResponse,
 } from '@/api/stats'
-import { listChannels } from '@/api/channel'
-import type { Channel } from '@/types'
+import {
+  toRFC3339,
+  startOfDay,
+  endOfDay,
+  addDays,
+  toDateKey,
+  now,
+} from '@/utils/date'
 
 const authStore = useAuthStore()
-
-// ── Time helpers ──
-function toRFC3339(d: Date): string {
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  const offset = -d.getTimezoneOffset()
-  const offsetH = Math.abs(Math.floor(offset / 60))
-  const offsetM = Math.abs(offset % 60)
-  const offsetSign = offset >= 0 ? '+' : '-'
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${offsetSign}${pad(offsetH)}:${pad(offsetM)}`
-}
-
-function startOfDay(d: Date): Date {
-  const r = new Date(d)
-  r.setHours(0, 0, 0, 0)
-  return r
-}
-
-function endOfDay(d: Date): Date {
-  const r = new Date(d)
-  r.setHours(23, 59, 59, 999)
-  return r
-}
-
-function addDays(d: Date, n: number): Date {
-  const r = new Date(d)
-  r.setDate(r.getDate() + n)
-  return r
-}
-
-function toDateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 // ── Time range ──
 type TimeRange = 'all' | 'today' | '7d' | '30d'
@@ -64,14 +41,14 @@ const rangeOptions: { value: TimeRange; label: string }[] = [
 ]
 
 const dateRange = computed(() => {
-  const now = new Date()
+  const today = now()
   switch (timeRange.value) {
     case 'today':
-      return { start: startOfDay(now), end: endOfDay(now) }
+      return { start: startOfDay(today), end: endOfDay(today) }
     case '7d':
-      return { start: startOfDay(addDays(now, -6)), end: endOfDay(now) }
+      return { start: startOfDay(addDays(today, -6)), end: endOfDay(today) }
     case '30d':
-      return { start: startOfDay(addDays(now, -29)), end: endOfDay(now) }
+      return { start: startOfDay(addDays(today, -29)), end: endOfDay(today) }
     case 'all':
     default:
       return null
@@ -88,7 +65,6 @@ const dailyStats = ref<UserUsageDailyStatsResponse[]>([])
 const hourlyStats = ref<UserUsageHourlyStatsResponse[]>([])
 const heatmapStats = ref<UserUsageHourlyStatsResponse[]>([])
 const channelStats = ref<ChannelStatsResponse[]>([])
-const channels = ref<Channel[]>([])
 
 function isDateKeyInRange(dateKey: string): boolean {
   const dr = dateRange.value
@@ -140,16 +116,49 @@ const successRate = computed(() => {
 })
 
 // ── Computed: channel rankings ──
-const channelMap = computed(() => new Map(channels.value.map(c => [c.id, c])))
+type ChannelRankSortKey = 'requests' | 'tokens' | 'cost'
+
+const channelRankSort = ref<ChannelRankSortKey>('cost')
+
+const channelRankSortOptions: Array<{ key: ChannelRankSortKey; label: string }> = [
+  { key: 'requests', label: '请求量' },
+  { key: 'tokens', label: 'Token总量' },
+  { key: 'cost', label: '花费' },
+]
+
+function inferChannelType(channelName: string): 'openai' | 'claude' | 'azure' | 'custom' {
+  const lower = channelName.toLowerCase()
+  if (lower.includes('azure')) return 'azure'
+  if (lower.includes('claude') || lower.includes('anthropic')) return 'claude'
+  if (lower.includes('openai') || lower.includes('gpt') || lower.includes('o1') || lower.includes('o3')) return 'openai'
+  return 'custom'
+}
 
 const rankedChannels = computed(() => {
-  return channelStats.value
-    .map(s => ({
+  const items = channelStats.value.map(s => {
+    const name = s.channelName?.trim() || s.channelID
+    const requestCount = s.requestSuccess + s.requestFailed
+    const tokenCount = s.inputToken + s.outputToken + s.cachedReadInputTokens + s.cachedCreationInputTokens
+    return {
       ...s,
-      name: channelMap.value.get(s.channelID)?.name || s.channelID,
-      type: channelMap.value.get(s.channelID)?.type || 'custom',
-    }))
-    .sort((a, b) => b.totalCost - a.totalCost)
+      name,
+      type: inferChannelType(name),
+      requestCount,
+      tokenCount,
+    }
+  })
+
+  return items.sort((a, b) => {
+    switch (channelRankSort.value) {
+      case 'requests':
+        return b.requestCount - a.requestCount
+      case 'tokens':
+        return b.tokenCount - a.tokenCount
+      case 'cost':
+      default:
+        return b.totalCost - a.totalCost
+    }
+  })
 })
 
 // ── Computed: unified chart data ──
@@ -220,7 +229,7 @@ type UnifiedSeriesKey =
 
 const unifiedChartData = computed<ChartPoint[]>(() => {
   if (timeRange.value === 'today') {
-    const todayKey = toDateKey(new Date())
+    const todayKey = toDateKey(now())
     const hourlyMap = new Map<number, UsageAccumulator>()
     for (const item of hourlyStats.value) {
       const dateKey = item.date.slice(0, 10)
@@ -264,10 +273,10 @@ const unifiedChartData = computed<ChartPoint[]>(() => {
   }
 
   const dr = dateRange.value
-  const startDate = dr ? startOfDay(dr.start) : startOfDay(addDays(new Date(), -29))
-  const endDate = dr ? endOfDay(dr.end) : endOfDay(new Date())
+  const startDate = dr ? startOfDay(dr.start) : startOfDay(addDays(now(), -29))
+  const endDate = dr ? endOfDay(dr.end) : endOfDay(now())
   const result: ChartPoint[] = []
-  const cur = new Date(startDate)
+  let cur = startDate
 
   while (cur <= endDate) {
     const dateStr = toDateKey(cur)
@@ -279,7 +288,7 @@ const unifiedChartData = computed<ChartPoint[]>(() => {
     const cr = found?.cachedReadInputTokens ?? 0
     const cc = found?.cachedCreationInputTokens ?? 0
     result.push({
-      label: `${cur.getMonth() + 1}/${cur.getDate()}`,
+      label: dayjs(cur).format('M/D'),
       requests: reqS + reqF,
       requestSuccess: reqS,
       requestFailed: reqF,
@@ -290,7 +299,7 @@ const unifiedChartData = computed<ChartPoint[]>(() => {
       totalTokens: inp + out + cr + cc,
       cost: found?.totalCost ?? 0,
     })
-    cur.setDate(cur.getDate() + 1)
+    cur = addDays(cur, 1)
   }
   return result
 })
@@ -394,7 +403,7 @@ function buildChartOption(data: ChartPoint[]): echarts.EChartsOption {
         html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;border-top:1px solid rgba(255,255,255,0.1);border-bottom:1px solid rgba(255,255,255,0.1);padding:4px 0;margin:4px 0;font-size:11px;color:#888">`
         html += `<span>读 ${formatTokens(d.inputToken)}</span><span>写 ${formatTokens(d.outputToken)}</span>`
         html += `<span>缓存读 ${formatTokens(d.cachedRead)}</span><span>缓存创建 ${formatTokens(d.cachedCreate)}</span></div>`
-        html += `<div style="display:flex;justify-content:space-between"><span style="color:#aaa">费用</span><span style="color:#ffb300;font-weight:600">$${d.cost.toFixed(2)}</span></div>`
+        html += `<div style="display:flex;justify-content:space-between"><span style="color:#aaa">费用</span><span style="color:#ffb300;font-weight:600">$${d.cost.toFixed(4)}</span></div>`
         return html
       },
     },
@@ -515,7 +524,7 @@ function buildRtChartOption(data: WindowPoint[]): echarts.EChartsOption {
         html += `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#aaa">请求</span><span style="font-family:var(--font-mono)">${d.requests}</span></div>`
         html += `<div style="display:flex;justify-content:space-between"><span style="color:#aaa">Token</span><span style="font-family:var(--font-mono)">${formatTokens(d.tokens)}</span></div>`
         if (d.ttft > 0) {
-          html += `<div style="display:flex;justify-content:space-between"><span style="color:#aaa">TTFT</span><span style="font-family:var(--font-mono)">${d.ttft}ms</span></div>`
+          html += `<div style="display:flex;justify-content:space-between"><span style="color:#aaa">TTFT</span><span style="font-family:var(--font-mono)">${(d.ttft / 1000).toFixed(2)}s</span></div>`
         }
         return html
       },
@@ -622,7 +631,7 @@ const realtimeData = computed<WindowPoint[]>(() => {
       const existing = buckets.get(key)
       const reqs = b.requestSuccess + b.requestFailed
       const toks = b.inputToken + b.outputToken
-      const parsedTs = new Date(key).getTime()
+      const parsedTs = dayjs(key).valueOf()
       const ts = Number.isNaN(parsedTs) ? Number.MAX_SAFE_INTEGER : parsedTs
       if (existing) {
         existing.requests += reqs
@@ -646,9 +655,9 @@ const realtimeData = computed<WindowPoint[]>(() => {
   const sorted = Array.from(buckets.entries()).sort((a, b) => a[1].ts - b[1].ts)
   return sorted.map(([time, v]) => ({
     time: (() => {
-      const d = new Date(time)
-      if (Number.isNaN(d.getTime())) return time.slice(11, 16)
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+      const d = dayjs(time)
+      if (!d.isValid()) return time.slice(11, 16)
+      return d.format('HH:mm')
     })(),
     requests: v.requests,
     tokens: v.tokens,
@@ -677,14 +686,12 @@ watch(
 // ── Heatmap helpers ──
 function formatHeatmapDate(dateStr: string): string {
   if (!dateStr) return ''
-  const d = new Date(dateStr + 'T00:00:00')
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const cellDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const diff = Math.floor((today.getTime() - cellDay.getTime()) / (1000 * 60 * 60 * 24))
+  const d = dayjs(dateStr)
+  const today = dayjs().startOf('day')
+  const diff = today.diff(d.startOf('day'), 'day')
   if (diff === 0) return '今天'
   if (diff === 1) return '昨天'
-  return `${d.getMonth() + 1}/${d.getDate()}`
+  return d.format('M/D')
 }
 
 interface HeatmapCell {
@@ -702,7 +709,7 @@ interface HeatmapCell {
 }
 
 const heatmapCells = computed<HeatmapCell[]>(() => {
-  const now = new Date()
+  const today = now()
   const cells: HeatmapCell[] = []
   const localHourlyMap = new Map<string, UsageAccumulator & { totalCostMicros: number }>()
 
@@ -718,7 +725,7 @@ const heatmapCells = computed<HeatmapCell[]>(() => {
   }
 
   for (let dayOffset = 6; dayOffset >= 0; dayOffset--) {
-    const d = addDays(now, -dayOffset)
+    const d = addDays(now(), -dayOffset)
     const dateStr = toDateKey(d)
     for (let h = 0; h < 24; h++) {
       const found = localHourlyMap.get(`${dateStr}-${h}`)
@@ -782,11 +789,11 @@ async function loadData() {
     }
 
     // Hourly query also keeps a small buffer; rendering will filter by selected range.
-    const hourlyStart = dr ? startOfDay(addDays(dr.start, -1)) : startOfDay(addDays(new Date(), -31))
-    const hourlyEnd = dr ? endOfDay(addDays(dr.end, 1)) : endOfDay(new Date())
+    const hourlyStart = dr ? startOfDay(addDays(dr.start, -1)) : startOfDay(addDays(now(), -31))
+    const hourlyEnd = dr ? endOfDay(addDays(dr.end, 1)) : endOfDay(now())
     const hourlyPageSize = Math.max(
       72,
-      Math.ceil((hourlyEnd.getTime() - hourlyStart.getTime()) / (1000 * 60 * 60)),
+      Math.ceil(dayjs(hourlyEnd).diff(hourlyStart, 'hour')),
     )
     const hourlyParams: Parameters<typeof listUserUsageHourlyStats>[0] = {
       userID: userId,
@@ -795,7 +802,7 @@ async function loadData() {
       pageSize: hourlyPageSize,
     }
 
-    const heatmapEnd = new Date()
+    const heatmapEnd = now()
     const heatmapStart = addDays(heatmapEnd, -6)
     const heatmapQueryStart = startOfDay(addDays(heatmapStart, -1))
     const heatmapQueryEnd = endOfDay(addDays(heatmapEnd, 1))
@@ -804,7 +811,6 @@ async function loadData() {
       timeRange.value === 'all' ? getUserStats(userId) : Promise.resolve(null),
       listUserUsageDailyStats(dailyParams),
       listUserUsageHourlyStats(hourlyParams),
-      listChannels({ pageSize: 100 }),
       listUserUsageHourlyStats({
         userID: userId,
         startTime: toRFC3339(heatmapQueryStart),
@@ -813,13 +819,12 @@ async function loadData() {
       }),
     ]
 
-    const [userStatsRes, dailyRes, hourlyRes, channelsRes, heatmapRes] = await Promise.all(tasks)
+    const [userStatsRes, dailyRes, hourlyRes, heatmapRes] = await Promise.all(tasks)
 
     if (userStatsRes) userStats.value = userStatsRes
     dailyStats.value = dailyRes.items
     hourlyStats.value = hourlyRes.items
     heatmapStats.value = heatmapRes.items
-    channels.value = channelsRes.items
 
     channelStats.value = await listChannelStats()
   } catch (err: any) {
@@ -840,78 +845,78 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="dashboard">
+  <div class="max-w-[1600px]">
     <!-- Header with time range -->
-    <header class="page-header">
+    <header class="flex items-start justify-between mb-6 gap-4 flex-wrap">
       <div>
-        <h1 class="page-title">统计看板</h1>
-        <p class="page-subtitle">实时监控您的 API 使用情况</p>
+        <h1 class="text-2xl font-semibold text-text-primary m-0 font-display tracking-tight">统计看板</h1>
+        <p class="text-text-muted text-[0.8125rem] mt-1">实时监控您的 API 使用情况</p>
       </div>
-      <div class="header-actions">
-        <div class="range-tabs">
-          <button
+      <div class="flex items-center gap-3">
+        <div class="flex bg-bg-tertiary rounded-md p-[3px] gap-[2px]">
+          <AppButton
             v-for="opt in rangeOptions"
             :key="opt.value"
-            class="range-tab"
-            :class="{ active: timeRange === opt.value }"
+            :variant="timeRange === opt.value ? 'secondary' : 'ghost'"
+            size="sm"
             @click="timeRange = opt.value"
           >
             {{ opt.label }}
-          </button>
+          </AppButton>
         </div>
-        <button class="refresh-btn" :class="{ spinning: loading }" @click="loadData" title="刷新数据">
+        <AppButton variant="secondary" size="sm" :loading="loading" @click="loadData" title="刷新数据">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="23 4 23 10 17 10" />
             <polyline points="1 20 1 14 7 14" />
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
-        </button>
+        </AppButton>
       </div>
     </header>
 
     <!-- Loading -->
-    <div v-if="loading && !userStats" class="loading-state">
-      <div class="spinner" />
+    <div v-if="loading && !userStats" class="flex flex-col items-center justify-center p-16 text-text-muted gap-3">
+      <div class="w-7 h-7 border-2 border-border border-t-primary rounded-full animate-spin"></div>
       <span>加载统计数据...</span>
     </div>
 
     <!-- Error -->
-    <div v-else-if="loadError" class="error-state">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <div v-else-if="loadError" class="flex flex-col items-center justify-center p-16 text-text-muted gap-3">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-danger">
         <circle cx="12" cy="12" r="10" />
         <line x1="12" y1="8" x2="12" y2="12" />
         <line x1="12" y1="16" x2="12.01" y2="16" />
       </svg>
       <p>{{ loadError }}</p>
-      <button class="retry-btn" @click="loadData">重试</button>
+      <AppButton variant="primary" size="sm" @click="loadData">重试</AppButton>
     </div>
 
     <!-- Content -->
     <template v-else>
       <!-- Overview Cards: 3 columns -->
-      <div class="metrics-grid">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <!-- Total Requests -->
-        <div class="metric-card">
-          <div class="metric-icon primary">
+        <div class="bg-bg-card border border-border rounded-lg p-5 flex items-start gap-3.5 transition-colors duration-200 hover:border-border-hover hover:shadow-md">
+          <div class="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0 bg-gradient-to-br from-primary/15 to-primary/[0.08] text-primary">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           </div>
-          <div class="metric-info">
-            <span class="metric-label">总请求数</span>
-            <span class="metric-value">{{ formatNumber(totalRequests) }}</span>
-            <div class="metric-breakdown">
-              <span class="bd-item good">
-                <span class="bd-dot" />
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="text-[0.6875rem] font-medium text-text-muted uppercase tracking-widest">总请求数</span>
+            <span class="text-2xl font-bold text-text-primary leading-tight mt-1 font-mono">{{ formatNumber(totalRequests) }}</span>
+            <div class="flex flex-wrap gap-x-3.5 gap-y-2 mt-2">
+              <span class="flex items-center gap-1.5 text-xs text-success">
+                <span class="w-[5px] h-[5px] rounded-full bg-current shrink-0"></span>
                 成功 {{ formatNumber(overviewStats.requestSuccess) }}
               </span>
-              <span class="bd-item bad">
-                <span class="bd-dot" />
+              <span class="flex items-center gap-1.5 text-xs text-danger">
+                <span class="w-[5px] h-[5px] rounded-full bg-current shrink-0"></span>
                 失败 {{ formatNumber(overviewStats.requestFailed) }}
               </span>
-              <span class="bd-item warn">
-                <span class="bd-dot" />
+              <span class="flex items-center gap-1.5 text-xs text-warning">
+                <span class="w-[5px] h-[5px] rounded-full bg-current shrink-0"></span>
                 成功率 {{ successRate }}%
               </span>
             </div>
@@ -919,32 +924,32 @@ onMounted(() => {
         </div>
 
         <!-- Total Tokens -->
-        <div class="metric-card">
-          <div class="metric-icon accent">
+        <div class="bg-bg-card border border-border rounded-lg p-5 flex items-start gap-3.5 transition-colors duration-200 hover:border-border-hover hover:shadow-md">
+          <div class="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0 bg-gradient-to-br from-accent/12 to-accent/[0.06] text-accent">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M12 2L2 7l10 5 10-5-10-5z" />
               <path d="M2 17l10 5 10-5" />
               <path d="M2 12l10 5 10-5" />
             </svg>
           </div>
-          <div class="metric-info">
-            <span class="metric-label">总 Token 数</span>
-            <span class="metric-value">{{ formatTokens(totalTokens) }}</span>
-            <div class="metric-breakdown">
-              <span class="bd-item">
-                <span class="bd-dot primary" />
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="text-[0.6875rem] font-medium text-text-muted uppercase tracking-widest">总 Token 数</span>
+            <span class="text-2xl font-bold text-text-primary leading-tight mt-1 font-mono">{{ formatTokens(totalTokens) }}</span>
+            <div class="flex flex-wrap gap-x-3.5 gap-y-2 mt-2">
+              <span class="flex items-center gap-1.5 text-xs text-text-tertiary">
+                <span class="w-[5px] h-[5px] rounded-full bg-current shrink-0"></span>
                 输入 {{ formatTokens(overviewStats.inputToken) }}
               </span>
-              <span class="bd-item">
-                <span class="bd-dot accent" />
+              <span class="flex items-center gap-1.5 text-xs text-text-tertiary">
+                <span class="w-[5px] h-[5px] rounded-full bg-current shrink-0"></span>
                 输出 {{ formatTokens(overviewStats.outputToken) }}
               </span>
-              <span class="bd-item">
-                <span class="bd-dot success" />
+              <span class="flex items-center gap-1.5 text-xs text-text-tertiary">
+                <span class="w-[5px] h-[5px] rounded-full bg-current shrink-0"></span>
                 缓存读 {{ formatTokens(overviewStats.cachedReadInputTokens) }}
               </span>
-              <span class="bd-item">
-                <span class="bd-dot warning" />
+              <span class="flex items-center gap-1.5 text-xs text-text-tertiary">
+                <span class="w-[5px] h-[5px] rounded-full bg-current shrink-0"></span>
                 缓存创建 {{ formatTokens(overviewStats.cachedCreationInputTokens) }}
               </span>
             </div>
@@ -952,19 +957,19 @@ onMounted(() => {
         </div>
 
         <!-- Total Cost -->
-        <div class="metric-card">
-          <div class="metric-icon warning">
+        <div class="bg-bg-card border border-border rounded-lg p-5 flex items-start gap-3.5 transition-colors duration-200 hover:border-border-hover hover:shadow-md">
+          <div class="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0 bg-gradient-to-br from-warning/10 to-warning/[0.05] text-warning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <line x1="12" y1="1" x2="12" y2="23" />
               <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
           </div>
-          <div class="metric-info">
-            <span class="metric-label">总成本</span>
-            <span class="metric-value">${{ overviewStats.totalCost.toFixed(2) }}</span>
-            <div class="metric-breakdown">
-              <span class="bd-item">
-                <span class="bd-dot warning" />
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="text-[0.6875rem] font-medium text-text-muted uppercase tracking-widest">总成本</span>
+            <span class="text-2xl font-bold text-text-primary leading-tight mt-1 font-mono">${{ overviewStats.totalCost.toFixed(4) }}</span>
+            <div class="flex flex-wrap gap-x-3.5 gap-y-2 mt-2">
+              <span class="flex items-center gap-1.5 text-xs text-text-tertiary">
+                <span class="w-[5px] h-[5px] rounded-full bg-current shrink-0"></span>
                 按实际调用计费
               </span>
             </div>
@@ -973,141 +978,167 @@ onMounted(() => {
       </div>
 
       <!-- Heatmap -->
-      <div class="heatmap-section">
-        <div class="section-header">
-          <div class="section-title">使用活跃度</div>
-          <span class="section-subtitle">最近 7 天 · 每小时</span>
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2 text-sm font-semibold text-text-primary">使用活跃度</div>
+          <span class="text-xs text-text-muted">最近 7 天 · 每小时</span>
         </div>
-        <div class="heatmap-card">
-          <div class="heatmap-grid">
+        <div class="bg-bg-card border border-border rounded-lg p-5">
+          <div class="grid gap-[3px]" style="grid-template-columns: 40px repeat(24, 1fr);">
             <template v-for="(row, rowIndex) in heatmapRows" :key="rowIndex">
-              <span class="heatmap-label">{{ formatHeatmapDate(row[0]?.date || '') }}</span>
+              <span class="text-[0.6875rem] text-text-muted text-right pr-1.5 font-mono self-center">{{ formatHeatmapDate(row[0]?.date || '') }}</span>
               <div
                 v-for="cell in row"
                 :key="`${cell.date}-${cell.hour}`"
-                class="heatmap-cell"
+                class="h-[18px] rounded-[2px] border border-[rgba(139,195,74,0.06)] box-border transition-all duration-[120ms] cursor-pointer relative z-[1] hover:z-10 hover:outline-[1.5px] hover:outline-primary hover:outline-offset-[-1px] hover:scale-125 group"
                 :style="{ background: `rgba(139, 195, 74, ${getHeatmapOpacity(cell.requests)})` }"
               >
-                <div class="heatmap-tip">
-                  <div class="tip-title">{{ cell.date }} {{ String(cell.hour).padStart(2, '0') }}:00</div>
-                  <div class="tip-row">
-                    <span class="tip-label">请求</span>
-                    <span class="tip-val">{{ cell.requests }} <span class="tip-sub">(成功 {{ cell.requestSuccess }} / 失败 {{ cell.requestFailed }})</span></span>
+                <div class="hidden group-hover:block absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 bg-bg-secondary border border-border-hover rounded-md px-3 py-2.5 min-w-[200px] pointer-events-none shadow-[0_8px_24px_rgba(0,0,0,0.25)] z-[100]">
+                  <div class="text-xs font-semibold text-text-primary mb-1 font-mono">{{ cell.date }} {{ String(cell.hour).padStart(2, '0') }}:00</div>
+                  <div class="flex justify-between items-baseline text-[0.6875rem] py-0.5">
+                    <span class="text-text-muted">请求</span>
+                    <span class="text-text-primary font-mono font-medium">{{ cell.requests }} <span class="text-text-tertiary font-normal text-[0.625rem]">(成功 {{ cell.requestSuccess }} / 失败 {{ cell.requestFailed }})</span></span>
                   </div>
-                  <div class="tip-row">
-                    <span class="tip-label">Token</span>
-                    <span class="tip-val">{{ formatTokens(cell.inputToken + cell.outputToken + cell.cachedReadInputTokens + cell.cachedCreationInputTokens) }}</span>
+                  <div class="flex justify-between items-baseline text-[0.6875rem] py-0.5">
+                    <span class="text-text-muted">Token</span>
+                    <span class="text-text-primary font-mono font-medium">{{ formatTokens(cell.inputToken + cell.outputToken + cell.cachedReadInputTokens + cell.cachedCreationInputTokens) }}</span>
                   </div>
-                  <div class="tip-grid">
+                  <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[0.625rem] text-text-tertiary py-1 border-t border-b border-border my-1">
                     <span>读 {{ formatTokens(cell.inputToken) }}</span>
                     <span>写 {{ formatTokens(cell.outputToken) }}</span>
                     <span>缓存读 {{ formatTokens(cell.cachedReadInputTokens) }}</span>
                     <span>缓存创建 {{ formatTokens(cell.cachedCreationInputTokens) }}</span>
                   </div>
-                  <div class="tip-row">
-                    <span class="tip-label">费用</span>
-                    <span class="tip-val tip-cost">${{ cell.totalCost.toFixed(2) }}</span>
+                  <div class="flex justify-between items-baseline text-[0.6875rem] py-0.5">
+                    <span class="text-text-muted">费用</span>
+                    <span class="text-accent font-mono font-semibold">${{ cell.totalCost.toFixed(4) }}</span>
                   </div>
                 </div>
               </div>
             </template>
             <!-- X-axis labels: placeholder + 24 labels -->
-            <span class="heatmap-label heatmap-label-axis" />
+            <span></span>
             <span
               v-for="h in 24"
               :key="`lbl-${h}`"
-              class="heatmap-x-label"
+              class="text-center text-[0.625rem] text-text-muted font-mono"
             >
               {{ [1, 7, 13, 19, 24].includes(h) ? (h === 1 ? '0' : h === 7 ? '6' : h === 13 ? '12' : h === 19 ? '18' : '23') : '' }}
             </span>
           </div>
-          <div class="heatmap-legend">
-            <span class="heatmap-legend-label">少</span>
-            <div class="heatmap-legend-scale">
-              <div class="heatmap-legend-block" style="background: rgba(139, 195, 74, 0.04)" />
-              <div class="heatmap-legend-block" style="background: rgba(139, 195, 74, 0.2)" />
-              <div class="heatmap-legend-block" style="background: rgba(139, 195, 74, 0.4)" />
-              <div class="heatmap-legend-block" style="background: rgba(139, 195, 74, 0.6)" />
-              <div class="heatmap-legend-block" style="background: rgba(139, 195, 74, 0.85)" />
+          <div class="flex items-center gap-2 mt-3 justify-end">
+            <span class="text-[0.6875rem] text-text-muted">少</span>
+            <div class="flex gap-[2px]">
+              <div class="w-2.5 h-2.5 rounded-[2px]" style="background: rgba(139, 195, 74, 0.12);"></div>
+              <div class="w-2.5 h-2.5 rounded-[2px]" style="background: rgba(139, 195, 74, 0.32);"></div>
+              <div class="w-2.5 h-2.5 rounded-[2px]" style="background: rgba(139, 195, 74, 0.52);"></div>
+              <div class="w-2.5 h-2.5 rounded-[2px]" style="background: rgba(139, 195, 74, 0.72);"></div>
+              <div class="w-2.5 h-2.5 rounded-[2px]" style="background: rgba(139, 195, 74, 0.92);"></div>
             </div>
-            <span class="heatmap-legend-label">多</span>
+            <span class="text-[0.6875rem] text-text-muted">多</span>
           </div>
         </div>
       </div>
 
       <!-- Real-time Window (if data available) -->
-      <div v-if="hasRealtimeData" class="rt-section">
-        <div class="section-header">
-          <div class="section-title">
-            <span class="live-dot" />
+      <div v-if="hasRealtimeData" class="mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2 text-sm font-semibold text-text-primary">
+            <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
             <span>实时观测</span>
           </div>
-          <span class="section-subtitle">最近 3 小时 · 15 分钟粒度</span>
+          <span class="text-xs text-text-muted">最近 3 小时 · 15 分钟粒度</span>
         </div>
-        <div class="rt-card">
-          <div ref="rtChartRef" class="echarts-container" />
+        <div class="bg-bg-card border border-border rounded-lg p-5">
+          <div ref="rtChartRef" class="w-full h-[280px]"></div>
         </div>
       </div>
 
       <!-- Unified Chart -->
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3 class="chart-title">用量趋势</h3>
-          <span class="chart-badge">{{ timeRange === 'today' ? '当天 · 小时' : timeRange === '7d' ? '7 天 · 日' : timeRange === '30d' ? '30 天 · 日' : '近 30 天 · 日' }}</span>
+      <div class="bg-bg-card border border-border rounded-lg overflow-hidden mb-6">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 class="text-sm font-semibold text-text-primary m-0">用量趋势</h3>
+          <span class="text-[0.6875rem] text-text-muted bg-bg-tertiary px-2 py-0.5 rounded">{{ timeRange === 'today' ? '当天 · 小时' : timeRange === '7d' ? '7 天 · 日' : timeRange === '30d' ? '30 天 · 日' : '近 30 天 · 日' }}</span>
         </div>
-        <div class="chart-body">
-          <div v-if="unifiedChartData.length > 0" ref="chartRef" class="echarts-container" />
-          <div v-else class="chart-empty">暂无数据</div>
+        <div class="p-5">
+          <div v-if="unifiedChartData.length > 0" ref="chartRef" class="w-full h-[280px]"></div>
+          <div v-else class="h-[280px] flex items-center justify-center text-text-muted text-sm">暂无数据</div>
         </div>
       </div>
 
       <!-- Channel Rankings -->
-      <div class="table-card">
-        <div class="table-header">
-          <h3 class="table-title">渠道排行</h3>
-          <span class="table-count">{{ rankedChannels.length }} 个渠道</span>
+      <div class="bg-bg-card border border-border rounded-lg overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-border max-sm:flex-col max-sm:items-start max-sm:gap-2">
+          <h3 class="text-sm font-semibold text-text-primary m-0">渠道排行</h3>
+          <div class="flex items-center gap-3 flex-wrap max-sm:w-full max-sm:justify-between">
+            <span class="text-xs text-text-muted">{{ rankedChannels.length }} 个渠道</span>
+            <div class="inline-flex items-center gap-[2px] bg-bg-tertiary rounded-sm p-[2px]">
+              <AppButton
+                v-for="opt in channelRankSortOptions"
+                :key="opt.key"
+                :variant="channelRankSort === opt.key ? 'secondary' : 'ghost'"
+                size="sm"
+                @click="channelRankSort = opt.key"
+              >
+                {{ opt.label }}
+              </AppButton>
+            </div>
+          </div>
         </div>
-        <div class="table-body">
-          <table class="data-table">
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
             <thead>
               <tr>
-                <th>渠道</th>
-                <th class="num">请求</th>
-                <th class="num">输入 Token</th>
-                <th class="num">输出 Token</th>
-                <th class="num">成功率</th>
-                <th class="num">平均 TTFT</th>
-                <th class="num">成本</th>
+                <th class="px-4 py-3 text-left text-[0.6875rem] font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border whitespace-nowrap">渠道</th>
+                <th class="px-4 py-3 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border whitespace-nowrap font-mono">请求</th>
+                <th class="px-4 py-3 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border whitespace-nowrap font-mono">输入 Token</th>
+                <th class="px-4 py-3 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border whitespace-nowrap font-mono">输出 Token</th>
+                <th class="px-4 py-3 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border whitespace-nowrap font-mono">成功率</th>
+                <th class="px-4 py-3 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border whitespace-nowrap font-mono">平均 TTFT</th>
+                <th class="px-4 py-3 text-right text-[0.6875rem] font-semibold uppercase tracking-wider text-text-muted bg-bg-secondary border-b border-border whitespace-nowrap font-mono">成本</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="ch in rankedChannels" :key="ch.channelID" class="data-row">
-                <td>
-                  <div class="channel-info">
-                    <span class="channel-avatar" :class="ch.type">{{ ch.name.charAt(0) }}</span>
-                    <div class="channel-meta">
-                      <span class="channel-name">{{ ch.name }}</span>
-                      <span class="channel-id">{{ ch.channelID.slice(0, 8) }}...</span>
+              <tr v-for="ch in rankedChannels" :key="ch.channelID" class="transition-colors duration-150 hover:bg-bg-secondary">
+                <td class="px-4 py-3.5 border-b border-border text-[0.8125rem] text-text-secondary">
+                  <div class="flex items-center gap-2.5">
+                    <span
+                      class="w-7 h-7 rounded-md flex items-center justify-center text-xs font-semibold text-bg-primary shrink-0"
+                      :class="{
+                        'bg-[#10a37f]': ch.type === 'openai',
+                        'bg-[#d97706]': ch.type === 'claude',
+                        'bg-[#0078d4]': ch.type === 'azure',
+                        'bg-text-tertiary': ch.type === 'custom',
+                      }"
+                    >
+                      {{ ch.name.charAt(0) }}
+                    </span>
+                    <div class="flex flex-col gap-0.5">
+                      <span class="font-medium text-text-primary">{{ ch.name }}</span>
+                      <span class="text-[0.6875rem] text-text-muted font-mono">{{ ch.channelID.slice(0, 8) }}...</span>
                     </div>
                   </div>
                 </td>
-                <td class="num">{{ formatNumber(ch.requestSuccess + ch.requestFailed) }}</td>
-                <td class="num">{{ formatTokens(ch.inputToken) }}</td>
-                <td class="num">{{ formatTokens(ch.outputToken) }}</td>
-                <td class="num">
-                  <span class="rate-badge" :class="{
-                    high: calcSuccessRate(ch.requestSuccess, ch.requestFailed) >= 95,
-                    medium: calcSuccessRate(ch.requestSuccess, ch.requestFailed) >= 85,
-                    low: calcSuccessRate(ch.requestSuccess, ch.requestFailed) < 85,
-                  }">
+                <td class="px-4 py-3.5 border-b border-border text-[0.8125rem] text-text-secondary text-right font-mono whitespace-nowrap">{{ formatNumber(ch.requestCount) }}</td>
+                <td class="px-4 py-3.5 border-b border-border text-[0.8125rem] text-text-secondary text-right font-mono whitespace-nowrap">{{ formatTokens(ch.inputToken) }}</td>
+                <td class="px-4 py-3.5 border-b border-border text-[0.8125rem] text-text-secondary text-right font-mono whitespace-nowrap">{{ formatTokens(ch.outputToken) }}</td>
+                <td class="px-4 py-3.5 border-b border-border text-[0.8125rem] text-text-secondary text-right font-mono whitespace-nowrap">
+                  <AppBadge
+                    :variant="
+                      calcSuccessRate(ch.requestSuccess, ch.requestFailed) >= 95 ? 'success' :
+                      calcSuccessRate(ch.requestSuccess, ch.requestFailed) >= 85 ? 'warning' :
+                      'danger'
+                    "
+                    size="sm"
+                  >
                     {{ calcSuccessRate(ch.requestSuccess, ch.requestFailed) }}%
-                  </span>
+                  </AppBadge>
                 </td>
-                <td class="num">{{ ch.avgTTFT }}ms</td>
-                <td class="num">${{ ch.totalCost.toFixed(2) }}</td>
+                <td class="px-4 py-3.5 border-b border-border text-[0.8125rem] text-text-secondary text-right font-mono whitespace-nowrap">{{ ch.avgTTFT }}ms</td>
+                <td class="px-4 py-3.5 border-b border-border text-[0.8125rem] text-text-secondary text-right font-mono whitespace-nowrap">${{ ch.totalCost.toFixed(4) }}</td>
               </tr>
               <tr v-if="rankedChannels.length === 0">
-                <td colspan="7" class="cell-empty">暂无渠道数据</td>
+                <td colspan="7" class="p-12 text-center text-text-muted">暂无渠道数据</td>
               </tr>
             </tbody>
           </table>
@@ -1116,694 +1147,3 @@ onMounted(() => {
     </template>
   </div>
 </template>
-
-<style scoped>
-.dashboard {
-  max-width: 1400px;
-}
-
-/* ── Header with time range ── */
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.page-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0;
-  font-family: var(--font-display);
-  letter-spacing: -0.02em;
-}
-
-.page-subtitle {
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-  margin: 0.25rem 0 0;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.range-tabs {
-  display: flex;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  padding: 3px;
-  gap: 2px;
-}
-
-.range-tab {
-  padding: 0.375rem 0.875rem;
-  background: transparent;
-  border: none;
-  border-radius: calc(var(--radius-md) - 2px);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.range-tab:hover {
-  color: var(--color-text-secondary);
-}
-
-.range-tab.active {
-  background: var(--color-bg-card);
-  color: var(--color-primary);
-  box-shadow: var(--shadow-sm);
-}
-
-.refresh-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.refresh-btn:hover {
-  border-color: var(--color-border-hover);
-  color: var(--color-text-secondary);
-}
-
-.refresh-btn.spinning svg {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ── Loading / Error ── */
-.loading-state,
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem;
-  color: var(--color-text-muted);
-  gap: 0.75rem;
-}
-
-.spinner {
-  width: 28px;
-  height: 28px;
-  border: 2px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.error-state svg {
-  color: var(--color-danger);
-}
-
-.retry-btn {
-  margin-top: 0.5rem;
-  padding: 0.375rem 1rem;
-  background: var(--color-primary-light);
-  border: 1px solid var(--color-border-hover);
-  border-radius: var(--radius-sm);
-  color: var(--color-primary);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.retry-btn:hover {
-  background: var(--color-primary);
-  color: var(--color-bg-primary);
-}
-
-/* ── Metrics Grid: 3 columns ── */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.metric-card {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.875rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.metric-card:hover {
-  border-color: var(--color-border-hover);
-  box-shadow: var(--shadow-md);
-}
-
-.metric-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.metric-icon.primary {
-  background: linear-gradient(135deg, rgba(139, 195, 74, 0.15), rgba(124, 179, 66, 0.08));
-  color: var(--color-primary);
-}
-
-.metric-icon.accent {
-  background: linear-gradient(135deg, rgba(255, 179, 0, 0.12), rgba(255, 204, 77, 0.06));
-  color: var(--color-accent);
-}
-
-.metric-icon.warning {
-  background: linear-gradient(135deg, rgba(255, 213, 79, 0.1), rgba(255, 224, 130, 0.05));
-  color: var(--color-warning);
-}
-
-.metric-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-
-.metric-label {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.metric-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  line-height: 1.2;
-  margin-top: 0.25rem;
-  font-family: var(--font-mono);
-}
-
-.metric-breakdown {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.875rem;
-  margin-top: 0.5rem;
-}
-
-.bd-item {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  color: var(--color-text-tertiary);
-}
-
-.bd-item.good {
-  color: var(--color-success);
-}
-
-.bd-item.bad {
-  color: var(--color-danger);
-}
-
-.bd-item.warn {
-  color: var(--color-warning);
-}
-
-.bd-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-
-.bd-dot.primary {
-  background: var(--color-primary);
-}
-
-.bd-dot.accent {
-  background: var(--color-accent);
-}
-
-.bd-dot.success {
-  background: var(--color-success);
-}
-
-.bd-dot.warning {
-  background: var(--color-warning);
-}
-
-/* ── Real-time Section ── */
-.rt-section {
-  margin-bottom: 1.5rem;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-success);
-  animation: livePulse 2s ease-in-out infinite;
-}
-
-@keyframes livePulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(129, 199, 132, 0.4); }
-  50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(129, 199, 132, 0); }
-}
-
-.section-subtitle {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
-.rt-card {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-}
-
-/* ── Chart Card ── */
-.chart-card {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  margin-bottom: 1.5rem;
-}
-
-.chart-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.chart-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-.chart-badge {
-  font-size: 0.6875rem;
-  color: var(--color-text-muted);
-  background: var(--color-bg-tertiary);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-}
-
-.chart-body {
-  padding: 1.25rem;
-}
-
-/* ── Unified Chart ── */
-.echarts-container {
-  width: 100%;
-  height: 280px;
-}
-
-.chart-empty {
-  height: 280px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-}
-
-/* ── Table Card ── */
-.table-card {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.table-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.table-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-.table-count {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
-.table-body {
-  overflow-x: auto;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border);
-  white-space: nowrap;
-}
-
-.data-table td {
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-}
-
-.data-row {
-  transition: background 0.15s;
-}
-
-.data-row:hover {
-  background: var(--color-bg-secondary);
-}
-
-.data-table .num {
-  text-align: right;
-  font-family: var(--font-mono);
-  white-space: nowrap;
-}
-
-.cell-empty {
-  padding: 3rem !important;
-  text-align: center;
-  color: var(--color-text-muted);
-}
-
-/* Channel info in table */
-.channel-info {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-.channel-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-bg-primary);
-  flex-shrink: 0;
-}
-
-.channel-avatar.openai {
-  background: #10a37f;
-}
-
-.channel-avatar.claude {
-  background: #d97706;
-}
-
-.channel-avatar.azure {
-  background: #0078d4;
-}
-
-.channel-avatar.custom {
-  background: var(--color-text-tertiary);
-}
-
-.channel-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.channel-name {
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-.channel-id {
-  font-size: 0.6875rem;
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-}
-
-/* Rate badge */
-.rate-badge {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.rate-badge.high {
-  background: rgba(129, 199, 132, 0.1);
-  color: var(--color-success);
-}
-
-.rate-badge.medium {
-  background: rgba(255, 213, 79, 0.1);
-  color: var(--color-warning);
-}
-
-.rate-badge.low {
-  background: rgba(229, 115, 115, 0.1);
-  color: var(--color-danger);
-}
-
-/* ── Heatmap ── */
-.heatmap-section {
-  margin-bottom: 1.5rem;
-}
-
-.heatmap-card {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-}
-
-.heatmap-grid {
-  display: grid;
-  grid-template-columns: 40px repeat(24, 1fr);
-  gap: 3px;
-}
-
-.heatmap-label {
-  font-size: 0.6875rem;
-  color: var(--color-text-muted);
-  text-align: right;
-  padding-right: 6px;
-  font-family: var(--font-mono);
-  align-self: center;
-}
-
-.heatmap-label-axis {
-  visibility: hidden;
-}
-
-.heatmap-cell {
-  height: 18px;
-  border-radius: 2px;
-  background: rgba(139, 195, 74, 0.04);
-  border: 1px solid rgba(139, 195, 74, 0.06);
-  box-sizing: border-box;
-  transition: outline 0.12s ease;
-  cursor: pointer;
-  position: relative;
-  z-index: 1;
-}
-
-.heatmap-cell:hover {
-  z-index: 10;
-  outline: 1.5px solid var(--color-primary);
-  outline-offset: -1px;
-}
-
-/* ── Tooltip ── */
-.heatmap-tip {
-  display: none;
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-hover);
-  border-radius: var(--radius-md);
-  padding: 0.625rem 0.75rem;
-  min-width: 200px;
-  pointer-events: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  z-index: 100;
-}
-
-.heatmap-cell:hover .heatmap-tip {
-  display: block;
-}
-
-.tip-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 0.375rem;
-  font-family: var(--font-mono);
-}
-
-.tip-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 0.6875rem;
-  padding: 0.125rem 0;
-}
-
-.tip-label {
-  color: var(--color-text-muted);
-}
-
-.tip-val {
-  color: var(--color-text-primary);
-  font-family: var(--font-mono);
-  font-weight: 500;
-}
-
-.tip-sub {
-  color: var(--color-text-tertiary);
-  font-weight: 400;
-  font-size: 0.625rem;
-}
-
-.tip-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.125rem 0.5rem;
-  font-size: 0.625rem;
-  color: var(--color-text-tertiary);
-  padding: 0.25rem 0;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  margin: 0.25rem 0;
-}
-
-.tip-cost {
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
-.heatmap-x-label {
-  text-align: center;
-  font-size: 0.625rem;
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-}
-
-.heatmap-legend {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  justify-content: flex-end;
-}
-
-.heatmap-legend-label {
-  font-size: 0.6875rem;
-  color: var(--color-text-muted);
-}
-
-.heatmap-legend-scale {
-  display: flex;
-  gap: 2px;
-}
-
-.heatmap-legend-block {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-}
-
-/* ── Responsive ── */
-@media (max-width: 1024px) {
-  .metrics-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .header-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-}
-
-@media (max-width: 640px) {
-  .page-header {
-    flex-direction: column;
-  }
-
-  .range-tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .metric-breakdown {
-    flex-direction: column;
-    gap: 0.375rem;
-  }
-}
-</style>

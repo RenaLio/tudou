@@ -1,26 +1,26 @@
-import { ref, computed } from 'vue'
-import { defineStore } from 'pinia'
-import type { User } from '@/types'
+import type { User, } from '@/types';
+import { defineStore, } from 'pinia';
+import { computed, ref, } from 'vue';
 
 export const useAuthStore = defineStore(
   'auth',
   () => {
-    const token = ref<string | null>(null)
-    const user = ref<User | null>(null)
+    const token = ref<string | null>(null,);
+    const user = ref<User | null>(null,);
 
-    const isAuthenticated = computed(() => !!token.value)
+    const isAuthenticated = computed(() => !!token.value);
 
-    function setToken(newToken: string | null) {
-      token.value = newToken
+    function setToken(newToken: string | null,) {
+      token.value = newToken;
     }
 
-    function setUser(newUser: User | null) {
-      user.value = newUser
+    function setUser(newUser: User | null,) {
+      user.value = newUser;
     }
 
     function logout() {
-      token.value = null
-      user.value = null
+      token.value = null;
+      user.value = null;
     }
 
     return {
@@ -30,13 +30,13 @@ export const useAuthStore = defineStore(
       setToken,
       setUser,
       logout,
-    }
+    };
   },
   {
     persist: {
       key: 'auth',
       storage: localStorage,
-      pick: ['token', 'user'],
+      pick: ['token', 'user',],
     },
-  }
-)
+  },
+);
