@@ -84,5 +84,6 @@ type ChannelResponse struct {
 	CreatedAt   time.Time              `json:"createdAt"`
 	UpdatedAt   time.Time              `json:"updatedAt"`
 	GroupIDs    []string               `json:"groupIDs,omitempty"`
-	Stats       *models.ChannelStats   `json:"stats,omitempty"`
+	Groups      []ChannelGroupResponse `json:"groups,omitempty"`
+	Stats       *ChannelStatsResponse  `json:"stats,omitempty"`
 }

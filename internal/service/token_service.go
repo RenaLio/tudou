@@ -324,8 +324,7 @@ func toTokenWithRelationsResponse(token *models.Token) v1.TokenWithRelationsResp
 	}
 
 	if token.Stats.TokenID != 0 {
-		stats := token.Stats
-		resp.Stats = &stats
+		resp.Stats = new(toTokenStatsResponse(new(token.Stats)))
 	}
 	return resp
 }

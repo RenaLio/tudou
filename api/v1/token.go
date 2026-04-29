@@ -63,5 +63,5 @@ type TokenWithRelationsResponse struct {
 	TokenResponse
 	User  *UserResponse         `json:"user,omitempty"`
 	Group *ChannelGroupResponse `json:"group,omitempty"`
-	Stats *models.TokenStats    `json:"stats,omitempty"`
+	Stats *TokenStatsResponse   `json:"stats,omitempty"`
 }

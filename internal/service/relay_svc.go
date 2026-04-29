@@ -234,6 +234,7 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 			}
 			retryTrace = append(retryTrace, models.RetryDetail{
 				ChannelID:     candidate.Channel.ID,
+				ChannelName:   candidate.Channel.Name,
 				UpstreamModel: candidate.UpstreamModel,
 				StatusCode:    -1,
 				StatusBody:    execErr.Error(),
@@ -248,6 +249,7 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 
 		tryDetail := models.RetryDetail{
 			ChannelID:     candidate.Channel.ID,
+			ChannelName:   candidate.Channel.Name,
 			UpstreamModel: candidate.UpstreamModel,
 			StatusCode:    resp.StatusCode,
 			StatusBody:    "",

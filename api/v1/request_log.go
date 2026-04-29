@@ -29,7 +29,9 @@ type RequestLogResponse struct {
 	RequestID                 string                `json:"requestId"`
 	UserID                    int64                 `json:"userId,string"`
 	TokenID                   int64                 `json:"tokenId,string"`
+	TokenName                 string                `json:"tokenName"`
 	GroupID                   int64                 `json:"groupId,string"`
+	GroupName                 string                `json:"groupName"`
 	ChannelID                 int64                 `json:"channelId,string"`
 	ChannelName               string                `json:"channelName"`
 	ChannelPriceRate          float64               `json:"channelPriceRate"`

@@ -1365,6 +1365,7 @@ func logsNormalize(logs []*models.RequestLog) []*models.RequestLog {
 			// 将克隆日志的渠道和模型更新为重试时使用的上游信息
 			cloneLog.UpstreamModel = retry.UpstreamModel
 			cloneLog.ChannelID = retry.ChannelID
+			cloneLog.ChannelName = retry.ChannelName
 
 			// 清零所有消耗相关字段，因为这次重试尝试本身不产生计费或 token 消耗
 			cloneLog.InputToken = 0

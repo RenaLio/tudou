@@ -400,6 +400,10 @@ func toChannelResponse(channel *models.Channel) v1.ChannelResponse {
 		s := *channel.Stats
 		stats = &s
 	}
+	groups := make([]v1.ChannelGroupResponse, 0, len(channel.Groups))
+	for _, group := range channel.Groups {
+		groups = append(groups, toChannelGroupResponse(&group))
+	}
 	return v1.ChannelResponse{
 		ID:          channel.ID,
 		Type:        channel.Type,
@@ -419,7 +423,8 @@ func toChannelResponse(channel *models.Channel) v1.ChannelResponse {
 		CreatedAt:   channel.CreatedAt,
 		UpdatedAt:   channel.UpdatedAt,
 		GroupIDs:    groupIDs,
-		Stats:       stats,
+		Groups:      groups,
+		Stats:       new(toChannelStatsResponse(stats)),
 	}
 }
 
