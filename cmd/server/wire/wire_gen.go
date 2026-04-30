@@ -47,7 +47,7 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	asyncMetricsCollector := newAsyncMetricsCollector(registry)
 	requestLogRepo := repository.NewRequestLogRepo(repositoryRepository)
 	requestLogServiceImpl := service.NewRequestLogService(serviceService, requestLogRepo)
-	relayService := service.NewRelayService(serviceService, dynamicLoadBalancer, asyncMetricsCollector, aiModelRepo, requestLogServiceImpl)
+	relayService := service.NewRelayService(serviceService, dynamicLoadBalancer, asyncMetricsCollector, aiModelRepo, requestLogServiceImpl, channelGroupRepo, channelRepo)
 	channelHandler := handler.NewChannelHandler(handlerHandler, channelService, relayService)
 	channelGroupService := service.NewChannelGroupService(serviceService, channelGroupRepo, registry)
 	channelGroupHandler := handler.NewChannelGroupHandler(handlerHandler, channelGroupService)
@@ -126,7 +126,7 @@ func newAsyncMetricsCollector(reg *loadbalancer.Registry) *loadbalancer.AsyncMet
 	return loadbalancer.NewAsyncMetricsCollector(reg, 1024)
 }
 
-var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService, service.NewStatsService, wire.Bind(new(handler.StatsService), new(*service.StatsService)), service.NewRequestLogService, wire.Bind(new(service.RequestLogService), new(*service.RequestLogServiceImpl)), wire.Bind(new(service.RequestLogCreator), new(*service.RequestLogServiceImpl)))
+var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService, wire.Bind(new(handler.RelayService), new(*service.RelayService)), service.NewStatsService, wire.Bind(new(handler.StatsService), new(*service.StatsService)), service.NewRequestLogService, wire.Bind(new(service.RequestLogService), new(*service.RequestLogServiceImpl)), wire.Bind(new(service.RequestLogCreator), new(*service.RequestLogServiceImpl)))
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handler.NewChannelHandler, handler.NewChannelGroupHandler, handler.NewTokenHandler, handler.NewUserHandler, handler.NewSystemConfigHandler, handler.NewStatsHandler, handler.NewRelayHandler, handler.NewRequestLogHandler, handler.NewDebugHelperHandler)
 

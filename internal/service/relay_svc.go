@@ -11,38 +11,26 @@ import (
 	"github.com/RenaLio/tudou/internal/loadbalancer"
 	"github.com/RenaLio/tudou/internal/models"
 	"github.com/RenaLio/tudou/internal/repository"
+	"github.com/RenaLio/tudou/internal/types"
 	"github.com/RenaLio/tudou/pkg/httpclient"
 	"github.com/RenaLio/tudou/pkg/provider"
 	"github.com/RenaLio/tudou/pkg/provider/constant"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
-	"github.com/RenaLio/tudou/pkg/provider/types"
+	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 	"github.com/goccy/go-json"
 	"github.com/google/uuid"
 )
 
 const maxRetry = 3
 
-type RelayService interface {
-	FetchModel(ctx context.Context, req *v1.FetchModelRequest) ([]string, error)
-	Forward(ctx context.Context, meta RelayMeta, body []byte, header http.Header) (*types.Response, error)
-}
-
-type RelayMeta struct {
-	Format    types.Format
-	TokenID   int64
-	TokenName string
-	UserID    int64
-	GroupID   int64
-	GroupName string
-	Strategy  string
-}
-
-type RelayServiceImpl struct {
-	lb         loadbalancer.LoadBalancer
-	collector  loadbalancer.MetricsCollector
-	requestLog RequestLogCreator
-	modelRepo  repository.AIModelRepo
+type RelayService struct {
+	lb          loadbalancer.LoadBalancer
+	collector   loadbalancer.MetricsCollector
+	requestLog  RequestLogCreator
+	modelRepo   repository.AIModelRepo
+	groupRepo   repository.ChannelGroupRepo
+	channelRepo repository.ChannelRepo
 	*Service
 }
 
@@ -56,11 +44,42 @@ func NewRelayService(
 	collector loadbalancer.MetricsCollector,
 	modelRepo repository.AIModelRepo,
 	requestLog RequestLogCreator,
-) RelayService {
-	return &RelayServiceImpl{lb: lb, collector: collector, Service: s, modelRepo: modelRepo, requestLog: requestLog}
+	groupRepo repository.ChannelGroupRepo,
+	channelRepo repository.ChannelRepo,
+) *RelayService {
+	return &RelayService{lb: lb, collector: collector, Service: s, modelRepo: modelRepo, requestLog: requestLog, groupRepo: groupRepo, channelRepo: channelRepo}
 }
 
-func (s *RelayServiceImpl) FetchModel(ctx context.Context, req *v1.FetchModelRequest) ([]string, error) {
+func (s *RelayService) GetTokenModels(ctx context.Context, tokenId int64, groupId int64) (*v1.RelayListResp[v1.RelayModelItemResp], error) {
+	modelSet := make(map[string]struct{})
+	group, err := s.groupRepo.GetByIDWithChannels(ctx, groupId)
+	if err != nil {
+		return nil, err
+	}
+	channels := group.Channels
+	resp := &v1.RelayListResp[v1.RelayModelItemResp]{
+		Object: "list",
+		Data:   make([]v1.RelayModelItemResp, 0),
+	}
+	for _, channel := range channels {
+		modelMap := channel.Models()
+		for key := range modelMap {
+			if _, ok := modelSet[key]; ok {
+				continue
+			}
+			resp.Data = append(resp.Data, v1.RelayModelItemResp{
+				Id:      key,
+				Object:  "model",
+				Created: channel.CreatedAt.Unix(),
+				OwnedBy: string(channel.Type),
+			})
+			modelSet[key] = struct{}{}
+		}
+	}
+	return resp, nil
+}
+
+func (s *RelayService) FetchModel(ctx context.Context, req *v1.FetchModelRequest) ([]string, error) {
 	httpClient := httpclient.GetDefaultClient()
 	prov := buildProvider(string(req.Type), req.BaseURL, req.APIKey, httpClient)
 	modelList, err := prov.Models()
@@ -70,7 +89,7 @@ func (s *RelayServiceImpl) FetchModel(ctx context.Context, req *v1.FetchModelReq
 	return modelList, nil
 }
 
-func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []byte, header http.Header) (*types.Response, error) {
+func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body []byte, header http.Header) (*ptypes.Response, error) {
 	if len(body) == 0 {
 		return nil, errors.New("empty request body")
 	}
@@ -95,7 +114,7 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 		return nil, loadbalancer.ErrNoAvailableChannel
 	}
 
-	var lastResp *types.Response
+	var lastResp *ptypes.Response
 	var lastErr error
 	var retryTrace []models.RetryDetail
 
@@ -124,7 +143,7 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 		prov := buildProvider(string(candidate.Channel.Type), candidate.Channel.BaseURL, candidate.Channel.APIKey, httpClient)
 		curUpstreamModel := candidate.UpstreamModel
 		body := helpers.SetModelName(body, curUpstreamModel)
-		req := &types.Request{
+		req := &ptypes.Request{
 			Model:    curUpstreamModel,
 			Payload:  body,
 			Format:   meta.Format,
@@ -132,7 +151,7 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 			IsStream: helpers.GetStream(body),
 		}
 
-		resp, execErr := prov.Execute(ctx, req, func(metrics *types.ResponseMetrics) {
+		resp, execErr := prov.Execute(ctx, req, func(metrics *ptypes.ResponseMetrics) {
 			plog.Debug("metrics:", metrics)
 
 			lbRecord := &loadbalancer.ResultRecord{
@@ -270,7 +289,7 @@ func (s *RelayServiceImpl) Forward(ctx context.Context, meta RelayMeta, body []b
 	return nil, loadbalancer.ErrNoAvailableChannel
 }
 
-func (s *RelayServiceImpl) createLog(ctx context.Context, meta RelayMeta, model string, candidate *loadbalancer.Result, resp *types.Response, startTime time.Time, body []byte) error {
+func (s *RelayService) createLog(ctx context.Context, meta types.RelayMeta, model string, candidate *loadbalancer.Result, resp *ptypes.Response, startTime time.Time, body []byte) error {
 	log := &models.RequestLog{
 		RequestID:     uuid.New().String(),
 		UserID:        meta.UserID,
@@ -296,5 +315,5 @@ func (s *RelayServiceImpl) createLog(ctx context.Context, meta RelayMeta, model 
 }
 
 func buildProvider(platform string, baseURL string, apiKey string, httpc *http.Client) provider.Provider {
-	return base.NewClient(httpc, baseURL, apiKey, platform, []types.Ability{types.AbilityChat, types.AbilityChatCompletions})
+	return base.NewClient(httpc, baseURL, apiKey, platform, []ptypes.Ability{ptypes.AbilityChat, ptypes.AbilityChatCompletions})
 }

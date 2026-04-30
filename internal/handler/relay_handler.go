@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
@@ -14,25 +16,31 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type RelayHandler struct {
-	*Handler
-	relaySvc service.RelayService
+type RelayService interface {
+	GetTokenModels(ctx context.Context, tokenId int64, groupId int64) (*v1.RelayListResp[v1.RelayModelItemResp], error)
+	FetchModel(ctx context.Context, req *v1.FetchModelRequest) ([]string, error)
+	Forward(ctx context.Context, meta ty2.RelayMeta, body []byte, header http.Header) (*types.Response, error)
 }
 
-func NewRelayHandler(base *Handler, relaySvc service.RelayService) *RelayHandler {
+var _ RelayService = (*service.RelayService)(nil)
+
+type RelayHandler struct {
+	*Handler
+	relaySvc RelayService
+}
+
+func NewRelayHandler(base *Handler, relaySvc RelayService) *RelayHandler {
 	return &RelayHandler{
 		Handler:  base,
 		relaySvc: relaySvc,
 	}
 }
 
-type IRelayService interface {
-}
-
 func (h *RelayHandler) RegisterRoutes(r gin.IRouter) {
 	r.POST("/chat/completions", h.forward(types.FormatChatCompletion))
 	r.POST("/messages", h.forward(types.FormatClaudeMessages))
 	r.POST("/responses", h.forward(types.FormatOpenAIResponses))
+	r.GET("/models", h.TokenModels)
 }
 
 func getTokenClaim(ctx *gin.Context) (*ty2.TokenClaim, error) {
@@ -47,6 +55,20 @@ func getTokenClaim(ctx *gin.Context) (*ty2.TokenClaim, error) {
 	return value, nil
 }
 
+func (h *RelayHandler) TokenModels(c *gin.Context) {
+	tokenClaim, err := getTokenClaim(c)
+	if err != nil {
+		v1.Fail(c, v1.ErrUnauthorized.WithMessage("invalid token claim"), nil)
+		return
+	}
+	resp, err := h.relaySvc.GetTokenModels(c.Request.Context(), tokenClaim.TokenId, tokenClaim.GroupId)
+	if err != nil {
+		v1.Fail(c, err, "")
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
 func (h *RelayHandler) forward(format types.Format) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 
@@ -56,7 +78,7 @@ func (h *RelayHandler) forward(format types.Format) gin.HandlerFunc {
 			return
 		}
 
-		meta := service.RelayMeta{
+		meta := ty2.RelayMeta{
 			Format:    format,
 			TokenID:   tokenClaim.TokenId,
 			TokenName: tokenClaim.TokenName,

@@ -14,13 +14,13 @@ import (
 type ChannelHandler struct {
 	*Handler
 	ChannelService service.ChannelService
-	RelayService   service.RelayService
+	RelayService   RelayService
 }
 
 func NewChannelHandler(
 	base *Handler,
 	channelService service.ChannelService,
-	relayService service.RelayService,
+	relayService RelayService,
 ) *ChannelHandler {
 	return &ChannelHandler{
 		Handler:        base,

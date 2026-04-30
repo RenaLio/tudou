@@ -70,6 +70,7 @@ var serviceSet = wire.NewSet(
 	service.NewUserService,
 	service.NewSystemConfigService,
 	service.NewRelayService,
+	wire.Bind(new(handler.RelayService), new(*service.RelayService)),
 	service.NewStatsService,
 	wire.Bind(new(handler.StatsService), new(*service.StatsService)),
 	service.NewRequestLogService,
