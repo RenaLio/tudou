@@ -267,9 +267,6 @@ func formatFromAbility(ability types.Ability) (types.Format, bool) {
 }
 
 func (c *Client) supportsChat() bool {
-	if c.HasAbility(types.AbilityChat) {
-		return true
-	}
 	return c.HasAbility(types.AbilityChatCompletions) ||
 		c.HasAbility(types.AbilityResponses) ||
 		c.HasAbility(types.AbilityClaudeMessages)

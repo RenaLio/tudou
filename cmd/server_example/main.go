@@ -47,11 +47,11 @@ func main() {
 		clientAPIKey,
 		"demo",
 		[]types.Ability{
-			types.AbilityChat,
 			types.AbilityClaudeMessages,
 			//types.AbilityChatCompletions,
 			//types.AbilityResponses,
 		},
+		nil,
 	)
 
 	relay := NewRelayService(client)

@@ -3,6 +3,8 @@ package handler
 import (
 	v1 "github.com/RenaLio/tudou/api/v1"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
+	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
+	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 	"github.com/gin-gonic/gin"
 )
@@ -30,8 +32,8 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Value: "chat-completion",
 				Extra: map[string]any{
 					"exampleBaseUrl": "https://api.example.com",
-					"paths": map[ptypes.Ability]string{
-						ptypes.AbilityChatCompletions: "/v1/chat/completions",
+					"paths": map[ptypes.Format]string{
+						ptypes.FormatChatCompletion: "/v1/chat/completions",
 					},
 				},
 			},
@@ -45,13 +47,18 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 			},
 			{
 				Key:   "OpenAI",
-				Value: "openai",
+				Value: openai.PlatformId,
 				Extra: map[string]any{
-					"exampleBaseUrl": "https://api.openai.com",
-					"paths": map[ptypes.Ability]string{
-						ptypes.AbilityChatCompletions: "/v1/chat/completions",
-						ptypes.AbilityResponses:       "/v1/responses",
-					},
+					"exampleBaseUrl": openai.DefaultBaseURL,
+					"paths":          openai.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "小米MimoPlan",
+				Value: mimocoding.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": mimocoding.DefaultBaseURL,
+					"paths":          mimocoding.DefaultFormatPathMap,
 				},
 			},
 		},

@@ -336,5 +336,6 @@ func (s *RelayService) createLog(ctx context.Context, meta types.RelayMeta, mode
 }
 
 func buildProvider(platform string, baseURL string, apiKey string, httpc *http.Client) provider.Provider {
-	return base.NewClient(httpc, baseURL, apiKey, platform, []ptypes.Ability{ptypes.AbilityChat, ptypes.AbilityChatCompletions}, nil)
+
+	return base.NewClient(httpc, baseURL, apiKey, platform, []ptypes.Ability{ptypes.AbilityChatCompletions}, nil)
 }
