@@ -3,7 +3,6 @@ package start
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/loadbalancer"
@@ -11,7 +10,6 @@ import (
 	"github.com/RenaLio/tudou/internal/repository"
 	"github.com/RenaLio/tudou/internal/server"
 	"github.com/RenaLio/tudou/internal/service"
-	"github.com/goccy/go-json"
 	"gorm.io/gorm"
 )
 
@@ -82,9 +80,6 @@ func InitLBRegistry(db *gorm.DB, groupRepo repository.ChannelGroupRepo) *loadbal
 	for _, g := range groups {
 		registry.ReloadGroup(g)
 	}
-
-	data, _ := json.Marshal(registry)
-	fmt.Println(string(data))
 
 	return registry
 }

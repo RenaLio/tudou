@@ -163,6 +163,7 @@ func (s *aiModelService) buildModelByCreateReq(req v1.CreateAIModelRequest) (*mo
 		Description: strings.TrimSpace(req.Description),
 		Pricing:     req.Pricing,
 		PricingType: req.PricingType,
+		Extra:       req.Extra,
 		IsEnabled:   true,
 	}
 	if model.PricingType == "" {
@@ -186,6 +187,9 @@ func patchModelByUpdateReq(model *models.AIModel, req v1.UpdateAIModelRequest) {
 	}
 	if req.PricingType != nil {
 		model.PricingType = *req.PricingType
+	}
+	if req.Extra != nil {
+		model.Extra = *req.Extra
 	}
 }
 

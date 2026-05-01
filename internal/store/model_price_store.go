@@ -1,55 +1,15 @@
-package main
+package store
 
 import (
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/goccy/go-json"
 	"github.com/tidwall/gjson"
 )
-
-type ctxKeyType struct{}
-
-type Box struct {
-	CreateAt time.Time `json:"createAt"`
-}
-
-func main() {
-	key1 := ctxKeyType{}
-	key2 := ctxKeyType{}
-	fmt.Println("key1 == key2:", key1 == key2)
-	nums1, nums2 := 0, 0
-	for _ = range 100 {
-		randNum := rand.IntN(101)
-		if randNum >= 90 {
-			nums1++
-		} else {
-			nums2++
-		}
-	}
-	fmt.Println("nums1:", nums1, "nums2:", nums2)
-	box := Box{
-		CreateAt: time.Now(),
-	}
-	fmt.Println("box:", box)
-	boxBytes, err := json.Marshal(box)
-	if err != nil {
-		fmt.Println("json marshal error:", err)
-	}
-	fmt.Println("boxBytes:", string(boxBytes))
-	dateA := "2027-02-02"
-	dateB := "2026-02-02"
-	fmt.Println(dateA <= dateB)
-	_ = time.RFC3339
-	store := NewModelPriceStore()
-	path := store.FindSimilarPath("mimo_coding", "mimo-v2.5-pro")
-	fmt.Println("similar path:", path)
-}
 
 type ModelPriceStore struct {
 	Models          []string
@@ -110,31 +70,65 @@ func (s *ModelPriceStore) TryRefresh() {
 }
 
 func (s *ModelPriceStore) GetInputPrice(path string) float64 {
-	s.TryRefresh()
-	s.rwMu.RLock()
-	defer s.rwMu.RUnlock()
-	return gjson.GetBytes(s.RawData, path+".cost.input").Float()
+	return s.getFloat(path, "cost.input")
 }
 
 func (s *ModelPriceStore) GetOutputPrice(path string) float64 {
-	s.TryRefresh()
-	s.rwMu.RLock()
-	defer s.rwMu.RUnlock()
-	return gjson.GetBytes(s.RawData, path+".cost.output").Float()
+	return s.getFloat(path, "cost.output")
 }
 
 func (s *ModelPriceStore) GetCacheReadPrice(path string) float64 {
-	s.TryRefresh()
-	s.rwMu.RLock()
-	defer s.rwMu.RUnlock()
-	return gjson.GetBytes(s.RawData, path+".cost.cache_read").Float()
+	return s.getFloat(path, "cost.cache_read")
 }
 
 func (s *ModelPriceStore) GetCacheCreatePrice(path string) float64 {
+	return s.getFloat(path, "cost.cache_write")
+}
+
+func (s *ModelPriceStore) GetOver200KInputPrice(path string) float64 {
+	return s.getFloat(path, "cost.context_over_200k.input")
+}
+func (s *ModelPriceStore) GetOver200KOutputPrice(path string) float64 {
+	return s.getFloat(path, "cost.context_over_200k.output")
+}
+func (s *ModelPriceStore) GetOver200KCacheReadPrice(path string) float64 {
+	return s.getFloat(path, "cost.context_over_200k.cache_read")
+}
+
+func (s *ModelPriceStore) GetOver200KCacheWritePrice(path string) float64 {
+	return s.getFloat(path, "cost.context_over_200k.cache_write")
+}
+
+func (s *ModelPriceStore) HasPath(path string) bool {
 	s.TryRefresh()
 	s.rwMu.RLock()
 	defer s.rwMu.RUnlock()
-	return gjson.GetBytes(s.RawData, path+".cost.cache_write").Float()
+	return gjson.GetBytes(s.RawData, buildPath(path, "")).Exists()
+}
+
+func (s *ModelPriceStore) getFloat(path string, suffix string) float64 {
+	s.TryRefresh()
+	s.rwMu.RLock()
+	defer s.rwMu.RUnlock()
+	return gjson.GetBytes(s.RawData, buildPath(path, suffix)).Float()
+}
+
+func buildPath(path string, suffix string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+
+	parts := strings.SplitN(path, ".models.", 2)
+	if len(parts) == 2 {
+		modelID := strings.ReplaceAll(parts[1], ".", `\.`)
+		path = parts[0] + ".models." + modelID
+	}
+
+	if suffix == "" {
+		return path
+	}
+	return path + "." + suffix
 }
 
 func (s *ModelPriceStore) FindSimilarPath(platform, model string) string {
@@ -149,6 +143,8 @@ func (s *ModelPriceStore) FindSimilarPath(platform, model string) string {
 	input := platform + "#" + model
 	bestScore := 0
 	best := ""
+	bestPricedScore := 0
+	bestPriced := ""
 
 	for _, m := range s.Models {
 		score := scoreMatch(input, platform, model, m)
@@ -156,8 +152,18 @@ func (s *ModelPriceStore) FindSimilarPath(platform, model string) string {
 			bestScore = score
 			best = m
 		}
+		// 在分数比较的基础上，单独记录“有价格”的最优候选。
+		if score > bestPricedScore && candidateHasPrice(s.RawData, m) {
+			bestPricedScore = score
+			bestPriced = m
+		}
 	}
-	fmt.Println("best match:", best, "with score:", bestScore)
+
+	// 优先返回“有价格”且分数达标的路径；否则回退到原始最佳匹配。
+	if bestPriced != "" && bestPricedScore >= 30 {
+		best = bestPriced
+		bestScore = bestPricedScore
+	}
 
 	if bestScore < 30 {
 		return ""
@@ -280,4 +286,11 @@ func segmentOverlap(a, b string) bool {
 func splitSegments(s string) []string {
 	s = strings.NewReplacer("-", " ", "_", " ", "/", " ").Replace(s)
 	return strings.Fields(s)
+}
+
+func candidateHasPrice(raw []byte, candidate string) bool {
+	// candidate: provider#modelId，转换为 gjson 路径 provider.models.modelId
+	path := strings.Replace(candidate, "#", ".models.", 1)
+	// 简化策略：仅以 input 价格判断是否“有价格”。
+	return gjson.GetBytes(raw, buildPath(path, "cost.input")).Float() > 0
 }

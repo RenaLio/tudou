@@ -3,13 +3,10 @@ package loadbalancer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"math/rand/v2"
 	"sort"
 	"sync"
-
-	"github.com/RenaLio/tudou/pkg/provider/plog"
 )
 
 type ScorePlugin func([]*Endpoint) []*Endpoint
@@ -49,21 +46,16 @@ func (lb *DynamicLoadBalancer) Select(ctx context.Context, req *Request, plugins
 	if len(endpoints) == 0 {
 		return nil, ErrNoAvailableChannel
 	}
-	plog.Debug("endpoints_step1", fmt.Sprintf("%#v", endpoints))
 	endpoints = FilterAvailableEndpoints(endpoints)
-	plog.Debug("endpoints_step2", fmt.Sprintf("%#v", endpoints))
 	if len(endpoints) == 0 {
 		return nil, ErrNoAvailableChannel
 	}
 	// sort
 	sortedEndpoints := SortEndpoints(endpoints, req.Strategy, lb)
-	plog.Debug("sorted_endpoints", fmt.Sprintf("%v", sortedEndpoints))
 	// 随机扰动
 	randNum := rand.IntN(101)
-	plog.Debug("randNum", randNum)
 	if randNum >= 90 {
 		sortedEndpoints = Shuffled(sortedEndpoints)
-		plog.Debug("shuffled_endpoints", fmt.Sprintf("%v", sortedEndpoints))
 	}
 	// 插件
 	for _, plugin := range plugins {

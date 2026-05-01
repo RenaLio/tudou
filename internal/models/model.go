@@ -116,11 +116,16 @@ const (
 
 // ModelPricing 模型定价信息
 type ModelPricing struct {
-	InputPrice       float64 `json:"inputPrice"`       // 输入价格 (per 1M tokens)
-	OutputPrice      float64 `json:"outputPrice"`      // 输出价格 (per 1M tokens)
-	CacheCreatePrice float64 `json:"cacheCreatePrice"` // 缓存创建价格 (per 1M tokens)
-	CacheReadPrice   float64 `json:"cacheReadPrice"`   // 缓存读取价格 (per 1M tokens)
-	PerRequestPrice  float64 `json:"perRequestPrice"`  // 按次计费价格 (per request)
+	InputPrice               float64 `json:"inputPrice"`               // 输入价格 (per 1M tokens)
+	OutputPrice              float64 `json:"outputPrice"`              // 输出价格 (per 1M tokens)
+	CacheCreatePrice         float64 `json:"cacheCreatePrice"`         // 缓存创建价格 (per 1M tokens)
+	CacheReadPrice           float64 `json:"cacheReadPrice"`           // 缓存读取价格 (per 1M tokens)
+	PerRequestPrice          float64 `json:"perRequestPrice"`          // 按次计费价格 (per request)
+	Over200KInputPrice       float64 `json:"over200KInputPrice"`       // 超过200K输入价格 (per 1M tokens)
+	Over200KOutputPrice      float64 `json:"over200KOutputPrice"`      // 超过200K输出价格 (per 1M tokens)
+	Over200KCacheCreatePrice float64 `json:"over200KCacheCreatePrice"` // 超过200K缓存创建价格 (per 1M tokens)
+	Over200KCacheReadPrice   float64 `json:"over200KCacheReadPrice"`   // 超过200K缓存读取价格 (per 1M tokens)
+	Over200KPerRequestPrice  float64 `json:"over200KPerRequestPrice"`  // 超过200K按次计费价格 (per request)
 }
 
 // Value 实现 driver.Valuer 接口
@@ -161,7 +166,8 @@ func (c *ModelCapabilities) Scan(value interface{}) error {
 }
 
 type AIModelExtra struct {
-	SyncModelInfoPath string `json:"syncModelInfoPath,omitempty"` // 格式：@提供商/模型id，用于向类似models.dev Web API同步模型信息
+	SyncModelInfoPath string `json:"syncModelInfoPath,omitempty"` // 格式：@提供商#模型id，用于向类似models.dev Web API同步模型信息
+	DisableSync       bool   `json:"disableSync"`                 // 是否禁用同步
 }
 
 func (e AIModelExtra) Value() (driver.Value, error) {

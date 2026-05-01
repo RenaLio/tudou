@@ -18,6 +18,7 @@ import (
 	"github.com/RenaLio/tudou/internal/server/task"
 	"github.com/RenaLio/tudou/internal/service"
 	"github.com/RenaLio/tudou/internal/start"
+	"github.com/RenaLio/tudou/internal/store"
 	"github.com/RenaLio/tudou/internal/tasks"
 	"github.com/google/wire"
 )
@@ -55,6 +56,7 @@ var depsSet = wire.NewSet(
 	wire.Bind(new(loadbalancer.LoadBalancer), new(*loadbalancer.DynamicLoadBalancer)),
 	newAsyncMetricsCollector,
 	wire.Bind(new(loadbalancer.MetricsCollector), new(*loadbalancer.AsyncMetricsCollector)),
+	store.NewModelPriceStore,
 )
 
 func newAsyncMetricsCollector(reg *loadbalancer.Registry) *loadbalancer.AsyncMetricsCollector {
@@ -98,14 +100,20 @@ var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)
 var taskSet = wire.NewSet(
 	tasks.NewMockTask,
 	tasks.NewStatsAggregationTask,
+	tasks.NewPriceSyncTask,
 )
 
 func NewTaskServer(
 	logger *log.Logger,
 	mockTask *tasks.MockTask,
 	statsAggregationTask *tasks.StatsAggregationTask,
+	priceSyncTask *tasks.PriceSyncTask,
 ) *task.TaskServer {
-	return task.NewTaskServer(logger, mockTask, statsAggregationTask)
+	taskServer := task.NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask)
+	if err := taskServer.SetTaskInterval(tasks.PriceSyncTaskName, 12*time.Hour); err != nil {
+		panic(err)
+	}
+	return taskServer
 }
 
 func newApp(

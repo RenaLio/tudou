@@ -11,6 +11,7 @@ type CreateAIModelRequest struct {
 	Description string                  `json:"description"`
 	Pricing     models.ModelPricing     `json:"pricing"`
 	PricingType models.ModelPricingType `json:"pricingType"`
+	Extra       models.AIModelExtra     `json:"extra"`
 }
 
 type UpdateAIModelRequest struct {
@@ -18,6 +19,7 @@ type UpdateAIModelRequest struct {
 	Description *string                  `json:"description,omitempty"`
 	Pricing     *models.ModelPricing     `json:"pricing,omitempty"`
 	PricingType *models.ModelPricingType `json:"pricingType,omitempty"`
+	Extra       *models.AIModelExtra     `json:"extra,omitempty"`
 }
 
 type SetAIModelEnabledRequest struct {

@@ -9,6 +9,7 @@ import (
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/models"
 	"github.com/RenaLio/tudou/internal/repository"
+	"github.com/RenaLio/tudou/internal/store"
 )
 
 type LBRegistryReloader interface {
@@ -33,10 +34,11 @@ type ChannelService interface {
 
 type channelService struct {
 	*Service
-	repo      repository.ChannelRepo
-	modelRepo repository.AIModelRepo
-	groupRepo repository.ChannelGroupRepo
-	registry  LBRegistryReloader
+	repo       repository.ChannelRepo
+	modelRepo  repository.AIModelRepo
+	groupRepo  repository.ChannelGroupRepo
+	registry   LBRegistryReloader
+	priceStore *store.ModelPriceStore
 }
 
 func NewChannelService(
@@ -45,13 +47,15 @@ func NewChannelService(
 	modelRepo repository.AIModelRepo,
 	registry LBRegistryReloader,
 	groupRepo repository.ChannelGroupRepo,
+	priceStore *store.ModelPriceStore,
 ) ChannelService {
 	return &channelService{
-		Service:   base,
-		repo:      repo,
-		modelRepo: modelRepo,
-		groupRepo: groupRepo,
-		registry:  registry,
+		Service:    base,
+		repo:       repo,
+		modelRepo:  modelRepo,
+		groupRepo:  groupRepo,
+		registry:   registry,
+		priceStore: priceStore,
 	}
 }
 
@@ -485,12 +489,26 @@ func (s *channelService) ensureModelsExist(ctx context.Context, channel *models.
 		if id <= 0 {
 			return errors.New("failed to generate id by sid")
 		}
-		toCreate = append(toCreate, &models.AIModel{
+		aiModel := &models.AIModel{
 			ID:        id,
 			Name:      name,
 			Type:      models.ModelTypeChat,
 			IsEnabled: true,
-		})
+		}
+		simPath := s.priceStore.FindSimilarPath(string(channel.Type), name)
+		if simPath != "" {
+			aiModel.Extra.SyncModelInfoPath = simPath
+			aiModel.Extra.DisableSync = false
+			aiModel.Pricing.InputPrice = s.priceStore.GetInputPrice(simPath)
+			aiModel.Pricing.OutputPrice = s.priceStore.GetOutputPrice(simPath)
+			aiModel.Pricing.CacheReadPrice = s.priceStore.GetCacheReadPrice(simPath)
+			aiModel.Pricing.CacheCreatePrice = s.priceStore.GetCacheCreatePrice(simPath)
+			aiModel.Pricing.Over200KInputPrice = s.priceStore.GetOver200KInputPrice(simPath)
+			aiModel.Pricing.Over200KOutputPrice = s.priceStore.GetOver200KOutputPrice(simPath)
+			aiModel.Pricing.Over200KCacheReadPrice = s.priceStore.GetOver200KCacheReadPrice(simPath)
+			aiModel.Pricing.Over200KCacheCreatePrice = s.priceStore.GetOver200KCacheWritePrice(simPath)
+		}
+		toCreate = append(toCreate, aiModel)
 	}
 	if len(toCreate) == 0 {
 		return nil

@@ -21,6 +21,7 @@ import (
 	"github.com/RenaLio/tudou/internal/server/task"
 	"github.com/RenaLio/tudou/internal/service"
 	"github.com/RenaLio/tudou/internal/start"
+	"github.com/RenaLio/tudou/internal/store"
 	"github.com/RenaLio/tudou/internal/tasks"
 	"github.com/google/wire"
 )
@@ -42,7 +43,8 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	channelRepo := repository.NewChannelRepo(repositoryRepository)
 	channelGroupRepo := repository.NewChannelGroupRepo(repositoryRepository)
 	registry := start.InitLBRegistry(db, channelGroupRepo)
-	channelService := service.NewChannelService(serviceService, channelRepo, aiModelRepo, registry, channelGroupRepo)
+	modelPriceStore := store.NewModelPriceStore()
+	channelService := service.NewChannelService(serviceService, channelRepo, aiModelRepo, registry, channelGroupRepo, modelPriceStore)
 	dynamicLoadBalancer := loadbalancer.NewDynamicLoadBalancer(registry)
 	asyncMetricsCollector := newAsyncMetricsCollector(registry)
 	requestLogRepo := repository.NewRequestLogRepo(repositoryRepository)
@@ -94,7 +96,8 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	mockTask := tasks.NewMockTask(logger)
 	aggregationTaskRepo := repository.NewAggregationTaskRepo(repositoryRepository)
 	statsAggregationTask := tasks.NewStatsAggregationTask(logger, sidSid, transaction, aggregationTaskRepo, requestLogRepo, channelStatsRepo, channelModelStatsRepo, tokenStatsRepo, userStatsRepo, userUsageDailyStatsRepo, userUsageHourlyStatsRepo)
-	taskServer := NewTaskServer(logger, mockTask, statsAggregationTask)
+	priceSyncTask := tasks.NewPriceSyncTask(logger, modelPriceStore, aiModelRepo)
+	taskServer := NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask)
 	appApp := newApp(httpServer, taskServer)
 	return appApp, func() {
 	}, nil
@@ -122,7 +125,7 @@ func InitApp(configConfig *config.Config, logger *log.Logger) error {
 
 var repositorySet = wire.NewSet(repository.NewDB, repository.NewCache, repository.NewRepository, repository.NewTransaction, repository.NewAIModelRepo, repository.NewChannelRepo, repository.NewChannelGroupRepo, repository.NewTokenRepo, repository.NewChannelStatsRepo, repository.NewChannelModelStatsRepo, repository.NewTokenStatsRepo, repository.NewUserStatsRepo, repository.NewUserUsageDailyStatsRepo, repository.NewUserUsageHourlyStatsRepo, repository.NewRequestLogRepo, repository.NewAggregationTaskRepo, repository.NewUserRepo, repository.NewSystemConfigRepo)
 
-var depsSet = wire.NewSet(jwt.NewJwt, sid.NewSid, start.InitLBRegistry, wire.Bind(new(service.LBRegistryReloader), new(*loadbalancer.Registry)), wire.Bind(new(service.GroupRegistryReloader), new(*loadbalancer.Registry)), wire.Bind(new(handler.RegistryHelper), new(*loadbalancer.Registry)), loadbalancer.NewDynamicLoadBalancer, wire.Bind(new(loadbalancer.LoadBalancer), new(*loadbalancer.DynamicLoadBalancer)), newAsyncMetricsCollector, wire.Bind(new(loadbalancer.MetricsCollector), new(*loadbalancer.AsyncMetricsCollector)))
+var depsSet = wire.NewSet(jwt.NewJwt, sid.NewSid, start.InitLBRegistry, wire.Bind(new(service.LBRegistryReloader), new(*loadbalancer.Registry)), wire.Bind(new(service.GroupRegistryReloader), new(*loadbalancer.Registry)), wire.Bind(new(handler.RegistryHelper), new(*loadbalancer.Registry)), loadbalancer.NewDynamicLoadBalancer, wire.Bind(new(loadbalancer.LoadBalancer), new(*loadbalancer.DynamicLoadBalancer)), newAsyncMetricsCollector, wire.Bind(new(loadbalancer.MetricsCollector), new(*loadbalancer.AsyncMetricsCollector)), store.NewModelPriceStore)
 
 func newAsyncMetricsCollector(reg *loadbalancer.Registry) *loadbalancer.AsyncMetricsCollector {
 	return loadbalancer.NewAsyncMetricsCollector(reg, 1024)
@@ -134,14 +137,17 @@ var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handle
 
 var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)
 
-var taskSet = wire.NewSet(tasks.NewMockTask, tasks.NewStatsAggregationTask)
+var taskSet = wire.NewSet(tasks.NewMockTask, tasks.NewStatsAggregationTask, tasks.NewPriceSyncTask)
 
 func NewTaskServer(
 	logger *log.Logger,
 	mockTask *tasks.MockTask,
 	statsAggregationTask *tasks.StatsAggregationTask,
+	priceSyncTask *tasks.PriceSyncTask,
 ) *task.TaskServer {
-	return task.NewTaskServer(logger, mockTask, statsAggregationTask)
+	taskServer := task.NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask)
+
+	return taskServer
 }
 
 func newApp(
