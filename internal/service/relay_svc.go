@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
@@ -18,7 +19,6 @@ import (
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
-	"github.com/goccy/go-json"
 	"github.com/google/uuid"
 )
 
@@ -89,7 +89,7 @@ func (s *RelayService) FetchModel(ctx context.Context, req *v1.FetchModelRequest
 	return modelList, nil
 }
 
-func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body []byte, header http.Header) (*ptypes.Response, error) {
+func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body []byte, rawHeader http.Header) (*ptypes.Response, error) {
 	if len(body) == 0 {
 		return nil, errors.New("empty request body")
 	}
@@ -125,6 +125,16 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 		return nil, err
 	}
 
+	header := http.Header{}
+
+	exceptedHeaderKeys := []string{"Content-Type", "User-Agent", "X-Request-Id"}
+
+	for _, key := range exceptedHeaderKeys {
+		if val, ok := rawHeader[key]; ok {
+			header[key] = val
+		}
+	}
+
 	for i, candidate := range candidates {
 		if i >= maxRetry {
 			break
@@ -150,8 +160,10 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 			Headers:  header,
 			IsStream: helpers.GetStream(body),
 		}
+		var resp *ptypes.Response
+		var execErr error
 
-		resp, execErr := prov.Execute(ctx, req, func(metrics *ptypes.ResponseMetrics) {
+		resp, execErr = prov.Execute(ctx, req, func(metrics *ptypes.ResponseMetrics) {
 			plog.Debug("metrics:", metrics)
 
 			lbRecord := &loadbalancer.ResultRecord{
@@ -176,7 +188,6 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 			// 成功 || 达到最大重试次数
 			// - 记录日志
 			if metrics.Status == 1 || i >= maxRetry-1 {
-				plog.Info("request success:", metrics)
 				status := models.RequestStatusSuccess
 				if metrics.Status != 1 {
 					status = models.RequestStatusFail
@@ -203,11 +214,15 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 					Status:                    status,
 					TTFT:                      metrics.TTFT.Milliseconds(),
 					TransferTime:              metrics.TransferTime.Milliseconds(),
-					ErrorCode:                 "",
+					ErrorCode:                 strconv.FormatInt(int64(metrics.StatusCode), 10),
 					ErrorMsg:                  "",
 					IsStream:                  metrics.IsStream,
 					Extra: models.RequestExtra{
-						RetryTrace: retryTrace,
+						Headers:     nil,
+						IP:          meta.Extra.IP,
+						UserAgent:   rawHeader.Get("User-Agent"),
+						RequestPath: meta.Extra.Path,
+						RetryTrace:  retryTrace,
 					},
 					ProviderDetail: models.ProviderDetail{
 						Provider:      prov.Identifier(),
@@ -215,13 +230,20 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 					},
 				}
 				reqFormat := metrics.Extra[constant.RequestFormatKey]
-				if reqFormatStr, ok := reqFormat.(string); ok {
-					reqLog.ProviderDetail.TransFormat = reqFormatStr
+				if reqFormatStr, ok := reqFormat.(ptypes.Format); ok {
+					reqLog.ProviderDetail.TransFormat = string(reqFormatStr)
 				}
-				reqLogData, err := json.Marshal(reqLog)
-				if err != nil {
-					plog.Error("marshal request log error:", err)
+
+				if resp != nil && !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+					reqLog.ErrorMsg = string(resp.RawData)
 				}
+
+				headerMap := make(map[string]string)
+				for key, values := range rawHeader {
+					headerMap[key] = values[0]
+				}
+				reqLog.Extra.Headers = headerMap
+
 				cbCtx := context.Background()
 				aiModel, err := s.modelRepo.GetByName(cbCtx, curUpstreamModel)
 				if err != nil {
@@ -241,7 +263,6 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 					plog.Error("create request log error:", err)
 				}
 
-				plog.Debug("request log:", string(reqLogData))
 			}
 		})
 

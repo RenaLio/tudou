@@ -47,6 +47,21 @@ type StatsService struct {
 	userUsageHourlyStatsRepo repository.UserUsageHourlyStatsRepo
 }
 
+func (s *StatsService) ListAllChannelModelStats(ctx context.Context) ([]v1.ChannelModelStatsResponse, error) {
+	items, err := s.channelModelStatsRepo.ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]v1.ChannelModelStatsResponse, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		resp = append(resp, toChannelModelStatsResponse(item))
+	}
+	return resp, nil
+}
+
 func (s *StatsService) ListAllTokenStats(ctx context.Context) ([]v1.TokenStatsResponse, error) {
 	items, err := s.tokenStatsRepo.ListAll(ctx)
 	if err != nil {

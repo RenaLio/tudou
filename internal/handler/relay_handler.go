@@ -11,15 +11,15 @@ import (
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/constants"
 	"github.com/RenaLio/tudou/internal/service"
-	ty2 "github.com/RenaLio/tudou/internal/types"
-	"github.com/RenaLio/tudou/pkg/provider/types"
+	"github.com/RenaLio/tudou/internal/types"
+	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 	"github.com/gin-gonic/gin"
 )
 
 type RelayService interface {
 	GetTokenModels(ctx context.Context, tokenId int64, groupId int64) (*v1.RelayListResp[v1.RelayModelItemResp], error)
 	FetchModel(ctx context.Context, req *v1.FetchModelRequest) ([]string, error)
-	Forward(ctx context.Context, meta ty2.RelayMeta, body []byte, header http.Header) (*types.Response, error)
+	Forward(ctx context.Context, meta types.RelayMeta, body []byte, header http.Header) (*ptypes.Response, error)
 }
 
 var _ RelayService = (*service.RelayService)(nil)
@@ -37,18 +37,18 @@ func NewRelayHandler(base *Handler, relaySvc RelayService) *RelayHandler {
 }
 
 func (h *RelayHandler) RegisterRoutes(r gin.IRouter) {
-	r.POST("/chat/completions", h.forward(types.FormatChatCompletion))
-	r.POST("/messages", h.forward(types.FormatClaudeMessages))
-	r.POST("/responses", h.forward(types.FormatOpenAIResponses))
+	r.POST("/chat/completions", h.forward(ptypes.FormatChatCompletion))
+	r.POST("/messages", h.forward(ptypes.FormatClaudeMessages))
+	r.POST("/responses", h.forward(ptypes.FormatOpenAIResponses))
 	r.GET("/models", h.TokenModels)
 }
 
-func getTokenClaim(ctx *gin.Context) (*ty2.TokenClaim, error) {
+func getTokenClaim(ctx *gin.Context) (*types.TokenClaim, error) {
 	token, ok := ctx.Get(constants.TokenClaimKey())
 	if !ok {
 		return nil, errors.New("token claim not found")
 	}
-	value, ok := token.(*ty2.TokenClaim)
+	value, ok := token.(*types.TokenClaim)
 	if !ok {
 		return nil, errors.New("token claim is not of type *ty2.TokenClaim")
 	}
@@ -69,7 +69,7 @@ func (h *RelayHandler) TokenModels(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (h *RelayHandler) forward(format types.Format) gin.HandlerFunc {
+func (h *RelayHandler) forward(format ptypes.Format) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 
 		tokenClaim, err := getTokenClaim(ctx)
@@ -78,7 +78,7 @@ func (h *RelayHandler) forward(format types.Format) gin.HandlerFunc {
 			return
 		}
 
-		meta := ty2.RelayMeta{
+		meta := types.RelayMeta{
 			Format:    format,
 			TokenID:   tokenClaim.TokenId,
 			TokenName: tokenClaim.TokenName,
@@ -87,14 +87,20 @@ func (h *RelayHandler) forward(format types.Format) gin.HandlerFunc {
 			GroupName: tokenClaim.GroupName,
 			Strategy:  tokenClaim.Strategy,
 		}
+		metaExtra := types.MetaExtra{
+			IP:   ctx.ClientIP(),
+			Path: ctx.Request.URL.Path,
+		}
+		meta.Extra = metaExtra
 
 		body, err := io.ReadAll(ctx.Request.Body)
 		if err != nil {
 			v1.Fail(ctx, v1.ErrInternalServerError.WithMessage("failed to read request body"), nil)
 			return
 		}
+		header := ctx.Request.Header
 
-		resp, err := h.relaySvc.Forward(ctx.Request.Context(), meta, body, ctx.Request.Header)
+		resp, err := h.relaySvc.Forward(ctx.Request.Context(), meta, body, header)
 		if err != nil {
 			h.handleError(ctx, err)
 			return
@@ -109,7 +115,7 @@ func (h *RelayHandler) forward(format types.Format) gin.HandlerFunc {
 	}
 }
 
-func (h *RelayHandler) handleNonStreamResponse(ctx *gin.Context, resp *types.Response) {
+func (h *RelayHandler) handleNonStreamResponse(ctx *gin.Context, resp *ptypes.Response) {
 	for k, vals := range resp.Header {
 		for _, v := range vals {
 			ctx.Header(k, v)
@@ -118,7 +124,7 @@ func (h *RelayHandler) handleNonStreamResponse(ctx *gin.Context, resp *types.Res
 	ctx.Data(resp.StatusCode, "application/json", resp.RawData)
 }
 
-func (h *RelayHandler) handleStreamResponse(ctx *gin.Context, resp *types.Response) {
+func (h *RelayHandler) handleStreamResponse(ctx *gin.Context, resp *ptypes.Response) {
 	defer resp.Stream.Close()
 	ctx.Header("Content-Type", "text/event-stream")
 	ctx.Header("Cache-Control", "no-cache")

@@ -10,4 +10,10 @@ type RelayMeta struct {
 	GroupID   int64
 	GroupName string
 	Strategy  string
+	Extra     MetaExtra
+}
+
+type MetaExtra struct {
+	Path string
+	IP   string
 }

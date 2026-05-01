@@ -16,6 +16,7 @@ type StatsService interface {
 	ListAllChannelStats(ctx context.Context) ([]v1.ChannelStatsResponse, error)
 	ListChannelModelStatsByChannelID(ctx context.Context, channelID int64) ([]v1.ChannelModelStatsResponse, error)
 	GetChannelModelStats(ctx context.Context, channelID int64, model string) (*v1.ChannelModelStatsResponse, error)
+	ListAllChannelModelStats(ctx context.Context) ([]v1.ChannelModelStatsResponse, error)
 	GetTokenStatsByTokenID(ctx context.Context, tokenID int64) (*v1.TokenStatsResponse, error)
 	ListAllTokenStats(ctx context.Context) ([]v1.TokenStatsResponse, error)
 	GetUserStatsByUserID(ctx context.Context, userID int64) (*v1.UserStatsResponse, error)
@@ -45,6 +46,7 @@ func (h *StatsHandler) RegisterRoutes(r gin.IRouter) {
 	stats.GET("/channel", h.ListAllChannelStats)
 	stats.GET("/channel/:channelID/model", h.ListChannelModelStatsByChannelID)
 	stats.GET("/channel/:channelID/model/:model", h.GetChannelModelStats)
+	stats.GET("/channel/model", h.ListAllChannelModelStats)
 
 	// token 统计（只读）
 	stats.GET("/token/:tokenID", h.GetTokenStatsByTokenID)
@@ -111,6 +113,14 @@ func (h *StatsHandler) ListChannelModelStatsByChannelID(ctx *gin.Context) {
 		return
 	}
 	resp, err := h.svc.ListChannelModelStatsByChannelID(ctx.Request.Context(), channelID)
+	if err != nil {
+		HandleServiceError(ctx, err)
+		return
+	}
+	v1.Success(ctx, resp)
+}
+func (h *StatsHandler) ListAllChannelModelStats(ctx *gin.Context) {
+	resp, err := h.svc.ListAllChannelModelStats(ctx.Request.Context())
 	if err != nil {
 		HandleServiceError(ctx, err)
 		return

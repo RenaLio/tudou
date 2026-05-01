@@ -17,6 +17,7 @@ type ChannelModelStatsRepo interface {
 	ListByChannelID(ctx context.Context, channelID int64) ([]*models.ChannelModelStats, error)
 	ListRequestLogsByChannelModelAndRange(ctx context.Context, channelID int64, model string, start, end time.Time) ([]*models.RequestLog, error)
 	ListRequestLogsByChannelAndRange(ctx context.Context, channelID int64, start, end time.Time) ([]*models.RequestLog, error)
+	ListAll(ctx context.Context) ([]*models.ChannelModelStats, error)
 }
 
 type channelModelStatsRepo struct {
@@ -108,6 +109,14 @@ func (r *channelModelStatsRepo) ListRequestLogsByChannelAndRange(ctx context.Con
 		Order("created_at ASC, id ASC").
 		Find(&items).Error
 	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *channelModelStatsRepo) ListAll(ctx context.Context) ([]*models.ChannelModelStats, error) {
+	items := make([]*models.ChannelModelStats, 0)
+	if err := r.DB(ctx).Find(&items).Error; err != nil {
 		return nil, err
 	}
 	return items, nil
