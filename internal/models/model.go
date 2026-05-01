@@ -25,6 +25,8 @@ type AIModel struct {
 	DeletedAt    soft_delete.DeletedAt `gorm:"column:deleted_at;type:bigint;index:idx_model_deleted_at;uniqueIndex:idx_model_name" json:"-"`
 }
 
+const contextOver200KThreshold int64 = 200_000
+
 // TableName 指定表名
 func (*AIModel) TableName() string {
 	return "models"
@@ -47,10 +49,21 @@ func (m *AIModel) CalculateByTokensMicros(inputTokens, outputTokens int64) int64
 
 // CalculateByTokensWithCacheMicros 按量计费（含缓存 tokens，返回 micros）
 func (m *AIModel) CalculateByTokensWithCacheMicros(inputTokens, outputTokens, cacheCreateTokens, cacheReadTokens int64) int64 {
-	inputCost := inputTokens * pricingPerMillionToMicros(m.Pricing.InputPrice) / pricingTokenUnit
-	outputCost := outputTokens * pricingPerMillionToMicros(m.Pricing.OutputPrice) / pricingTokenUnit
-	cacheCreateCost := cacheCreateTokens * pricingPerMillionToMicros(m.Pricing.CacheCreatePrice) / pricingTokenUnit
-	cacheReadCost := cacheReadTokens * pricingPerMillionToMicros(m.Pricing.CacheReadPrice) / pricingTokenUnit
+	return m.CalculateByTokensWithCacheAndContextMicros(inputTokens, outputTokens, cacheCreateTokens, cacheReadTokens, 0)
+}
+
+// CalculateByTokensWithCacheAndContextMicros 按量计费（含缓存与上下文阈值，返回 micros）
+func (m *AIModel) CalculateByTokensWithCacheAndContextMicros(inputTokens, outputTokens, cacheCreateTokens, cacheReadTokens, contextTokens int64) int64 {
+	useOver200k := contextTokens > contextOver200KThreshold
+	inputPrice := choosePrice(m.Pricing.InputPrice, m.Pricing.Over200KInputPrice, useOver200k)
+	outputPrice := choosePrice(m.Pricing.OutputPrice, m.Pricing.Over200KOutputPrice, useOver200k)
+	cacheCreatePrice := choosePrice(m.Pricing.CacheCreatePrice, m.Pricing.Over200KCacheCreatePrice, useOver200k)
+	cacheReadPrice := choosePrice(m.Pricing.CacheReadPrice, m.Pricing.Over200KCacheReadPrice, useOver200k)
+
+	inputCost := inputTokens * pricingPerMillionToMicros(inputPrice) / pricingTokenUnit
+	outputCost := outputTokens * pricingPerMillionToMicros(outputPrice) / pricingTokenUnit
+	cacheCreateCost := cacheCreateTokens * pricingPerMillionToMicros(cacheCreatePrice) / pricingTokenUnit
+	cacheReadCost := cacheReadTokens * pricingPerMillionToMicros(cacheReadPrice) / pricingTokenUnit
 	return inputCost + outputCost + cacheCreateCost + cacheReadCost
 }
 
@@ -73,7 +86,14 @@ func (m *AIModel) CalculateByTokensDetailedMicros(inputTokens, outputTokens, cac
 
 // CalculateByRequestMicros 按次计费（返回 micros）
 func (m *AIModel) CalculateByRequestMicros() int64 {
-	return MoneyFloatToMicros(m.Pricing.PerRequestPrice)
+	return m.CalculateByRequestWithContextMicros(0)
+}
+
+// CalculateByRequestWithContextMicros 按次计费（按上下文阈值选择价格，返回 micros）
+func (m *AIModel) CalculateByRequestWithContextMicros(contextTokens int64) int64 {
+	useOver200k := contextTokens > contextOver200KThreshold
+	price := choosePrice(m.Pricing.PerRequestPrice, m.Pricing.Over200KPerRequestPrice, useOver200k)
+	return MoneyFloatToMicros(price)
 }
 
 // CalculateByRequestDetailedMicros 按次计费（返回详细 breakdown，单位 micros）
@@ -180,4 +200,11 @@ func (e *AIModelExtra) Scan(value interface{}) error {
 		return nil
 	}
 	return unmarshalJSONValue(value, e)
+}
+
+func choosePrice(normal float64, over200k float64, useOver200k bool) float64 {
+	if useOver200k && over200k > 0 {
+		return over200k
+	}
+	return normal
 }

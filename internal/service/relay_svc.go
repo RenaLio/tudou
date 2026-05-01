@@ -256,10 +256,16 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 					if aiModel.PricingType == models.ModelPricingTypeTokens {
 						reqLog.Pricing = aiModel.Pricing
 						calcInputTokens := metrics.Usage.InputTokens - metrics.Usage.CachedCreationInputTokens - metrics.Usage.CachedReadInputTokens
-						reqLog.CostMicros = aiModel.CalculateByTokensWithCacheMicros(calcInputTokens, metrics.Usage.OutputTokens, metrics.Usage.CachedCreationInputTokens, metrics.Usage.CachedReadInputTokens)
+						reqLog.CostMicros = aiModel.CalculateByTokensWithCacheAndContextMicros(
+							calcInputTokens,
+							metrics.Usage.OutputTokens,
+							metrics.Usage.CachedCreationInputTokens,
+							metrics.Usage.CachedReadInputTokens,
+							metrics.Usage.InputTokens,
+						)
 					} else {
 						reqLog.Pricing = aiModel.Pricing
-						reqLog.CostMicros = aiModel.CalculateByRequestMicros()
+						reqLog.CostMicros = aiModel.CalculateByRequestWithContextMicros(metrics.Usage.InputTokens)
 					}
 					reqLog.CostMicros = int64(float64(reqLog.CostMicros) * candidate.Channel.PriceRate)
 				}
