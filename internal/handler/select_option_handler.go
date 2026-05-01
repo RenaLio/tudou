@@ -38,6 +38,17 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				},
 			},
 			{
+				Key:   "CodingPlan兼容",
+				Value: "coding-plan-adapter",
+				Extra: map[string]any{
+					"exampleBaseUrl": "https://api.example.com/v1",
+					"paths": map[ptypes.Format]string{
+						ptypes.FormatChatCompletion:  "/chat/completions",
+						ptypes.AbilityClaudeMessages: "/messages",
+					},
+				},
+			},
+			{
 				Key:   "移动云Coding",
 				Value: ecloudcoding.PlatformId,
 				Extra: map[string]any{

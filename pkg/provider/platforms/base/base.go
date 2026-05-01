@@ -220,9 +220,10 @@ func (c *Client) dispatchByFormat(ctx context.Context, originReq *types.Request,
 		req.Headers.Set("Content-Type", "application/json")
 		return c.Responses(ctx, reqUrl.String(), originReq, req, cb)
 	case types.FormatClaudeMessages:
-		req.Headers.Set("x-api-key", c.apiKey)
-		if req.Headers.Get("anthropic-version") == "" {
-			req.Headers.Set("anthropic-version", defaultAnthropicVersion)
+		req.Headers.Set("X-API-Key", c.apiKey)
+		req.Headers.Set("Authorization", "Bearer "+c.apiKey)
+		if req.Headers.Get("Anthropic-Version") == "" {
+			req.Headers.Set("Anthropic-Version", defaultAnthropicVersion)
 		}
 		req.Headers.Set("Content-Type", "application/json")
 		return c.ClaudeMessages(ctx, reqUrl.String(), originReq, req, cb)

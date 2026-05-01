@@ -12,7 +12,7 @@ const PlatformId = "mimo_coding"
 const DefaultBaseURL = "https://token-plan-cn.xiaomimimo.com"
 
 var DefaultFormatPathMap = map[types.Format]string{
-	types.FormatClaudeMessages: "/anthropic/v1/message",
+	types.FormatClaudeMessages: "/anthropic/v1/messages",
 	types.FormatChatCompletion: "/v1/chat/completions",
 }
 

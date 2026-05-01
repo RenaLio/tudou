@@ -141,8 +141,8 @@ func (r *channelGroupRepo) Exists(ctx context.Context, id int64) (bool, error) {
 }
 
 func (r *channelGroupRepo) PreLoadRegistryData(ctx context.Context) ([]*models.ChannelGroup, error) {
-	return gorm.G[[]*models.ChannelGroup](r.DB(ctx)).Preload("Channels", func(db gorm.PreloadBuilder) error {
+	return gorm.G[*models.ChannelGroup](r.DB(ctx)).Preload("Channels", func(db gorm.PreloadBuilder) error {
 		db.Select("id")
 		return nil
-	}).First(ctx)
+	}).Find(ctx)
 }

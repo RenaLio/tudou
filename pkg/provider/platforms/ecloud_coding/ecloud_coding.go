@@ -12,7 +12,7 @@ const PlatformId = "eCloud_coding"
 const DefaultBaseURL = "https://zhenze-huhehaote.cmecloud.cn"
 
 var DefaultFormatPathMap = map[types.Format]string{
-	types.FormatClaudeMessages: "/api/coding/v1/message",
+	types.FormatClaudeMessages: "/api/coding/v1/messages",
 	types.FormatChatCompletion: "/api/coding/v1/chat/completions",
 }
 

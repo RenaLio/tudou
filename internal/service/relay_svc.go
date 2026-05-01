@@ -17,6 +17,9 @@ import (
 	"github.com/RenaLio/tudou/pkg/provider"
 	"github.com/RenaLio/tudou/pkg/provider/constant"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
+	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
+	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
+	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 	"github.com/google/uuid"
@@ -336,6 +339,28 @@ func (s *RelayService) createLog(ctx context.Context, meta types.RelayMeta, mode
 }
 
 func buildProvider(platform string, baseURL string, apiKey string, httpc *http.Client) provider.Provider {
-
-	return base.NewClient(httpc, baseURL, apiKey, platform, []ptypes.Ability{ptypes.AbilityChatCompletions}, nil)
+	switch platform {
+	case openai.PlatformId:
+		return openai.NewClient(httpc, baseURL, apiKey)
+	case ecloudcoding.PlatformId:
+		return ecloudcoding.NewClient(httpc, baseURL, apiKey)
+	case mimocoding.PlatformId:
+		return mimocoding.NewClient(httpc, baseURL, apiKey)
+	case "coding-plan-adapter":
+		return base.NewClient(
+			httpc,
+			baseURL,
+			apiKey,
+			platform,
+			[]ptypes.Ability{ptypes.AbilityChatCompletions, ptypes.AbilityClaudeMessages},
+			map[ptypes.Format]string{
+				ptypes.FormatChatCompletion:  "/chat/completions",
+				ptypes.AbilityClaudeMessages: "/messages",
+			},
+		)
+	case "chat-completion":
+		fallthrough
+	default:
+		return base.NewClient(httpc, baseURL, apiKey, platform, []ptypes.Ability{ptypes.AbilityChatCompletions}, nil)
+	}
 }

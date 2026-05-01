@@ -27,6 +27,12 @@ func RequireToken(lookup TokenLookup) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		authHeader := strings.TrimSpace(ctx.GetHeader("Authorization"))
 		if authHeader == "" {
+			authHeader = strings.TrimSpace(ctx.GetHeader("X-Api-Key"))
+			if authHeader != "" {
+				authHeader = "Bearer " + authHeader
+			}
+		}
+		if authHeader == "" {
 			v1.Fail(ctx, v1.ErrUnauthorized.WithMessage("missing Authorization header"), nil)
 			ctx.Abort()
 			return
