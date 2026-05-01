@@ -47,7 +47,7 @@ func (m *AIModel) CalculateByTokensMicros(inputTokens, outputTokens int64) int64
 
 // CalculateByTokensWithCacheMicros 按量计费（含缓存 tokens，返回 micros）
 func (m *AIModel) CalculateByTokensWithCacheMicros(inputTokens, outputTokens, cacheCreateTokens, cacheReadTokens int64) int64 {
-	inputCost := (inputTokens - cacheCreateTokens - cacheReadTokens) * pricingPerMillionToMicros(m.Pricing.InputPrice) / pricingTokenUnit
+	inputCost := inputTokens * pricingPerMillionToMicros(m.Pricing.InputPrice) / pricingTokenUnit
 	outputCost := outputTokens * pricingPerMillionToMicros(m.Pricing.OutputPrice) / pricingTokenUnit
 	cacheCreateCost := cacheCreateTokens * pricingPerMillionToMicros(m.Pricing.CacheCreatePrice) / pricingTokenUnit
 	cacheReadCost := cacheReadTokens * pricingPerMillionToMicros(m.Pricing.CacheReadPrice) / pricingTokenUnit

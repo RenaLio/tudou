@@ -13,27 +13,12 @@ import (
 	"github.com/RenaLio/tudou/pkg/provider/constant"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	"github.com/RenaLio/tudou/pkg/provider/types"
+	"github.com/tidwall/sjson"
 
 	"github.com/tidwall/gjson"
 )
 
 func ChatCompletionsParse(raw []byte) (*types.StreamEvent, error) {
-	//line := string(raw)
-	//event := &types.StreamEvent{
-	//	Content:  raw,
-	//	Finished: false,
-	//	Usage:    nil,
-	//}
-	//if !strings.HasPrefix(line, "data: ") {
-	//	return nil,nil
-	//}
-	//dataStr := strings.TrimPrefix(line, "data: ")
-	//if dataStr == "[DONE]" {
-	//	event.Finished = true
-	//	return event, nil
-	//}
-	//// 解析usage
-	//usage := parseUsage([]byte(dataStr), "usage")
 	return parseSSEEvent(raw, nil, nil, "usage")
 }
 
@@ -42,9 +27,46 @@ func OpenAIResponsesParse(raw []byte) (*types.StreamEvent, error) {
 }
 
 func ClaudeMessagesParse(raw []byte) (*types.StreamEvent, error) {
-	return parseSSEEvent(raw, map[string]struct{}{
-		"message_stop": {},
-	}, nil, "usage", "message.usage")
+	cloneRaw := bytes.TrimRight(raw, "\n")
+	line := string(cloneRaw)
+	if strings.HasPrefix(line, "event:") {
+		return &types.StreamEvent{
+			Content:  raw,
+			Finished: false,
+		}, nil
+	}
+	// ping之类的
+	if !strings.HasPrefix(line, "data:") {
+		return &types.StreamEvent{
+			Content:  raw,
+			Finished: false,
+		}, nil
+	}
+	event := &types.StreamEvent{
+		Content:  raw,
+		Finished: false,
+	}
+	dataStr := strings.TrimPrefix(line, "data: ")
+	if gjson.Get(dataStr, "type").String() == "message_start" && !gjson.Get(dataStr, "message.usage.input_tokens").Exists() {
+		data, _ := sjson.Set(dataStr, "message.usage.input_tokens", 0)
+		event.Content = []byte("data: " + data + "\n")
+	}
+	if gjson.Get(dataStr, "type").String() == "content_block_start" && gjson.Get(dataStr, "content_block.type").String() == "thinking" && !gjson.Get(dataStr, "content_block.thinking").Exists() {
+		data, _ := sjson.Set(dataStr, "content_block.thinking", "")
+		event.Content = []byte("data: " + data + "\n")
+	}
+	usage := types.Usage{}
+	for _, usagePath := range []string{"message.usage", "usage"} {
+		if usageNode := gjson.Get(dataStr, usagePath); usageNode.Exists() {
+			usage.InputTokens = gjson.Get(dataStr, usagePath+".input_tokens").Int()
+			usage.OutputTokens = gjson.Get(dataStr, usagePath+".output_tokens").Int()
+			usage.CachedCreationInputTokens = gjson.Get(dataStr, usagePath+".cached_creation_input_tokens").Int()
+			usage.CachedReadInputTokens = gjson.Get(dataStr, usagePath+".cached_read_input_tokens").Int()
+			usage.InputTokens = usage.InputTokens + usage.CachedCreationInputTokens + usage.CachedReadInputTokens
+			event.Usage = &usage
+		}
+	}
+	return event, nil
 }
 
 type SSEResult struct {
@@ -82,6 +104,16 @@ func parseSSEEvent(raw []byte, finishTypes map[string]struct{}, extractFunc Extr
 	if event.Finished {
 		return event, nil
 	}
+	//
+	//// normalize claude start message
+	//if gjson.Get(result.DataStr, "type").String() == "message_start" && !gjson.Get(result.DataStr, "message.usage.input_tokens").Exists() {
+	//	data, _ := sjson.Set(result.DataStr, "message.usage.input_tokens", 0)
+	//	event.Content = []byte("data: " + data + "\n")
+	//}
+	//if gjson.Get(result.DataStr, "type").String() == "content_block_start" && gjson.Get(result.DataStr, "content_block.type").String() == "thinking" && !gjson.Get(result.DataStr, "content_block.thinking").Exists() {
+	//	data, _ := sjson.Set(result.DataStr, "content_block.thinking", "")
+	//	event.Content = []byte("data: " + data + "\n")
+	//}
 
 	data := []byte(result.DataStr)
 	if usage := parseUsage(data, usagePaths...); usage != nil {
@@ -309,6 +341,9 @@ func (c *Client) executeJSONRequest(
 		metrics.TotalTime = time.Since(start)
 
 		if usage := parseUsage(data, usagePaths...); usage != nil {
+			if req.Format == types.AbilityClaudeMessages && usage != nil {
+				usage.InputTokens = usage.InputTokens + usage.CachedCreationInputTokens + usage.CachedReadInputTokens
+			}
 			metrics.Usage = *usage
 		}
 		if cb != nil {

@@ -100,19 +100,21 @@ func ClaudeUsageToChatUsage(usage *claude.Usage) *openai.ChatCompletionUsage {
 	chatUsage := &openai.ChatCompletionUsage{
 		PromptTokens:     usage.InputTokens,
 		CompletionTokens: usage.OutputTokens,
-		TotalTokens:      usage.InputTokens + usage.OutputTokens,
 	}
 	var cachedTokens int64
 
 	if usage.CacheReadInputTokens != nil {
+		chatUsage.PromptTokens += *usage.CacheReadInputTokens
 		cachedTokens += *usage.CacheReadInputTokens
 	}
 	if usage.CacheCreationInputTokens != nil {
+		chatUsage.PromptTokens += *usage.CacheCreationInputTokens
 		cachedTokens += *usage.CacheCreationInputTokens
 	}
 	chatUsage.PromptTokensDetails = &openai.PromptTokensDetails{
 		CachedTokens: cachedTokens,
 	}
+	chatUsage.TotalTokens = chatUsage.PromptTokens + chatUsage.CompletionTokens
 	return chatUsage
 }
 
@@ -140,6 +142,9 @@ func ChatUsageToClaudeUsage(usage *openai.ChatCompletionUsage) *claude.Usage {
 	if usage.PromptTokensDetails != nil && usage.PromptTokensDetails.CachedTokens > 0 {
 		cachedTokens := usage.PromptTokensDetails.CachedTokens
 		claudeUsage.CacheReadInputTokens = &cachedTokens
+	}
+	if claudeUsage.CacheReadInputTokens != nil {
+		claudeUsage.InputTokens = claudeUsage.InputTokens - *claudeUsage.CacheReadInputTokens
 	}
 	return claudeUsage
 }
@@ -169,6 +174,9 @@ func ResponseUsageToClaudeUsage(usage *openai.ResponseUsage) *claude.Usage {
 		cachedTokens := usage.InputTokenDetails.CachedTokens
 		claudeUsage.CacheReadInputTokens = &cachedTokens
 	}
+	if claudeUsage.CacheReadInputTokens != nil {
+		claudeUsage.InputTokens = claudeUsage.InputTokens - *claudeUsage.CacheReadInputTokens
+	}
 	return claudeUsage
 }
 
@@ -192,18 +200,20 @@ func ClaudeUsageToResponseUsage(usage *claude.Usage) *openai.ResponseUsage {
 	responseUsage := &openai.ResponseUsage{
 		InputTokens:  usage.InputTokens,
 		OutputTokens: usage.OutputTokens,
-		TotalTokens:  usage.InputTokens + usage.OutputTokens,
 	}
 	cachedTokens := int64(0)
 	if usage.CacheReadInputTokens != nil {
+		responseUsage.InputTokens += *usage.CacheReadInputTokens
 		cachedTokens += *usage.CacheReadInputTokens
 	}
 	if usage.CacheCreationInputTokens != nil {
+		responseUsage.InputTokens += *usage.CacheCreationInputTokens
 		cachedTokens += *usage.CacheCreationInputTokens
 	}
 	responseUsage.InputTokenDetails = &openai.InputTokenDetails{
 		CachedTokens: cachedTokens,
 	}
+	responseUsage.TotalTokens = responseUsage.InputTokens + responseUsage.OutputTokens
 	return responseUsage
 }
 

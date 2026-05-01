@@ -255,7 +255,8 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 				if aiModel != nil {
 					if aiModel.PricingType == models.ModelPricingTypeTokens {
 						reqLog.Pricing = aiModel.Pricing
-						reqLog.CostMicros = aiModel.CalculateByTokensWithCacheMicros(metrics.Usage.InputTokens, metrics.Usage.OutputTokens, metrics.Usage.CachedCreationInputTokens, metrics.Usage.CachedReadInputTokens)
+						calcInputTokens := metrics.Usage.InputTokens - metrics.Usage.CachedCreationInputTokens - metrics.Usage.CachedReadInputTokens
+						reqLog.CostMicros = aiModel.CalculateByTokensWithCacheMicros(calcInputTokens, metrics.Usage.OutputTokens, metrics.Usage.CachedCreationInputTokens, metrics.Usage.CachedReadInputTokens)
 					} else {
 						reqLog.Pricing = aiModel.Pricing
 						reqLog.CostMicros = aiModel.CalculateByRequestMicros()

@@ -36,8 +36,8 @@ type MetricsCallback func(metrics *ResponseMetrics)
 
 type (
 	Usage struct {
-		InputTokens               int64
-		OutputTokens              int64
+		InputTokens               int64 // total input (cacheXX is in input)
+		OutputTokens              int64 // total output
 		CachedTokens              int64
 		CachedCreationInputTokens int64
 		CachedReadInputTokens     int64
