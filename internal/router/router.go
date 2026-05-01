@@ -61,6 +61,7 @@ func RegisterHTTPRoutes(engine *gin.Engine, deps *Deps) error {
 		deps.StatsHandler.RegisterRoutes(apiV1Group)
 		deps.RequestLogHandler.RegisterRoutes(apiV1Group)
 		deps.DebugHandler.RegisterRoutes(apiV1Group)
+		deps.SelectOptionHandler.RegisterRoutes(apiV1Group)
 	}
 
 	// Relay routes (Token auth required)

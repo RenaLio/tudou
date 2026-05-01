@@ -7,6 +7,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
+	"path"
 
 	"github.com/RenaLio/tudou/pkg/provider/perrors"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
@@ -20,12 +22,13 @@ import (
 const defaultAnthropicVersion = "2023-06-01"
 
 type Client struct {
-	httpC     *http.Client
-	baseURL   string
-	apiKey    string
-	Id        string
-	abilities []types.Ability
-	abMap     map[types.Ability]struct{}
+	httpC         *http.Client
+	baseURL       string
+	apiKey        string
+	Id            string
+	abilities     []types.Ability
+	abMap         map[types.Ability]struct{}
+	formatPathMap map[types.Format]string
 }
 
 func NewClient(
@@ -33,18 +36,23 @@ func NewClient(
 	baseURL, apiKey string,
 	Id string,
 	abilities []types.Ability,
+	pathMap map[types.Format]string,
 ) *Client {
 	abMap := make(map[types.Ability]struct{})
 	for _, ab := range abilities {
 		abMap[ab] = struct{}{}
 	}
+	if pathMap == nil {
+		pathMap = defaultFormatPathMap
+	}
 	return &Client{
-		httpC:     httpC,
-		baseURL:   baseURL,
-		apiKey:    apiKey,
-		Id:        Id,
-		abilities: abilities,
-		abMap:     abMap,
+		httpC:         httpC,
+		baseURL:       baseURL,
+		apiKey:        apiKey,
+		Id:            Id,
+		abilities:     abilities,
+		abMap:         abMap,
+		formatPathMap: pathMap,
 	}
 }
 
@@ -186,8 +194,16 @@ func (c *Client) resolveExecutionFormat(source types.Format) (types.Format, bool
 }
 
 func (c *Client) dispatchByFormat(ctx context.Context, originReq *types.Request, req *types.Request, cb types.MetricsCallback) (*types.Response, error) {
-	url := c.GetURLBase(req.Format)
-	url = c.baseURL + url
+	urlPath, ok := c.formatPathMap[req.Format]
+	if !ok {
+		return nil, errors.New("unsupported format")
+	}
+	reqUrl, err := url.Parse(c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	reqUrl.Path = path.Join(reqUrl.Path, urlPath)
+
 	if req.IsStream {
 		req.Headers.Set("Accept", "text/event-stream")
 		req.Headers.Set("Cache-Control", "no-cache")
@@ -198,18 +214,18 @@ func (c *Client) dispatchByFormat(ctx context.Context, originReq *types.Request,
 	case types.FormatChatCompletion:
 		req.Headers.Set("Authorization", "Bearer "+c.apiKey)
 		req.Headers.Set("Content-Type", "application/json")
-		return c.ChatCompletion(ctx, url, originReq, req, cb)
+		return c.ChatCompletion(ctx, reqUrl.String(), originReq, req, cb)
 	case types.FormatOpenAIResponses:
 		req.Headers.Set("Authorization", "Bearer "+c.apiKey)
 		req.Headers.Set("Content-Type", "application/json")
-		return c.Responses(ctx, url, originReq, req, cb)
+		return c.Responses(ctx, reqUrl.String(), originReq, req, cb)
 	case types.FormatClaudeMessages:
 		req.Headers.Set("x-api-key", c.apiKey)
 		if req.Headers.Get("anthropic-version") == "" {
 			req.Headers.Set("anthropic-version", defaultAnthropicVersion)
 		}
 		req.Headers.Set("Content-Type", "application/json")
-		return c.ClaudeMessages(ctx, url, originReq, req, cb)
+		return c.ClaudeMessages(ctx, reqUrl.String(), originReq, req, cb)
 	default:
 		return nil, errors.New("unsupported format")
 	}
@@ -322,16 +338,4 @@ func (c *Client) Abilities() []types.Ability {
 func (c *Client) HasAbility(ability types.Ability) bool {
 	_, ok := c.abMap[ability]
 	return ok
-}
-
-func (c *Client) GetURLBase(format types.Format) string {
-	return urlBaseMap[format]
-}
-
-var urlBaseMap = map[types.Format]string{
-	types.FormatChatCompletion: "/v1/chat/completions",
-	//types.FormatChatCompletion:   "/chat/completions",
-	types.FormatOpenAIResponses:  "/v1/responses",
-	types.FormatClaudeMessages:   "/v1/messages",
-	types.FormatOpenAIEmbeddings: "/v1/embeddings",
 }

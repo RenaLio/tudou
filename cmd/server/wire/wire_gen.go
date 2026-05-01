@@ -71,6 +71,7 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	relayHandler := handler.NewRelayHandler(handlerHandler, relayService)
 	requestLogHandler := handler.NewRequestLogHandler(handlerHandler, requestLogServiceImpl)
 	debugHelperHandler := handler.NewDebugHelperHandler(handlerHandler, registry)
+	selectOptionHandler := handler.NewSelectOptionHandler(handlerHandler)
 	deps := &router.Deps{
 		Conf:                configConfig,
 		Logger:              logger,
@@ -84,6 +85,7 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 		RelayHandler:        relayHandler,
 		RequestLogHandler:   requestLogHandler,
 		DebugHandler:        debugHelperHandler,
+		SelectOptionHandler: selectOptionHandler,
 		TokenService:        tokenService,
 		DB:                  db,
 		Registry:            registry,
@@ -128,7 +130,7 @@ func newAsyncMetricsCollector(reg *loadbalancer.Registry) *loadbalancer.AsyncMet
 
 var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService, wire.Bind(new(handler.RelayService), new(*service.RelayService)), service.NewStatsService, wire.Bind(new(handler.StatsService), new(*service.StatsService)), service.NewRequestLogService, wire.Bind(new(service.RequestLogService), new(*service.RequestLogServiceImpl)), wire.Bind(new(service.RequestLogCreator), new(*service.RequestLogServiceImpl)))
 
-var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handler.NewChannelHandler, handler.NewChannelGroupHandler, handler.NewTokenHandler, handler.NewUserHandler, handler.NewSystemConfigHandler, handler.NewStatsHandler, handler.NewRelayHandler, handler.NewRequestLogHandler, handler.NewDebugHelperHandler)
+var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handler.NewChannelHandler, handler.NewChannelGroupHandler, handler.NewTokenHandler, handler.NewUserHandler, handler.NewSystemConfigHandler, handler.NewStatsHandler, handler.NewRelayHandler, handler.NewRequestLogHandler, handler.NewDebugHelperHandler, handler.NewSelectOptionHandler)
 
 var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)
 

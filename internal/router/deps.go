@@ -22,6 +22,7 @@ type Deps struct {
 	RelayHandler        *handler.RelayHandler
 	RequestLogHandler   *handler.RequestLogHandler
 	DebugHandler        *handler.DebugHelperHandler
+	SelectOptionHandler *handler.SelectOptionHandler
 	TokenService        service.TokenService
 	DB                  *gorm.DB
 	Registry            *loadbalancer.Registry

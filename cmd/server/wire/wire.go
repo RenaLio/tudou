@@ -90,6 +90,7 @@ var handlerSet = wire.NewSet(
 	handler.NewRelayHandler,
 	handler.NewRequestLogHandler,
 	handler.NewDebugHelperHandler,
+	handler.NewSelectOptionHandler,
 )
 
 var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)
