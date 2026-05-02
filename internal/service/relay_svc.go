@@ -17,6 +17,7 @@ import (
 	"github.com/RenaLio/tudou/pkg/provider"
 	"github.com/RenaLio/tudou/pkg/provider/constant"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
+	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
 	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
@@ -354,17 +355,7 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 	case mimocoding.PlatformId:
 		return mimocoding.NewClient(httpc, baseURL, apiKey)
 	case "coding-plan-adapter":
-		return base.NewClient(
-			httpc,
-			baseURL,
-			apiKey,
-			platform,
-			[]ptypes.Ability{ptypes.AbilityChatCompletions, ptypes.AbilityClaudeMessages},
-			map[ptypes.Format]string{
-				ptypes.FormatChatCompletion:  "/chat/completions",
-				ptypes.AbilityClaudeMessages: "/messages",
-			},
-		)
+		return codingplan.NewClient(httpc, baseURL, apiKey)
 	case "chat-completion":
 		fallthrough
 	default:

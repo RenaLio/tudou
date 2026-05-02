@@ -23,8 +23,8 @@ const defaultAnthropicVersion = "2023-06-01"
 
 type Client struct {
 	httpC         *http.Client
-	baseURL       string
-	apiKey        string
+	BaseURL       string
+	ApiKey        string
 	Id            string
 	abilities     []types.Ability
 	abMap         map[types.Ability]struct{}
@@ -47,8 +47,8 @@ func NewClient(
 	}
 	return &Client{
 		httpC:         httpC,
-		baseURL:       baseURL,
-		apiKey:        apiKey,
+		BaseURL:       baseURL,
+		ApiKey:        apiKey,
 		Id:            Id,
 		abilities:     abilities,
 		abMap:         abMap,
@@ -198,7 +198,7 @@ func (c *Client) dispatchByFormat(ctx context.Context, originReq *types.Request,
 	if !ok {
 		return nil, errors.New("unsupported format")
 	}
-	reqUrl, err := url.Parse(c.baseURL)
+	reqUrl, err := url.Parse(c.BaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -212,16 +212,16 @@ func (c *Client) dispatchByFormat(ctx context.Context, originReq *types.Request,
 
 	switch req.Format {
 	case types.FormatChatCompletion:
-		req.Headers.Set("Authorization", "Bearer "+c.apiKey)
+		req.Headers.Set("Authorization", "Bearer "+c.ApiKey)
 		req.Headers.Set("Content-Type", "application/json")
 		return c.ChatCompletion(ctx, reqUrl.String(), originReq, req, cb)
 	case types.FormatOpenAIResponses:
-		req.Headers.Set("Authorization", "Bearer "+c.apiKey)
+		req.Headers.Set("Authorization", "Bearer "+c.ApiKey)
 		req.Headers.Set("Content-Type", "application/json")
 		return c.Responses(ctx, reqUrl.String(), originReq, req, cb)
 	case types.FormatClaudeMessages:
-		req.Headers.Set("X-API-Key", c.apiKey)
-		req.Headers.Set("Authorization", "Bearer "+c.apiKey)
+		req.Headers.Set("X-API-Key", c.ApiKey)
+		req.Headers.Set("Authorization", "Bearer "+c.ApiKey)
 		if req.Headers.Get("Anthropic-Version") == "" {
 			req.Headers.Set("Anthropic-Version", defaultAnthropicVersion)
 		}
@@ -274,11 +274,11 @@ func (c *Client) supportsChat() bool {
 }
 
 func (c *Client) Models() ([]string, error) {
-	return c.FetchModels(context.Background(), c.baseURL+"/v1/models")
+	return c.FetchModels(context.Background(), c.BaseURL+"/v1/models")
 }
 
 func (c *Client) SetOpenAIAuth(req *http.Request) {
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	req.Header.Set("Authorization", "Bearer "+c.ApiKey)
 }
 
 func (c *Client) FetchModels(ctx context.Context, reqURL string) ([]string, error) {
