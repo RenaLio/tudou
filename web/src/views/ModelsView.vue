@@ -11,7 +11,7 @@ import {
   type CreateAIModelRequest,
   type UpdateAIModelRequest,
 } from '@/api/model'
-import type { AIModel, ModelPricing, ModelPricingType } from '@/types'
+import type { AIModel, AIModelExtra, ModelPricing, ModelPricingType } from '@/types'
 import {
   fadeUp,
   tableRow,
@@ -44,6 +44,7 @@ const formData = ref<CreateAIModelRequest>({
   description: '',
   pricing: {},
   pricingType: 'tokens',
+  extra: {},
 })
 
 // Pricing form (separate for easier manipulation)
@@ -53,6 +54,11 @@ const pricingForm = ref<ModelPricing>({
   cacheCreatePrice: undefined,
   cacheReadPrice: undefined,
   perRequestPrice: undefined,
+  over200KInputPrice: undefined,
+  over200KOutputPrice: undefined,
+  over200KCacheCreatePrice: undefined,
+  over200KCacheReadPrice: undefined,
+  over200KPerRequestPrice: undefined,
 })
 
 // Delete confirmation
@@ -87,6 +93,7 @@ function openCreateDialog() {
     description: '',
     pricing: {},
     pricingType: 'tokens',
+    extra: {},
   }
   pricingForm.value = {
     inputPrice: undefined,
@@ -94,6 +101,11 @@ function openCreateDialog() {
     cacheCreatePrice: undefined,
     cacheReadPrice: undefined,
     perRequestPrice: undefined,
+    over200KInputPrice: undefined,
+    over200KOutputPrice: undefined,
+    over200KCacheCreatePrice: undefined,
+    over200KCacheReadPrice: undefined,
+    over200KPerRequestPrice: undefined,
   }
   formError.value = ''
   dialogOpen.value = true
@@ -106,6 +118,7 @@ function openEditDialog(model: AIModel) {
     description: model.description || '',
     pricing: { ...model.pricing },
     pricingType: model.pricingType,
+    extra: { ...model.extra },
   }
   pricingForm.value = {
     inputPrice: model.pricing.inputPrice,
@@ -113,6 +126,11 @@ function openEditDialog(model: AIModel) {
     cacheCreatePrice: model.pricing.cacheCreatePrice,
     cacheReadPrice: model.pricing.cacheReadPrice,
     perRequestPrice: model.pricing.perRequestPrice,
+    over200KInputPrice: model.pricing.over200KInputPrice,
+    over200KOutputPrice: model.pricing.over200KOutputPrice,
+    over200KCacheCreatePrice: model.pricing.over200KCacheCreatePrice,
+    over200KCacheReadPrice: model.pricing.over200KCacheReadPrice,
+    over200KPerRequestPrice: model.pricing.over200KPerRequestPrice,
   }
   formError.value = ''
   dialogOpen.value = true
@@ -125,6 +143,11 @@ function updatePricingFromForm() {
     cacheCreatePrice: pricingForm.value.cacheCreatePrice || undefined,
     cacheReadPrice: pricingForm.value.cacheReadPrice || undefined,
     perRequestPrice: pricingForm.value.perRequestPrice || undefined,
+    over200KInputPrice: pricingForm.value.over200KInputPrice || undefined,
+    over200KOutputPrice: pricingForm.value.over200KOutputPrice || undefined,
+    over200KCacheCreatePrice: pricingForm.value.over200KCacheCreatePrice || undefined,
+    over200KCacheReadPrice: pricingForm.value.over200KCacheReadPrice || undefined,
+    over200KPerRequestPrice: pricingForm.value.over200KPerRequestPrice || undefined,
   }
 }
 
@@ -146,6 +169,7 @@ async function handleFormSubmit() {
         description: formData.value.description || undefined,
         pricing: formData.value.pricing,
         pricingType: formData.value.pricingType,
+        extra: formData.value.extra,
       }
       await updateAIModel(editingModel.value.id, updateData)
     } else {
@@ -381,6 +405,37 @@ onMounted(() => {
                 <input v-model.number="pricingForm.cacheReadPrice" type="number" step="0.01" min="0" placeholder="0.00" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
               </div>
             </AppFormField>
+
+            <!-- Over 200K pricing -->
+            <AppFormField class="col-span-2">
+              <template #label>
+                <span class="text-sm font-semibold text-text-primary mt-2">长上下文定价 <span class="font-normal text-xs text-text-muted ml-1">(&gt;200K tokens，每百万 Token)</span></span>
+              </template>
+            </AppFormField>
+            <AppFormField label="输入价格">
+              <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30">
+                <span class="pl-3 pr-0 py-2 text-sm text-text-muted font-medium">$</span>
+                <input v-model.number="pricingForm.over200KInputPrice" type="number" step="0.01" min="0" placeholder="0.00" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
+              </div>
+            </AppFormField>
+            <AppFormField label="输出价格">
+              <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30">
+                <span class="pl-3 pr-0 py-2 text-sm text-text-muted font-medium">$</span>
+                <input v-model.number="pricingForm.over200KOutputPrice" type="number" step="0.01" min="0" placeholder="0.00" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
+              </div>
+            </AppFormField>
+            <AppFormField label="缓存创建价格">
+              <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30">
+                <span class="pl-3 pr-0 py-2 text-sm text-text-muted font-medium">$</span>
+                <input v-model.number="pricingForm.over200KCacheCreatePrice" type="number" step="0.01" min="0" placeholder="0.00" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
+              </div>
+            </AppFormField>
+            <AppFormField label="缓存读取价格">
+              <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30">
+                <span class="pl-3 pr-0 py-2 text-sm text-text-muted font-medium">$</span>
+                <input v-model.number="pricingForm.over200KCacheReadPrice" type="number" step="0.01" min="0" placeholder="0.00" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
+              </div>
+            </AppFormField>
           </template>
 
           <!-- Request-based pricing -->
@@ -391,7 +446,50 @@ onMounted(() => {
                 <input v-model.number="pricingForm.perRequestPrice" type="number" step="0.0001" min="0" placeholder="0.0000" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
               </div>
             </AppFormField>
+            <AppFormField label="长上下文请求价格" class="col-span-2">
+              <template #label>
+                <span class="text-sm font-medium text-text-primary">长上下文请求价格 <span class="font-normal text-xs text-text-muted ml-1">(&gt;200K tokens)</span></span>
+              </template>
+              <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30 max-w-[200px]">
+                <span class="pl-3 pr-0 py-2 text-sm text-text-muted font-medium">$</span>
+                <input v-model.number="pricingForm.over200KPerRequestPrice" type="number" step="0.0001" min="0" placeholder="0.0000" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
+              </div>
+            </AppFormField>
           </template>
+
+          <!-- Extra section -->
+          <AppFormField class="col-span-2">
+            <template #label>
+              <span class="text-sm font-semibold text-text-primary mt-2">同步配置</span>
+            </template>
+          </AppFormField>
+          <AppFormField label="启用同步" class="col-span-2">
+            <label class="flex items-center gap-2.5 cursor-pointer select-none">
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="!(formData.extra?.disableSync ?? false)"
+                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                :class="!(formData.extra?.disableSync ?? false) ? 'bg-primary' : 'bg-border'"
+                @click="formData.extra = { ...formData.extra!, disableSync: !formData.extra?.disableSync }"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200"
+                  :class="!(formData.extra?.disableSync ?? false) ? 'translate-x-[18px]' : 'translate-x-[3px]'"
+                ></span>
+              </button>
+              <span class="text-sm text-text-secondary">启用后将同步模型信息到 models.dev 等平台</span>
+            </label>
+          </AppFormField>
+          <AppFormField label="同步路径" class="col-span-2">
+            <AppInput
+              v-model="formData.extra!.syncModelInfoPath"
+              type="text"
+              placeholder="提供商.models.模型id，如 openai.models.gpt-4o"
+              :disabled="formData.extra?.disableSync ?? false"
+            />
+            <span class="text-[11px] text-text-muted mt-1">格式：提供商.models.模型id，用于向 models.dev 等 Web API 同步模型信息</span>
+          </AppFormField>
         </div>
       </form>
       <template #footer>

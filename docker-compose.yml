@@ -1,0 +1,77 @@
+# =============================================================================
+# tudou —— LLM gateway backend 编排文件
+# 启动:  docker compose up -d
+# 重建:  docker compose up -d --build
+# 查看日志: docker compose logs -f tudou
+# =============================================================================
+
+services:
+  tudou:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # 跨平台构建:声明镜像支持的目标架构。
+      # - `docker compose up/build` 默认只构建宿主机架构,会忽略其它平台
+      # - `docker buildx bake` 或 `docker buildx build --platform ...` 会按声明全部构建
+      # - 多架构镜像必须配合 registry(--push),本地 docker 一次只能 load 单架构
+      platforms:
+        - linux/amd64
+        - linux/arm64
+      args:
+        # 国内构建走七牛 Go 模块代理;CI/海外可改成 https://proxy.golang.org,direct
+        GOPROXY: https://goproxy.cn,direct
+    image: tudou:latest
+    container_name: tudou
+    restart: unless-stopped
+
+    # ---- 环境变量 ----
+    # 时区在这里注入(对应 Dockerfile 中安装的 tzdata)
+    environment:
+      TZ: Asia/Shanghai
+      APP_ENV: prod
+    # 也可以从 .env 加载额外变量(密钥等)
+    # 注意:.env 已被 .dockerignore 排除,不会进入镜像,只在运行时注入
+    env_file:
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
+
+    # ---- 端口 ----
+    ports:
+      - "8080:8080"
+
+    # ---- 持久化 / 配置覆盖 ----
+    volumes:
+      # 用主机配置覆盖镜像内置默认配置;只读挂载更安全
+      - ./config:/app/config:ro
+      # SQLite 数据库 + 日志:用 named volume 持久化
+      - tudou-storage:/app/storage
+
+    # ---- 健康检查(覆盖 Dockerfile 默认值,便于在编排层调整) ----
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/v1/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+    # ---- 资源约束(可选,按宿主机情况调整或删除) ----
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          memory: 128M
+
+    # ---- 日志驱动(防止单容器日志撑爆磁盘) ----
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  tudou-storage:
+    name: tudou-storage

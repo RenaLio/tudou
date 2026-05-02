@@ -24,6 +24,7 @@ import (
 	"github.com/RenaLio/tudou/internal/store"
 	"github.com/RenaLio/tudou/internal/tasks"
 	"github.com/google/wire"
+	"time"
 )
 
 // Injectors from wire.go:
@@ -146,7 +147,9 @@ func NewTaskServer(
 	priceSyncTask *tasks.PriceSyncTask,
 ) *task.TaskServer {
 	taskServer := task.NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask)
-
+	if err := taskServer.SetTaskInterval(tasks.PriceSyncTaskName, 12*time.Hour); err != nil {
+		panic(err)
+	}
 	return taskServer
 }
 

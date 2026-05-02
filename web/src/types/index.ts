@@ -86,7 +86,7 @@ export interface TokenStats {
 }
 
 // Channel
-export type ChannelType = 'openai' | 'claude' | 'azure' | 'custom';
+export type ChannelType = string;
 export type ChannelStatus = 'enabled' | 'disabled' | 'expired';
 
 export interface ChannelSettings {
@@ -201,6 +201,16 @@ export interface ModelPricing {
   cacheCreatePrice?: number;
   cacheReadPrice?: number;
   perRequestPrice?: number;
+  over200KInputPrice?: number;
+  over200KOutputPrice?: number;
+  over200KCacheCreatePrice?: number;
+  over200KCacheReadPrice?: number;
+  over200KPerRequestPrice?: number;
+}
+
+export interface AIModelExtra {
+  syncModelInfoPath?: string;
+  disableSync?: boolean;
 }
 
 export interface AIModel {
@@ -211,6 +221,7 @@ export interface AIModel {
   pricing: ModelPricing;
   pricingType: ModelPricingType;
   isEnabled: boolean;
+  extra: AIModelExtra;
   createdAt: string;
   updatedAt: string;
 }

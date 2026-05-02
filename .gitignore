@@ -35,5 +35,8 @@ ai_docs/
 storage/*
 cmd/temp_*
 .DS_Store
+bin/
+docs/
+*.tar
 
 

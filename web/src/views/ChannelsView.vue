@@ -23,10 +23,13 @@ import {
   deleteChannel,
   setChannelStatus,
   fetchModels,
-  CHANNEL_TYPE_LABELS,
+  getPlatformOptions,
+  getChannelTypeLabel,
+  getChannelTypeColor,
   CHANNEL_STATUS_LABELS,
   type CreateChannelRequest,
   type UpdateChannelRequest,
+  type PlatformOption,
 } from '@/api/channel'
 import { listChannelGroups } from '@/api/channel-group'
 import { formatTokens, formatNumber, calcSuccessRate } from '@/api/stats'
@@ -47,8 +50,10 @@ import AppSelect from '@/components/ui/AppSelect.vue'
 // Type options for filter
 const typeOptions = computed(() => {
   const options = [{ value: 'all', label: '全部类型' }]
-  for (const [key, label] of Object.entries(CHANNEL_TYPE_LABELS)) {
-    options.push({ value: key, label })
+  if (platformOptions.value.length > 0) {
+    for (const opt of platformOptions.value) {
+      options.push({ value: opt.value, label: opt.key })
+    }
   }
   return options
 })
@@ -63,9 +68,17 @@ const statusOptions = computed(() => {
   ]
 })
 
-// Form select options
+// Form select options - platform options from backend
+const platformOptions = ref<PlatformOption[]>([])
+
 const channelTypeOptions = computed(() => {
-  return Object.entries(CHANNEL_TYPE_LABELS).map(([value, label]) => ({ value, label }))
+  return platformOptions.value.map(opt => ({ value: opt.value, label: opt.key }))
+})
+
+// Get selected platform extra info
+const selectedPlatformExtra = computed(() => {
+  const opt = platformOptions.value.find(o => o.value === formData.value.type)
+  return opt?.extra
 })
 
 const channelStatusOptions = [
@@ -230,6 +243,24 @@ async function loadGroups() {
     groups.value = result.items
   } catch {
     // ignore
+  }
+}
+
+async function loadPlatformOptions() {
+  try {
+    const result = await getPlatformOptions()
+    platformOptions.value = result.options
+  } catch {
+    // ignore
+  }
+}
+
+function onTypeChange(newType: string) {
+  formData.value.type = newType as ChannelType
+  // Auto-fill baseURL with exampleBaseUrl from platform extra
+  const opt = platformOptions.value.find(o => o.value === newType)
+  if (opt?.extra?.exampleBaseUrl && !formData.value.baseURL) {
+    formData.value.baseURL = opt.extra.exampleBaseUrl
   }
 }
 
@@ -428,6 +459,7 @@ function sumWindow3h(buckets: Array<{ requestSuccess: number; requestFailed: num
 onMounted(() => {
   loadChannels()
   loadGroups()
+  loadPlatformOptions()
 })
 </script>
 
@@ -535,12 +567,7 @@ onMounted(() => {
           <tr v-else v-for="(channel, index) in channels" :key="channel.id" v-motion="tableRow" :style="{ transitionDelay: `${index * 50}ms` }" class="transition-colors duration-150 hover:bg-bg-secondary">
             <td class="px-4 py-4 border-b border-border align-middle">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-md flex items-center justify-center text-sm font-semibold text-white" :class="{
-                  'bg-[#10a37f]': channel.type === 'openai',
-                  'bg-[#d97706]': channel.type === 'claude',
-                  'bg-[#0078d4]': channel.type === 'azure',
-                  'bg-gray-500': channel.type === 'custom',
-                }">
+                <div class="w-9 h-9 rounded-md flex items-center justify-center text-sm font-semibold text-white" :class="getChannelTypeColor(channel.type).bg">
                   {{ channel.name.charAt(0) }}
                 </div>
                 <div class="flex flex-col gap-0.5">
@@ -550,13 +577,8 @@ onMounted(() => {
               </div>
             </td>
             <td class="px-4 py-4 border-b border-border align-middle">
-              <span class="inline-block px-2 py-0.5 rounded text-xs font-medium" :class="{
-                'bg-[rgba(16,163,127,0.1)] text-[#10a37f]': channel.type === 'openai',
-                'bg-[rgba(217,119,6,0.1)] text-[#d97706]': channel.type === 'claude',
-                'bg-[rgba(0,120,212,0.1)] text-[#0078d4]': channel.type === 'azure',
-                'bg-bg-tertiary text-text-secondary': channel.type === 'custom',
-              }">
-                {{ CHANNEL_TYPE_LABELS[channel.type] }}
+              <span class="inline-block px-2 py-0.5 rounded text-xs font-medium" :class="`${getChannelTypeColor(channel.type).badge} ${getChannelTypeColor(channel.type).text}`">
+                {{ getChannelTypeLabel(channel.type, platformOptions) }}
               </span>
             </td>
             <td class="px-4 py-4 border-b border-border align-middle">
@@ -803,7 +825,7 @@ onMounted(() => {
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                   <AppFormField label="渠道类型" required>
-                    <AppSelect v-model="formData.type" :options="channelTypeOptions" />
+                    <AppSelect :model-value="formData.type" :options="channelTypeOptions" @update:model-value="onTypeChange" />
                   </AppFormField>
                   <AppFormField label="渠道名称" required>
                     <AppInput v-model="formData.name" type="text" placeholder="如: OpenAI 主账号" />
@@ -824,6 +846,22 @@ onMounted(() => {
                 <div class="grid grid-cols-2 gap-4">
                   <AppFormField label="Base URL" required class="col-span-2">
                     <AppInput v-model="formData.baseURL" type="text" placeholder="https://api.openai.com/v1" autocomplete="off" />
+                    <!-- Platform paths info -->
+                    <div v-if="selectedPlatformExtra?.paths" class="mt-2 p-2.5 bg-bg-tertiary/50 rounded-lg border border-border/50">
+                      <div class="flex items-center gap-1.5 mb-1.5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-text-muted">
+                          <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                          <path d="M2 17l10 5 10-5" />
+                        </svg>
+                        <span class="text-[10px] font-mono text-text-muted uppercase tracking-wider">示例请求路径</span>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <div v-for="(path, ability) in selectedPlatformExtra.paths" :key="ability" class="flex items-center gap-2 text-xs">
+                          <span class="px-1.5 py-0.5 bg-primary-light text-primary rounded text-[10px] font-mono">{{ ability }}</span>
+                          <code class="text-text-secondary font-mono text-[11px]">{{ (formData.baseURL || '').replace(/\/+$/, '') }}{{ path }}</code>
+                        </div>
+                      </div>
+                    </div>
                   </AppFormField>
                   <AppFormField label="API Key" :required="!editingChannel" class="col-span-2">
                     <AppInput

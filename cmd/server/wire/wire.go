@@ -4,6 +4,8 @@
 package wire
 
 import (
+	"time"
+
 	"github.com/RenaLio/tudou/internal/config"
 	"github.com/RenaLio/tudou/internal/handler"
 	"github.com/RenaLio/tudou/internal/loadbalancer"

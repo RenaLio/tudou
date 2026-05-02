@@ -1,0 +1,91 @@
+# =============================================================================
+# .dockerignore — 控制 docker build 上下文,显著加速首次构建并避免泄露
+# =============================================================================
+
+# ----- 版本控制 -----
+.git/
+.gitignore
+.gitattributes
+
+# ----- IDE / 编辑器 -----
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ----- AI / Agent 配置(不进镜像) -----
+.claude/
+ai_docs/
+AGENTS.md
+CLAUDE.md
+
+# ----- 文档(按需保留 README;docs 目录通常不入镜像) -----
+docs/
+
+# ----- Go 工具产物 -----
+.gocache/
+.go_cache/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+go.work
+go.work.sum
+# 临时实验目录(见 .gitignore)
+cmd/temp_*
+bin/
+
+# ----- 环境变量(含密钥,绝不能进镜像) -----
+.env
+.env.*
+
+# ----- 运行时数据(由 compose volume 持久化) -----
+storage/
+*.log
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ----- 容器/编排自身(无需放进上下文) -----
+Dockerfile
+.dockerignore
+docker-compose*.yml
+docker-compose*.yaml
+compose*.yml
+compose*.yaml
+LICENSE
+
+# =============================================================================
+# 前端 (web/) 处理
+# =============================================================================
+# 注意:web/fs.go 使用 //go:embed dist,Go 编译时会读取 web/dist/。
+# 因此 web/dist/ 不能排除。当前策略假定构建镜像前你已在本地执行过 `bun run build`。
+#
+# 若以后在 Dockerfile 中新增前端构建阶段(node/bun build),
+# 把下面这行的注释去掉,排除本地构建产物以避免污染:
+# web/dist/
+# =============================================================================
+
+web/node_modules/
+web/.vscode/
+web/.editorconfig
+web/.gitignore
+web/.gitattributes
+web/.oxlintrc.json
+web/AGENTS.md
+web/CLAUDE.md
+web/README.md
+web/eslint.config.ts
+web/dprint.json
+web/bun.lock
+web/env.d.ts
+web/.vite/
+web/coverage/
+web/*.tsbuildinfo

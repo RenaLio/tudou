@@ -1,4 +1,4 @@
-import type { AIModel, ApiResponse, ListResponse, ModelPricing, ModelPricingType, } from '@/types';
+import type { AIModel, AIModelExtra, ApiResponse, ListResponse, ModelPricing, ModelPricingType, } from '@/types';
 import client from './client';
 
 export interface CreateAIModelRequest {
@@ -6,6 +6,7 @@ export interface CreateAIModelRequest {
   description?: string;
   pricing?: ModelPricing;
   pricingType?: ModelPricingType;
+  extra?: AIModelExtra;
 }
 
 export interface UpdateAIModelRequest {
@@ -13,6 +14,7 @@ export interface UpdateAIModelRequest {
   description?: string;
   pricing?: ModelPricing;
   pricingType?: ModelPricingType;
+  extra?: AIModelExtra;
 }
 
 export interface ListAIModelsParams {
