@@ -36,9 +36,7 @@ import { formatTokens, formatNumber, calcSuccessRate } from '@/api/stats'
 import type { Channel, ChannelGroup, ChannelType, ChannelStatus, ChannelExtra } from '@/types'
 import {
   fadeUp,
-  slideUp,
   tableRow,
-  dialogContent as dialogAnim,
 } from '@/utils/motion'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppInput from '@/components/ui/AppInput.vue'
@@ -122,7 +120,7 @@ const formData = ref<CreateChannelRequest>({
   name: '',
   baseURL: '',
   apiKey: '',
-  weight: 100,
+  weight: 0,
   remark: '',
   tag: '',
   model: '',
@@ -271,7 +269,7 @@ function openCreateDialog() {
     name: '',
     baseURL: '',
     apiKey: '',
-    weight: 100,
+    weight: 0,
     remark: '',
     tag: '',
     model: '',
@@ -748,13 +746,12 @@ onMounted(() => {
           class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
         />
         <DialogContent
-          v-motion="dialogAnim"
-          class="fixed inset-0 m-auto w-[92%] max-w-[620px] h-fit max-h-[88vh] bg-gradient-to-b from-[var(--color-bg-card)] to-[var(--color-bg-primary)] backdrop-blur-2xl rounded-2xl border border-primary/15 flex flex-col z-50 overflow-hidden shadow-lg ring-1 ring-primary/10"
+          class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[620px] max-h-[88vh] bg-gradient-to-b from-[var(--color-bg-card)] to-[var(--color-bg-primary)] backdrop-blur-2xl rounded-2xl border border-primary/15 z-50 overflow-y-auto shadow-lg ring-1 ring-primary/10"
         >
           <!-- Scanline texture overlay -->
           <div class="pointer-events-none absolute inset-0 opacity-[0.02]" style="background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--color-primary-rgb), 0.12) 2px, rgba(var(--color-primary-rgb), 0.12) 4px);"></div>
 
-          <div class="relative flex items-center justify-between px-6 py-5 border-b border-primary/10 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+          <div class="relative flex items-center justify-between px-6 py-5 border-b border-primary/10 bg-gradient-to-r from-primary/5 via-transparent to-transparent sticky top-0 z-10 bg-[var(--color-bg-card)]">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-primary-light flex items-center justify-center text-primary shadow-glow-primary ring-1 ring-primary/20">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -782,7 +779,7 @@ onMounted(() => {
             {{ editingChannel ? '编辑渠道配置' : '创建新渠道' }}
           </DialogDescription>
 
-          <div class="relative flex px-6 py-3 bg-bg-secondary/60 border-b border-primary/10">
+          <div class="relative flex px-6 py-3 bg-bg-secondary/60 border-b border-primary/10 sticky top-[73px] z-10 bg-[var(--color-bg-card)]">
             <div class="flex gap-1 p-1 bg-bg-tertiary/60 rounded-xl">
               <button
                 v-for="tab in ['basic', 'models'] as const"
@@ -798,7 +795,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <form @submit.prevent="handleFormSubmit" class="flex-1 overflow-y-auto p-6">
+          <form @submit.prevent="handleFormSubmit" class="p-6">
             <!-- Error Banner -->
             <div
               v-if="formError"
@@ -815,7 +812,7 @@ onMounted(() => {
               </div>
             </div>
 
-            <div v-show="activeTab === 'basic'" class="flex flex-col gap-5">
+            <div v-if="activeTab === 'basic'" class="flex flex-col gap-5">
               <!-- Section: Identity -->
               <div>
                 <div class="flex items-center gap-2 mb-3">
@@ -883,7 +880,7 @@ onMounted(() => {
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                   <AppFormField label="权重">
-                    <AppInput v-model.number="formData.weight" type="number" min="0" />
+                    <AppInput v-model.number="formData.weight" type="number" min="0" max="100" />
                   </AppFormField>
                   <AppFormField v-if="editingChannel" label="状态">
                     <AppSelect v-model="editStatus" :options="channelStatusOptions" />
@@ -948,7 +945,7 @@ onMounted(() => {
               </div>
             </div>
 
-            <div v-show="activeTab === 'models'" class="flex flex-col gap-5">
+            <div v-if="activeTab === 'models'" class="flex flex-col gap-5">
               <div>
                 <div class="flex items-center gap-2 mb-3">
                   <div class="w-1 h-3.5 rounded-full bg-primary/60"></div>
@@ -1114,7 +1111,7 @@ onMounted(() => {
           </form>
 
           <!-- Footer -->
-          <div class="flex justify-end gap-3 px-6 py-4 border-t border-primary/10 bg-bg-secondary/30">
+          <div class="flex justify-end gap-3 px-6 py-4 border-t border-primary/10 bg-bg-secondary/30 sticky bottom-0 z-10 bg-[var(--color-bg-card)]">
             <DialogClose as-child>
               <button
                 type="button"

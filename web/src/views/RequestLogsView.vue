@@ -730,12 +730,26 @@ onBeforeUnmount(() => {
                   </div>
                   <TooltipRoot v-if="log.providerDetail?.provider">
                     <TooltipTrigger as-child>
-                      <span class="text-[0.625rem] font-mono text-primary bg-primary-light border border-border rounded px-1 leading-[18px] whitespace-nowrap flex-shrink-0 cursor-help">{{ log.providerDetail.provider }}</span>
+                      <span
+                        class="inline-flex items-center gap-0.5 text-[0.625rem] font-mono border rounded px-1 leading-[18px] whitespace-nowrap flex-shrink-0 cursor-help"
+                        :class="log.providerDetail?.requestFormat && log.providerDetail?.transFormat && log.providerDetail.requestFormat !== log.providerDetail.transFormat
+                          ? 'text-accent bg-accent/10 border-accent/20'
+                          : 'text-primary bg-primary-light border-border'"
+                      >
+                        <svg
+                          v-if="log.providerDetail?.requestFormat && log.providerDetail?.transFormat && log.providerDetail.requestFormat !== log.providerDetail.transFormat"
+                          width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                        >
+                          <path d="M7 16V4m0 0L3 8m4-4l4 4" />
+                          <path d="M17 8v12m0 0l4-4m-4 4l-4-4" />
+                        </svg>
+                        {{ log.providerDetail.provider }}
+                      </span>
                     </TooltipTrigger>
                     <TooltipPortal>
                       <TooltipContent class="bg-bg-secondary border border-border-hover rounded-md px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.3)] text-[0.6875rem] font-mono text-text-primary z-[100] whitespace-nowrap max-w-[320px]">
                         <span class="flex gap-2 py-0.5 items-center"><span class="text-text-muted">请求格式</span><span>{{ log.providerDetail.requestFormat || '—' }}</span></span>
-                        <span class="flex gap-2 py-0.5 items-center"><span class="text-text-muted">转换格式</span><span>{{ log.providerDetail.transFormat || '—' }}</span></span>
+                        <span v-if="log.providerDetail.requestFormat !== log.providerDetail.transFormat" class="flex gap-2 py-0.5 items-center"><span class="text-text-muted">转换格式</span><span>{{ log.providerDetail.transFormat || '—' }}</span></span>
                         <TooltipArrow class="fill-bg-secondary" />
                       </TooltipContent>
                     </TooltipPortal>
