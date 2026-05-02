@@ -1,4 +1,4 @@
-package mimocoding
+package minimaxcoding
 
 import (
 	"net/http"
@@ -7,26 +7,16 @@ import (
 	"github.com/RenaLio/tudou/pkg/provider/types"
 )
 
-const PlatformId = "mimo_coding"
+const PlatformId = "minimax-coding-plan"
 
-const DefaultBaseURL = "https://token-plan-cn.xiaomimimo.com"
+const DefaultBaseURL = "https://api.minimaxi.com"
 
 var DefaultFormatPathMap = map[types.Format]string{
 	types.FormatClaudeMessages: "/anthropic/v1/messages",
 	types.FormatChatCompletion: "/v1/chat/completions",
 }
 
-var ModelList = []string{
-	"mimo-v2.5-pro",
-	"mimo-v2-pro",
-	"mimo-v2.5",
-	"mimo-v2-omni",
-	"mimo-v2-flash",
-	"mimo-v2.5-tts",
-	"mimo-v2.5-tts-voiceclone",
-	"mimo-v2.5-tts-voicedesign",
-	"mimo-v2-tts",
-}
+var ModelList = []string{"MiniMax-M2.7", "MiniMax-M2.7-highspeed"}
 
 type Client struct {
 	*base.Client
@@ -48,6 +38,6 @@ func NewClient(httpC *http.Client, baseURL string, apiKey string) *Client {
 	}
 }
 
-//func (c *Client) Models() ([]string, error) {
-//	return ModelList, nil
-//}
+func (c *Client) Models() ([]string, error) {
+	return ModelList, nil
+}

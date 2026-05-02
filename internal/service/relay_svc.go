@@ -20,6 +20,7 @@ import (
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
 	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
+	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
@@ -354,6 +355,8 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 		return ecloudcoding.NewClient(httpc, baseURL, apiKey)
 	case mimocoding.PlatformId:
 		return mimocoding.NewClient(httpc, baseURL, apiKey)
+	case minimaxcoding.PlatformId:
+		return minimaxcoding.NewClient(httpc, baseURL, apiKey)
 	case "coding-plan-adapter":
 		return codingplan.NewClient(httpc, baseURL, apiKey)
 	case "chat-completion":

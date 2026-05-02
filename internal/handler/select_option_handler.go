@@ -5,6 +5,7 @@ import (
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
 	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
+	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 	"github.com/gin-gonic/gin"
@@ -47,14 +48,6 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				},
 			},
 			{
-				Key:   "移动云Coding",
-				Value: ecloudcoding.PlatformId,
-				Extra: map[string]any{
-					"exampleBaseUrl": ecloudcoding.DefaultBaseURL,
-					"paths":          ecloudcoding.DefaultFormatPathMap,
-				},
-			},
-			{
 				Key:   "OpenAI",
 				Value: openai.PlatformId,
 				Extra: map[string]any{
@@ -63,11 +56,27 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				},
 			},
 			{
+				Key:   "移动云Coding",
+				Value: ecloudcoding.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": ecloudcoding.DefaultBaseURL,
+					"paths":          ecloudcoding.DefaultFormatPathMap,
+				},
+			},
+			{
 				Key:   "小米MimoPlan",
 				Value: mimocoding.PlatformId,
 				Extra: map[string]any{
 					"exampleBaseUrl": mimocoding.DefaultBaseURL,
 					"paths":          mimocoding.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "Minimax CodingPlan",
+				Value: minimaxcoding.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": minimaxcoding.DefaultBaseURL,
+					"paths":          minimaxcoding.DefaultFormatPathMap,
 				},
 			},
 		},

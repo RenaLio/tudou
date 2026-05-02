@@ -287,7 +287,7 @@ func (c *Client) executeJSONRequest(
 	metrics := new(types.ResponseMetrics)
 	metrics.Provider = c.Identifier()
 	metrics.Model = req.Model
-	metrics.Format = req.Format
+	metrics.Format = originReq.Format
 	metrics.IsStream = req.IsStream
 	metrics.StatusCode = httpResp.StatusCode
 	metrics.Extra = make(map[string]any)
