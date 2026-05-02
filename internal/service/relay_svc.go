@@ -153,7 +153,6 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 		if s.collector != nil {
 			s.collector.IncConn(candidate.Channel.ID)
 		}
-		plog.Debug("i", i, "nums", len(candidates))
 
 		prov := buildProvider(string(candidate.Channel.Type), candidate.Channel.BaseURL, candidate.Channel.APIKey, httpClient)
 		curUpstreamModel := candidate.UpstreamModel

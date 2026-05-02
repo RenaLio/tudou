@@ -3,8 +3,6 @@ package loadbalancer
 import (
 	"sync"
 	"time"
-
-	"github.com/RenaLio/tudou/pkg/provider/plog"
 )
 
 type Endpoint struct {
@@ -146,7 +144,6 @@ func (e *Endpoint) ScoreWithWeights(w PerformanceWeights) float64 {
 			score *= 0.96
 		}
 	}
-	plog.Debug("ID:", e.ChannelID, "Score:", score)
 
 	return score
 }

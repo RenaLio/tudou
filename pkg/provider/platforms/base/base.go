@@ -144,8 +144,6 @@ func (c *Client) Chat(ctx context.Context, req *types.Request, cb types.MetricsC
 
 	req.Format = targetFormat
 
-	plog.Debug("Chat", "origin-format", originReq.Format, "req-format:", req.Format)
-
 	resp, err := c.dispatchByFormat(ctx, originReq, req, cb)
 	if err != nil {
 		return nil, err

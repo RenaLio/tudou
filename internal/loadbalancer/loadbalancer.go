@@ -91,60 +91,45 @@ func FilterAvailableEndpoints(endpoints []*Endpoint) []*Endpoint {
 
 func SortEndpoints(endpoints []*Endpoint, strategy string, lb *DynamicLoadBalancer) []*Endpoint {
 	scoreCache := make(map[int64]float64)
+	getScore := func(endpoint *Endpoint, weights PerformanceWeights) float64 {
+		if endpoint == nil {
+			return 0
+		}
+		if val, ok := scoreCache[endpoint.ChannelID]; ok {
+			return val
+		}
+		score := endpoint.ScoreWithWeights(weights)
+		scoreCache[endpoint.ChannelID] = score
+		return score
+	}
 
 	switch strategy {
 	case "random":
 		return Shuffled(endpoints)
 	case "performance":
 		sort.Slice(endpoints, func(i, j int) bool {
-			var scoreI, scoreJ float64
-			if val, ok := scoreCache[endpoints[i].ChannelID]; ok {
-				scoreI = val
-			} else {
-				scoreI = endpoints[i].ScoreWithWeights(DefaultPerformanceWeights)
-				scoreCache[endpoints[i].ChannelID] = scoreI
-			}
-			if val, ok := scoreCache[endpoints[j].ChannelID]; ok {
-				scoreJ = val
-			} else {
-				scoreJ = endpoints[j].ScoreWithWeights(DefaultPerformanceWeights)
-				scoreCache[endpoints[j].ChannelID] = scoreJ
-			}
-			return scoreI > scoreJ
+			return getScore(endpoints[i], DefaultPerformanceWeights) > getScore(endpoints[j], DefaultPerformanceWeights)
 		})
 	case "ttft_first":
 		sort.Slice(endpoints, func(i, j int) bool {
-			var scoreI, scoreJ float64
-			if val, ok := scoreCache[endpoints[i].ChannelID]; ok {
-				scoreI = val
-			} else {
-				scoreI = endpoints[i].ScoreWithWeights(TTFTFirstWeights)
-				scoreCache[endpoints[i].ChannelID] = scoreI
-			}
-			if val, ok := scoreCache[endpoints[j].ChannelID]; ok {
-				scoreJ = val
-			} else {
-				scoreJ = endpoints[j].ScoreWithWeights(TTFTFirstWeights)
-				scoreCache[endpoints[j].ChannelID] = scoreJ
-			}
-			return scoreI > scoreJ
+			return getScore(endpoints[i], TTFTFirstWeights) > getScore(endpoints[j], TTFTFirstWeights)
 		})
 	case "tps_first":
 		sort.Slice(endpoints, func(i, j int) bool {
-			return endpoints[i].ScoreWithWeights(TPSFirstWeights) > endpoints[j].ScoreWithWeights(TPSFirstWeights)
+			return getScore(endpoints[i], TPSFirstWeights) > getScore(endpoints[j], TPSFirstWeights)
 		})
 	case "success_first":
 		sort.Slice(endpoints, func(i, j int) bool {
-			return endpoints[i].ScoreWithWeights(SuccessFirstWeights) > endpoints[j].ScoreWithWeights(SuccessFirstWeights)
+			return getScore(endpoints[i], SuccessFirstWeights) > getScore(endpoints[j], SuccessFirstWeights)
 		})
 	case "cost_first":
 		sort.Slice(endpoints, func(i, j int) bool {
-			return endpoints[i].ScoreWithWeights(CostFirstWeights) > endpoints[j].ScoreWithWeights(CostFirstWeights)
+			return getScore(endpoints[i], CostFirstWeights) > getScore(endpoints[j], CostFirstWeights)
 		})
 	case "weighted":
 		scoreMap := make(map[int64]float64)
 		for _, endpoint := range endpoints {
-			score := endpoint.ScoreWithWeights(WeightedWeights)
+			score := getScore(endpoint, WeightedWeights)
 			if score == 0.0 {
 				score = 0.1
 			}
@@ -175,20 +160,7 @@ func SortEndpoints(endpoints []*Endpoint, strategy string, lb *DynamicLoadBalanc
 		})
 	default:
 		sort.Slice(endpoints, func(i, j int) bool {
-			var scoreI, scoreJ float64
-			if val, ok := scoreCache[endpoints[i].ChannelID]; ok {
-				scoreI = val
-			} else {
-				scoreI = endpoints[i].ScoreWithWeights(DefaultPerformanceWeights)
-				scoreCache[endpoints[i].ChannelID] = scoreI
-			}
-			if val, ok := scoreCache[endpoints[j].ChannelID]; ok {
-				scoreJ = val
-			} else {
-				scoreJ = endpoints[j].ScoreWithWeights(DefaultPerformanceWeights)
-				scoreCache[endpoints[j].ChannelID] = scoreJ
-			}
-			return scoreI > scoreJ
+			return getScore(endpoints[i], DefaultPerformanceWeights) > getScore(endpoints[j], DefaultPerformanceWeights)
 		})
 	}
 	return endpoints
