@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/RenaLio/tudou/internal/models"
+	jsoncache "github.com/RenaLio/tudou/pkg/cache"
 	"gorm.io/gorm"
 )
 
@@ -43,20 +45,62 @@ type tokenRepo struct {
 	*Repository
 }
 
+const tokenCacheKeyPrefix = "repo:token"
+
 func NewTokenRepo(r *Repository) TokenRepo {
 	return &tokenRepo{Repository: r}
 }
 
 func (r *tokenRepo) Create(ctx context.Context, token *models.Token) error {
-	return Create[models.Token](ctx, token, r.DB(ctx))
+	if token != nil {
+		r.invalidateTokenCache(ctx, token.ID, token.Token)
+	}
+	if err := Create[models.Token](ctx, token, r.DB(ctx)); err != nil {
+		return err
+	}
+	if token != nil {
+		r.invalidateTokenCacheOnCommit(ctx, token.ID, token.Token)
+	}
+	return nil
 }
 
 func (r *tokenRepo) BatchCreate(ctx context.Context, tokens []*models.Token) error {
-	return BatchCreate[*models.Token](ctx, tokens, r.DB(ctx))
+	for _, tk := range tokens {
+		if tk == nil {
+			continue
+		}
+		r.invalidateTokenCache(ctx, tk.ID, tk.Token)
+	}
+	if err := BatchCreate[*models.Token](ctx, tokens, r.DB(ctx)); err != nil {
+		return err
+	}
+	for _, tk := range tokens {
+		if tk == nil {
+			continue
+		}
+		r.invalidateTokenCacheOnCommit(ctx, tk.ID, tk.Token)
+	}
+	return nil
 }
 
 func (r *tokenRepo) GetByID(ctx context.Context, id int64) (*models.Token, error) {
-	return GetByID[models.Token](ctx, id, r.DB(ctx))
+	if r.cacheEnabled(ctx) {
+		cached, err := jsoncache.Get[models.Token](r.cache, tokenByIDCacheKey(id))
+		if err == nil {
+			return &cached, nil
+		}
+	}
+	token, err := GetByID[models.Token](ctx, id, r.DB(ctx))
+	if err != nil {
+		return nil, err
+	}
+	if r.cacheEnabled(ctx) && token != nil {
+		_ = jsoncache.Set(r.cache, tokenByIDCacheKey(token.ID), *token)
+		if strings.TrimSpace(token.Token) != "" {
+			_ = jsoncache.Set(r.cache, tokenByValueCacheKey(token.Token), *token)
+		}
+	}
+	return token, nil
 }
 
 func (r *tokenRepo) GetByIDWithRelations(ctx context.Context, id int64) (*models.Token, error) {
@@ -73,10 +117,30 @@ func (r *tokenRepo) GetByIDWithRelations(ctx context.Context, id int64) (*models
 }
 
 func (r *tokenRepo) GetByToken(ctx context.Context, tokenValue string) (*models.Token, error) {
-	return GetByKey[models.Token](ctx, "token", tokenValue, r.DB(ctx))
+	if r.cacheEnabled(ctx) {
+		cached, err := jsoncache.Get[models.Token](r.cache, tokenByValueCacheKey(tokenValue))
+		if err == nil {
+			return &cached, nil
+		}
+	}
+	token, err := GetByKey[models.Token](ctx, "token", tokenValue, r.DB(ctx))
+	if err != nil {
+		return nil, err
+	}
+	if r.cacheEnabled(ctx) && token != nil {
+		_ = jsoncache.Set(r.cache, tokenByValueCacheKey(tokenValue), *token)
+		_ = jsoncache.Set(r.cache, tokenByIDCacheKey(token.ID), *token)
+	}
+	return token, nil
 }
 
 func (r *tokenRepo) GetByTokenWithRelations(ctx context.Context, tokenValue string) (*models.Token, error) {
+	if r.cacheEnabled(ctx) {
+		cached, err := jsoncache.Get[models.Token](r.cache, tokenByValueRelationsCacheKey(tokenValue))
+		if err == nil {
+			return &cached, nil
+		}
+	}
 	token := new(models.Token)
 	if err := r.DB(ctx).
 		Preload("User").
@@ -85,6 +149,11 @@ func (r *tokenRepo) GetByTokenWithRelations(ctx context.Context, tokenValue stri
 		Where("token = ?", tokenValue).
 		First(token).Error; err != nil {
 		return nil, err
+	}
+	if r.cacheEnabled(ctx) {
+		_ = jsoncache.Set(r.cache, tokenByValueRelationsCacheKey(tokenValue), *token)
+		_ = jsoncache.Set(r.cache, tokenByIDCacheKey(token.ID), *token)
+		_ = jsoncache.Set(r.cache, tokenByValueCacheKey(token.Token), *token)
 	}
 	return token, nil
 }
@@ -154,15 +223,40 @@ func (r *tokenRepo) List(ctx context.Context, opt TokenListOption) ([]*models.To
 }
 
 func (r *tokenRepo) Update(ctx context.Context, token *models.Token) error {
-	return Update[models.Token](ctx, token, token.ID, []string{"ID", "CreatedAt", "DeletedAt", "User", "Group", "Stats"}, r.DB(ctx))
+	if token != nil {
+		r.invalidateTokenCache(ctx, token.ID, token.Token)
+	}
+	if err := Update[models.Token](ctx, token, token.ID, []string{"ID", "CreatedAt", "DeletedAt", "User", "Group", "Stats"}, r.DB(ctx)); err != nil {
+		return err
+	}
+	if token != nil {
+		r.invalidateTokenCacheOnCommit(ctx, token.ID, token.Token)
+	}
+	return nil
 }
 
 func (r *tokenRepo) UpdateStatus(ctx context.Context, id int64, status models.TokenStatus) error {
-	return SetField[models.Token](ctx, "status", status, id, r.DB(ctx))
+	// UpdateStatus does not load entity from DB after write; invalidate by cached
+	// token value (if present) plus id keys.
+	// UpdateStatus 写后不再回查 DB，按缓存里的 token 值（若存在）+ id 键做失效。
+	tokenValue := r.cachedTokenValueByID(ctx, id)
+	r.invalidateTokenCache(ctx, id, tokenValue)
+
+	if err := SetField[models.Token](ctx, "status", status, id, r.DB(ctx)); err != nil {
+		return err
+	}
+	r.invalidateTokenCacheOnCommit(ctx, id, tokenValue)
+	return nil
 }
 
 func (r *tokenRepo) Delete(ctx context.Context, id int64) error {
-	return Delete[models.Token](ctx, id, r.DB(ctx))
+	tokenValue := r.cachedTokenValueByID(ctx, id)
+	r.invalidateTokenCache(ctx, id, tokenValue)
+	if err := Delete[models.Token](ctx, id, r.DB(ctx)); err != nil {
+		return err
+	}
+	r.invalidateTokenCacheOnCommit(ctx, id, tokenValue)
+	return nil
 }
 
 func (r *tokenRepo) Exists(ctx context.Context, id int64) (bool, error) {
@@ -171,4 +265,71 @@ func (r *tokenRepo) Exists(ctx context.Context, id int64) (bool, error) {
 
 func (r *tokenRepo) IsNotFound(err error) bool {
 	return IsNotFound[models.Token](err)
+}
+
+func (r *tokenRepo) cacheEnabled(ctx context.Context) bool {
+	return r != nil && r.cache != nil && ctx != nil && ctx.Value(ctxTxKey) == nil
+}
+
+func tokenByIDCacheKey(id int64) string {
+	return fmt.Sprintf("%s:id:%d", tokenCacheKeyPrefix, id)
+}
+
+func tokenByValueCacheKey(tokenValue string) string {
+	return fmt.Sprintf("%s:value:%s", tokenCacheKeyPrefix, strings.TrimSpace(tokenValue))
+}
+
+func tokenByValueRelationsCacheKey(tokenValue string) string {
+	return fmt.Sprintf("%s:value_rel:%s", tokenCacheKeyPrefix, strings.TrimSpace(tokenValue))
+}
+
+func (r *tokenRepo) delTokenCacheByID(ctx context.Context, id int64) {
+	if r == nil || r.cache == nil {
+		return
+	}
+	_ = r.cache.Delete(tokenByIDCacheKey(id))
+}
+
+func (r *tokenRepo) delTokenCacheByValue(ctx context.Context, tokenValue string) {
+	if r == nil || r.cache == nil {
+		return
+	}
+	_ = r.cache.Delete(tokenByValueCacheKey(tokenValue))
+}
+
+func (r *tokenRepo) delTokenRelationsCacheByValue(ctx context.Context, tokenValue string) {
+	if r == nil || r.cache == nil {
+		return
+	}
+	_ = r.cache.Delete(tokenByValueRelationsCacheKey(tokenValue))
+}
+
+func (r *tokenRepo) invalidateTokenCache(ctx context.Context, id int64, tokenValue string) {
+	r.delTokenCacheByID(ctx, id)
+	if strings.TrimSpace(tokenValue) == "" {
+		return
+	}
+	r.delTokenCacheByValue(ctx, tokenValue)
+	r.delTokenRelationsCacheByValue(ctx, tokenValue)
+}
+
+func (r *tokenRepo) invalidateTokenCacheOnCommit(ctx context.Context, id int64, tokenValue string) {
+	tokenValueCopy := tokenValue
+	r.onCommitted(ctx, func() {
+		// Keep same "double delete" semantics as other write paths while ensuring
+		// transactional updates clear cache only after commit.
+		// 与其他写路径保持“双删”语义，同时保证事务内更新在提交后再清缓存。
+		r.invalidateTokenCache(context.Background(), id, tokenValueCopy)
+	})
+}
+
+func (r *tokenRepo) cachedTokenValueByID(ctx context.Context, id int64) string {
+	if r == nil || r.cache == nil {
+		return ""
+	}
+	cached, err := jsoncache.Get[models.Token](r.cache, tokenByIDCacheKey(id))
+	if err != nil {
+		return ""
+	}
+	return cached.Token
 }

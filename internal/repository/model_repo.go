@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/RenaLio/tudou/internal/models"
+	jsoncache "github.com/RenaLio/tudou/pkg/cache"
 )
 
 type AIModelListOption struct {
@@ -32,25 +34,75 @@ type aiModelRepo struct {
 	*Repository
 }
 
+const aiModelCacheKeyPrefix = "repo:ai_model"
+
 func NewAIModelRepo(r *Repository) AIModelRepo {
 	return &aiModelRepo{Repository: r}
 }
 
 func (r *aiModelRepo) Create(ctx context.Context, model *models.AIModel) error {
-	return Create[models.AIModel](ctx, model, r.DB(ctx))
+	if model != nil {
+		r.invalidateModelCache(ctx, model.ID, model.Name)
+	}
+	if err := Create[models.AIModel](ctx, model, r.DB(ctx)); err != nil {
+		return err
+	}
+	if model != nil {
+		r.invalidateModelCacheOnCommit(ctx, model.ID, model.Name)
+	}
+	return nil
 }
 
 func (r *aiModelRepo) BatchCreate(ctx context.Context, modelsList []*models.AIModel) error {
-	return BatchCreate[*models.AIModel](ctx, modelsList, r.DB(ctx))
+	for _, item := range modelsList {
+		if item == nil {
+			continue
+		}
+		r.invalidateModelCache(ctx, item.ID, item.Name)
+	}
+	if err := BatchCreate[*models.AIModel](ctx, modelsList, r.DB(ctx)); err != nil {
+		return err
+	}
+	for _, item := range modelsList {
+		if item == nil {
+			continue
+		}
+		r.invalidateModelCacheOnCommit(ctx, item.ID, item.Name)
+	}
+	return nil
 }
 
 func (r *aiModelRepo) GetByID(ctx context.Context, id int64) (*models.AIModel, error) {
-	return GetByID[models.AIModel](ctx, id, r.DB(ctx))
+	if r.cacheEnabled(ctx) {
+		cached, err := jsoncache.Get[models.AIModel](r.cache, aiModelByIDCacheKey(id))
+		if err == nil {
+			return &cached, nil
+		}
+	}
+
+	item, err := GetByID[models.AIModel](ctx, id, r.DB(ctx))
+	if err != nil {
+		return nil, err
+	}
+	r.setModelCache(ctx, item)
+	return item, nil
 
 }
 
 func (r *aiModelRepo) GetByName(ctx context.Context, name string) (*models.AIModel, error) {
-	return GetByKey[models.AIModel](ctx, "name", name, r.DB(ctx))
+	if r.cacheEnabled(ctx) {
+		cached, err := jsoncache.Get[models.AIModel](r.cache, aiModelByNameCacheKey(name))
+		if err == nil {
+			return &cached, nil
+		}
+	}
+
+	item, err := GetByKey[models.AIModel](ctx, "name", name, r.DB(ctx))
+	if err != nil {
+		return nil, err
+	}
+	r.setModelCache(ctx, item)
+	return item, nil
 }
 
 func (r *aiModelRepo) GetExistingNames(ctx context.Context, names []string) ([]string, error) {
@@ -93,17 +145,108 @@ func (r *aiModelRepo) List(ctx context.Context, opt AIModelListOption) ([]*model
 }
 
 func (r *aiModelRepo) Update(ctx context.Context, model *models.AIModel) error {
-	return Update[models.AIModel](ctx, model, model.ID, []string{"ID", "CreatedAt", "UpdatedAt"}, r.DB(ctx))
+	oldName := r.cachedModelNameByID(ctx, model.ID)
+	r.invalidateModelCache(ctx, model.ID, model.Name, oldName)
+
+	if err := Update[models.AIModel](ctx, model, model.ID, []string{"ID", "CreatedAt", "UpdatedAt"}, r.DB(ctx)); err != nil {
+		return err
+	}
+
+	r.invalidateModelCacheOnCommit(ctx, model.ID, model.Name, oldName)
+	return nil
 }
 
 func (r *aiModelRepo) SetEnabled(ctx context.Context, id int64, enabled bool) error {
-	return SetField[models.AIModel](ctx, "is_enabled", enabled, id, r.DB(ctx))
+	oldName := r.cachedModelNameByID(ctx, id)
+	r.invalidateModelCache(ctx, id, oldName)
+
+	if err := SetField[models.AIModel](ctx, "is_enabled", enabled, id, r.DB(ctx)); err != nil {
+		return err
+	}
+	r.invalidateModelCacheOnCommit(ctx, id, oldName)
+	return nil
 }
 
 func (r *aiModelRepo) Delete(ctx context.Context, id int64) error {
-	return Delete[models.AIModel](ctx, id, r.DB(ctx))
+	oldName := r.cachedModelNameByID(ctx, id)
+	r.invalidateModelCache(ctx, id, oldName)
+	if err := Delete[models.AIModel](ctx, id, r.DB(ctx)); err != nil {
+		return err
+	}
+	r.invalidateModelCacheOnCommit(ctx, id, oldName)
+	return nil
 }
 
 func (r *aiModelRepo) Exists(ctx context.Context, id int64) (bool, error) {
 	return Exists[models.AIModel](ctx, id, r.DB(ctx))
+}
+
+func (r *aiModelRepo) cacheEnabled(ctx context.Context) bool {
+	return r != nil && r.cache != nil && ctx != nil && ctx.Value(ctxTxKey) == nil
+}
+
+func aiModelByIDCacheKey(id int64) string {
+	return fmt.Sprintf("%s:id:%d", aiModelCacheKeyPrefix, id)
+}
+
+func aiModelByNameCacheKey(name string) string {
+	return fmt.Sprintf("%s:name:%s", aiModelCacheKeyPrefix, name)
+}
+
+func (r *aiModelRepo) setModelCache(ctx context.Context, model *models.AIModel) {
+	if !r.cacheEnabled(ctx) || model == nil {
+		return
+	}
+	_ = jsoncache.Set(r.cache, aiModelByIDCacheKey(model.ID), *model)
+	_ = jsoncache.Set(r.cache, aiModelByNameCacheKey(model.Name), *model)
+}
+
+func (r *aiModelRepo) delModelCacheByID(ctx context.Context, id int64) {
+	if r == nil || r.cache == nil {
+		return
+	}
+	_ = r.cache.Delete(aiModelByIDCacheKey(id))
+}
+
+func (r *aiModelRepo) delModelCacheByName(ctx context.Context, name string) {
+	if r == nil || r.cache == nil {
+		return
+	}
+	_ = r.cache.Delete(aiModelByNameCacheKey(name))
+}
+
+func (r *aiModelRepo) cachedModelNameByID(ctx context.Context, id int64) string {
+	if r == nil || r.cache == nil {
+		return ""
+	}
+	cached, err := jsoncache.Get[models.AIModel](r.cache, aiModelByIDCacheKey(id))
+	if err != nil {
+		return ""
+	}
+	return cached.Name
+}
+
+func (r *aiModelRepo) invalidateModelCache(ctx context.Context, id int64, names ...string) {
+	r.delModelCacheByID(ctx, id)
+	seen := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		r.delModelCacheByName(ctx, name)
+	}
+}
+
+func (r *aiModelRepo) invalidateModelCacheOnCommit(ctx context.Context, id int64, names ...string) {
+	namesCopy := append([]string(nil), names...)
+	r.onCommitted(ctx, func() {
+		// Second delete is delayed to commit when inside a transaction to avoid
+		// leaving stale cache after commit.
+		// 在事务内将第二次删除延后到提交后执行，避免提交成功后仍残留旧缓存。
+		r.invalidateModelCache(context.Background(), id, namesCopy...)
+	})
 }

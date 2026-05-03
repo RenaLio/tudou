@@ -321,8 +321,6 @@ func (c *Client) executeJSONRequest(
 		defer func() {
 			_ = httpResp.Body.Close()
 		}()
-		plog.Debug("respStatusCode:", httpResp.StatusCode)
-		plog.Debug("content-type:", httpResp.Header.Get("Content-Type"))
 		data, err := io.ReadAll(httpResp.Body)
 		if err != nil {
 			return nil, err

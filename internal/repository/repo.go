@@ -12,6 +12,13 @@ import (
 type ContextKeyType struct{}
 
 var ctxTxKey ContextKeyType = ContextKeyType{}
+var ctxAfterCommitKey afterCommitContextKeyType = afterCommitContextKeyType{}
+
+type afterCommitContextKeyType struct{}
+
+type afterCommitCallbacks struct {
+	list []func()
+}
 
 func GetContextKey() ContextKeyType {
 	return ctxTxKey
@@ -61,10 +68,34 @@ func (r *Repository) DB(ctx context.Context) *gorm.DB {
 }
 
 func (r *Repository) Transaction(ctx context.Context, fn func(ctx context.Context) error) error {
-	return r.DB(ctx).Transaction(func(tx *gorm.DB) error {
-		ctx = context.WithValue(ctx, ctxTxKey, tx)
-		return fn(ctx)
+	outerCallbacks, _ := ctx.Value(ctxAfterCommitKey).(*afterCommitCallbacks)
+	if outerCallbacks != nil {
+		// Nested transaction: reuse outer callback bucket so invalidation runs once
+		// after the outermost commit succeeds.
+		// 嵌套事务复用外层回调容器，确保缓存失效只在最外层事务成功提交后执行一次。
+		return r.DB(ctx).Transaction(func(tx *gorm.DB) error {
+			txCtx := context.WithValue(ctx, ctxTxKey, tx)
+			txCtx = context.WithValue(txCtx, ctxAfterCommitKey, outerCallbacks)
+			return fn(txCtx)
+		})
+	}
+
+	callbacks := &afterCommitCallbacks{}
+	err := r.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		txCtx := context.WithValue(ctx, ctxTxKey, tx)
+		txCtx = context.WithValue(txCtx, ctxAfterCommitKey, callbacks)
+		return fn(txCtx)
 	})
+	if err != nil {
+		return err
+	}
+
+	for _, callback := range callbacks.list {
+		if callback != nil {
+			callback()
+		}
+	}
+	return nil
 }
 
 func (r *Repository) Log(ctx context.Context) *log.Logger {
@@ -73,4 +104,22 @@ func (r *Repository) Log(ctx context.Context) *log.Logger {
 
 func (r *Repository) NextID() int64 {
 	return r.sid.GenInt64()
+}
+
+func (r *Repository) onCommitted(ctx context.Context, callback func()) {
+	if callback == nil {
+		return
+	}
+	if ctx == nil {
+		callback()
+		return
+	}
+	callbacks, _ := ctx.Value(ctxAfterCommitKey).(*afterCommitCallbacks)
+	if callbacks == nil {
+		// Non-transactional path: execute immediately.
+		// 非事务路径下没有提交阶段，直接立即执行。
+		callback()
+		return
+	}
+	callbacks.list = append(callbacks.list, callback)
 }
