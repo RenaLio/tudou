@@ -247,6 +247,8 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 					headerMap[key] = values[0]
 				}
 				reqLog.Extra.Headers = headerMap
+				delete(reqLog.Extra.Headers, "Authorization")
+				delete(reqLog.Extra.Headers, "authorization")
 
 				cbCtx := context.Background()
 				aiModel, err := s.modelRepo.GetByName(cbCtx, curUpstreamModel)

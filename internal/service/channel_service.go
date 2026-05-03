@@ -135,6 +135,7 @@ func (s *channelService) BatchCreate(ctx context.Context, reqs []v1.CreateChanne
 	for i := range channels {
 		resp = append(resp, toChannelResponse(channels[i]))
 	}
+	ReloadGroup(ctx, s.groupRepo, s.registry)
 	return resp, nil
 }
 
@@ -277,6 +278,7 @@ func (s *channelService) Delete(ctx context.Context, id int64) error {
 	if s.registry != nil {
 		s.registry.UnregisterChannel(id)
 	}
+	ReloadGroup(ctx, s.groupRepo, s.registry)
 	return nil
 }
 
