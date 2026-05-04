@@ -16,9 +16,11 @@ import (
 	"github.com/RenaLio/tudou/pkg/httpclient"
 	"github.com/RenaLio/tudou/pkg/provider"
 	"github.com/RenaLio/tudou/pkg/provider/constant"
+	baiducoding "github.com/RenaLio/tudou/pkg/provider/platforms/baidu_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
+	jdcoding "github.com/RenaLio/tudou/pkg/provider/platforms/jd_coding"
 	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
 	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
@@ -361,6 +363,10 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 		return minimaxcoding.NewClient(httpc, baseURL, apiKey)
 	case relaystation.PlatformId:
 		return relaystation.NewClient(httpc, baseURL, apiKey)
+	case baiducoding.PlatformId:
+		return baiducoding.NewClient(httpc, baseURL, apiKey)
+	case jdcoding.PlatformId:
+		return jdcoding.NewClient(httpc, baseURL, apiKey)
 	case "coding-plan-adapter":
 		return codingplan.NewClient(httpc, baseURL, apiKey)
 	case "chat-completion":

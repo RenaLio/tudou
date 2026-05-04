@@ -2,8 +2,10 @@ package handler
 
 import (
 	v1 "github.com/RenaLio/tudou/api/v1"
+	baiducoding "github.com/RenaLio/tudou/pkg/provider/platforms/baidu_coding"
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
+	jdcoding "github.com/RenaLio/tudou/pkg/provider/platforms/jd_coding"
 	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
 	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
@@ -62,6 +64,22 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Extra: map[string]any{
 					"exampleBaseUrl": relaystation.DefaultBaseURL,
 					"paths":          relaystation.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "Baidu Coding",
+				Value: baiducoding.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": baiducoding.DefaultBaseURL,
+					"paths":          baiducoding.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "JD Coding",
+				Value: jdcoding.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": jdcoding.DefaultBaseURL,
+					"paths":          jdcoding.DefaultFormatPathMap,
 				},
 			},
 			{
