@@ -75,6 +75,11 @@ func (c *Client) Execute(ctx context.Context, req *types.Request, cb types.Metri
 	switch req.Format {
 	case types.FormatChatCompletion, types.FormatOpenAIResponses, types.FormatClaudeMessages:
 		return c.Chat(ctx, workReq, cb)
+	case types.FormatOpenAIEmbeddings:
+		if !c.supportsFormat(types.FormatOpenAIEmbeddings) {
+			return nil, perrors.New(perrors.KindUnsupportedFormat, "client.execute.start", c.Identifier(), "", "", nil)
+		}
+		return c.dispatchByFormat(ctx, workReq, workReq, cb)
 	default:
 		return nil, perrors.New(perrors.KindUnsupportedFormat, "client.execute.start", c.Identifier(), "", "", nil)
 	}
@@ -184,6 +189,10 @@ func (c *Client) dispatchByFormat(ctx context.Context, originReq *types.Request,
 		req.Headers.Set("Authorization", "Bearer "+c.ApiKey)
 		req.Headers.Set("Content-Type", "application/json")
 		return c.Responses(ctx, reqUrl.String(), originReq, req, cb)
+	case types.FormatOpenAIEmbeddings:
+		req.Headers.Set("Authorization", "Bearer "+c.ApiKey)
+		req.Headers.Set("Content-Type", "application/json")
+		return c.ChatCompletion(ctx, reqUrl.String(), originReq, req, cb)
 	case types.FormatClaudeMessages:
 		req.Headers.Set("X-API-Key", c.ApiKey)
 		req.Headers.Set("Authorization", "Bearer "+c.ApiKey)
