@@ -7,5 +7,6 @@ const (
 	FormatOpenAIResponses Format = "openai.responses"
 	FormatClaudeMessages  Format = "claude.messages"
 
-	FormatOpenAIEmbeddings Format = "openai.embeddings"
+	FormatOpenAIEmbeddings       Format = "openai.embeddings"
+	FormatOpenAIResponsesCompact Format = "openai.responses.compact"
 )

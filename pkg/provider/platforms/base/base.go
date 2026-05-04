@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path"
 
+	"github.com/RenaLio/tudou/pkg/provider/common"
 	"github.com/RenaLio/tudou/pkg/provider/perrors"
+	"github.com/RenaLio/tudou/pkg/provider/phelpers"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	"github.com/RenaLio/tudou/pkg/provider/translator"
 	_ "github.com/RenaLio/tudou/pkg/provider/translator/builtin"
@@ -70,7 +71,7 @@ func (c *Client) Execute(ctx context.Context, req *types.Request, cb types.Metri
 			Cause:       nil,
 		}
 	}
-	workReq := cloneRequest(req)
+	workReq := common.CloneRequest(req)
 	switch req.Format {
 	case types.FormatChatCompletion, types.FormatOpenAIResponses, types.FormatClaudeMessages:
 		return c.Chat(ctx, workReq, cb)
@@ -79,46 +80,12 @@ func (c *Client) Execute(ctx context.Context, req *types.Request, cb types.Metri
 	}
 }
 
-func cloneRequest(req *types.Request) *types.Request {
-	if req == nil {
-		return nil
-	}
-	cp := *req
-	if req.Payload != nil {
-		cp.Payload = append([]byte(nil), req.Payload...)
-	}
-
-	if req.Headers != nil {
-		cp.Headers = req.Headers.Clone()
-	} else {
-		cp.Headers = make(http.Header)
-	}
-
-	if req.FormPayload != nil {
-		fp := *req.FormPayload
-		if req.FormPayload.Fields != nil {
-			fp.Fields = make(map[string]string, len(req.FormPayload.Fields))
-			for k, v := range req.FormPayload.Fields {
-				fp.Fields[k] = v
-			}
-		}
-		if req.FormPayload.Files != nil {
-			fp.Files = make(map[string]*multipart.FileHeader, len(req.FormPayload.Files))
-			for k, v := range req.FormPayload.Files {
-				fp.Files[k] = v
-			}
-		}
-		cp.FormPayload = &fp
-	}
-	return &cp
-}
-
 func (c *Client) Chat(ctx context.Context, req *types.Request, cb types.MetricsCallback) (*types.Response, error) {
 	if req == nil {
 		return nil, errors.New("request is nil")
 	}
 
-	originReq := cloneRequest(req)
+	originReq := common.CloneRequest(req)
 
 	if req.Headers == nil {
 		req.Headers = http.Header{}
@@ -179,7 +146,7 @@ func (c *Client) resolveExecutionFormat(source types.Format) (types.Format, bool
 	}
 
 	for _, ability := range c.abilities {
-		target, ok := formatFromAbility(ability)
+		target, ok := phelpers.AbilityToFormat(ability)
 		if !ok {
 			continue
 		}
@@ -231,38 +198,11 @@ func (c *Client) dispatchByFormat(ctx context.Context, originReq *types.Request,
 }
 
 func (c *Client) supportsFormat(format types.Format) bool {
-
-	ability, ok := abilityFromFormat(format)
+	ability, ok := phelpers.FormatToAbility(format)
 	if !ok {
 		return false
 	}
 	return c.HasAbility(ability)
-}
-
-func abilityFromFormat(format types.Format) (types.Ability, bool) {
-	switch format {
-	case types.FormatChatCompletion:
-		return types.AbilityChatCompletions, true
-	case types.FormatOpenAIResponses:
-		return types.AbilityResponses, true
-	case types.FormatClaudeMessages:
-		return types.AbilityClaudeMessages, true
-	default:
-		return "", false
-	}
-}
-
-func formatFromAbility(ability types.Ability) (types.Format, bool) {
-	switch ability {
-	case types.AbilityChatCompletions:
-		return types.FormatChatCompletion, true
-	case types.AbilityResponses:
-		return types.FormatOpenAIResponses, true
-	case types.AbilityClaudeMessages:
-		return types.FormatClaudeMessages, true
-	default:
-		return "", false
-	}
 }
 
 func (c *Client) supportsChat() bool {
@@ -275,8 +215,9 @@ func (c *Client) Models() ([]string, error) {
 	return c.FetchModels(context.Background(), c.BaseURL+"/v1/models")
 }
 
-func (c *Client) SetOpenAIAuth(req *http.Request) {
+func (c *Client) SetAuthHeader(req *http.Request) {
 	req.Header.Set("Authorization", "Bearer "+c.ApiKey)
+	req.Header.Set("X-API-Key", c.ApiKey)
 }
 
 func (c *Client) FetchModels(ctx context.Context, reqURL string) ([]string, error) {
@@ -288,7 +229,7 @@ func (c *Client) FetchModels(ctx context.Context, reqURL string) ([]string, erro
 		plog.Error("get.models.request", "err", err)
 		return models, perrors.New(perrors.KindBuildRequest, "get.models.request", c.Identifier(), "", "", err)
 	}
-	c.SetOpenAIAuth(request)
+	c.SetAuthHeader(request)
 	response, err := c.httpC.Do(request)
 	if err != nil {
 		plog.Error("get.models.response", "err", err)

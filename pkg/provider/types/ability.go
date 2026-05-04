@@ -9,6 +9,7 @@ const (
 	AbilityResponses       = "responses"
 	AbilityClaudeMessages  = "claude.messages"
 
-	AbilityEmbeddings = "embeddings"
-	AbilityRerank     = "rerank"
+	AbilityEmbeddings       = "embeddings"
+	AbilityResponsesCompact = "responses.compact"
+	AbilityRerank           = "rerank"
 )

@@ -189,9 +189,9 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 				}
 			}
 
-			// 成功 || 达到最大重试次数
+			// 成功 || 达到最大重试次数 || 没有后继候选
 			// - 记录日志
-			if metrics.Status == 1 || i >= maxRetry-1 {
+			if metrics.Status == 1 || i >= maxRetry-1 || i == len(candidates)-1 {
 				status := models.RequestStatusSuccess
 				if metrics.Status != 1 {
 					status = models.RequestStatusFail

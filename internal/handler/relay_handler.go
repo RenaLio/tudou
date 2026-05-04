@@ -121,6 +121,10 @@ func (h *RelayHandler) handleNonStreamResponse(ctx *gin.Context, resp *ptypes.Re
 			ctx.Header(k, v)
 		}
 	}
+	ctx.Header("Authorization", "")
+	ctx.Header("authorization", "")
+	ctx.Header("X-API-KEY", "")
+	ctx.Header("X-Api-Key", "")
 	ctx.Data(resp.StatusCode, "application/json", resp.RawData)
 }
 
@@ -130,6 +134,10 @@ func (h *RelayHandler) handleStreamResponse(ctx *gin.Context, resp *ptypes.Respo
 	ctx.Header("Cache-Control", "no-cache")
 	ctx.Header("Connection", "keep-alive")
 	ctx.Header("Transfer-Encoding", "chunked")
+	ctx.Header("Authorization", "")
+	ctx.Header("authorization", "")
+	ctx.Header("X-API-KEY", "")
+	ctx.Header("X-Api-Key", "")
 
 	ctx.Status(resp.StatusCode)
 
