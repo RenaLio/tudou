@@ -39,7 +39,9 @@ func NewRelayHandler(base *Handler, relaySvc RelayService) *RelayHandler {
 func (h *RelayHandler) RegisterRoutes(r gin.IRouter) {
 	r.POST("/chat/completions", h.forward(ptypes.FormatChatCompletion))
 	r.POST("/messages", h.forward(ptypes.FormatClaudeMessages))
+	r.POST("/embeddings", h.forward(ptypes.FormatOpenAIEmbeddings))
 	r.POST("/responses", h.forward(ptypes.FormatOpenAIResponses))
+	r.POST("/responses/compact", h.forward(ptypes.FormatOpenAIResponsesCompact))
 	r.GET("/models", h.TokenModels)
 }
 

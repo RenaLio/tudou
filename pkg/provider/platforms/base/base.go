@@ -75,8 +75,8 @@ func (c *Client) Execute(ctx context.Context, req *types.Request, cb types.Metri
 	switch req.Format {
 	case types.FormatChatCompletion, types.FormatOpenAIResponses, types.FormatClaudeMessages:
 		return c.Chat(ctx, workReq, cb)
-	case types.FormatOpenAIEmbeddings:
-		if !c.supportsFormat(types.FormatOpenAIEmbeddings) {
+	case types.FormatOpenAIEmbeddings, types.FormatOpenAIResponsesCompact:
+		if !c.supportsFormat(req.Format) {
 			return nil, perrors.New(perrors.KindUnsupportedFormat, "client.execute.start", c.Identifier(), "", "", nil)
 		}
 		return c.dispatchByFormat(ctx, workReq, workReq, cb)
@@ -186,6 +186,10 @@ func (c *Client) dispatchByFormat(ctx context.Context, originReq *types.Request,
 		req.Headers.Set("Content-Type", "application/json")
 		return c.ChatCompletion(ctx, reqUrl.String(), originReq, req, cb)
 	case types.FormatOpenAIResponses:
+		req.Headers.Set("Authorization", "Bearer "+c.ApiKey)
+		req.Headers.Set("Content-Type", "application/json")
+		return c.Responses(ctx, reqUrl.String(), originReq, req, cb)
+	case types.FormatOpenAIResponsesCompact:
 		req.Headers.Set("Authorization", "Bearer "+c.ApiKey)
 		req.Headers.Set("Content-Type", "application/json")
 		return c.Responses(ctx, reqUrl.String(), originReq, req, cb)

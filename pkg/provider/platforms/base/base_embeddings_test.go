@@ -42,3 +42,36 @@ func TestClientExecute_EmbeddingsFormat(t *testing.T) {
 		t.Fatalf("expected bearer authorization header, got: %q", gotAuth)
 	}
 }
+
+func TestClientExecute_ResponsesCompactFormat(t *testing.T) {
+	var gotPath string
+	var gotAuth string
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"resp_123","object":"response","status":"completed"}`))
+	}))
+	defer ts.Close()
+
+	client := NewClient(http.DefaultClient, ts.URL, "test-key", "test-provider", []types.Ability{types.AbilityResponsesCompact}, nil)
+
+	resp, err := client.Execute(context.Background(), &types.Request{
+		Model:   "gpt-5-mini",
+		Format:  types.FormatOpenAIResponsesCompact,
+		Payload: []byte(`{"response_id":"resp_abc"}`),
+	}, nil)
+	if err != nil {
+		t.Fatalf("execute responses compact returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected non-nil response")
+	}
+	if gotPath != "/v1/responses/compact" {
+		t.Fatalf("unexpected request path: %s", gotPath)
+	}
+	if !strings.HasPrefix(gotAuth, "Bearer ") {
+		t.Fatalf("expected bearer authorization header, got: %q", gotAuth)
+	}
+}
