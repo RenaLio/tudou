@@ -62,6 +62,7 @@ type Config struct {
 	MaxIdleConns      int           // Max idle connections across all hosts | 最大空闲连接总数
 	MaxIdlePerHost    int           // Max idle connections per host | 每个 Host 的最大空闲连接数
 	SkipVerify        bool          // Skip TLS certificate verification | 是否跳过 TLS 证书校验
+	DisableHTTP2      bool          // Disable HTTP/2 and force HTTP/1.1 | 禁用 HTTP/2，强制使用 HTTP/1.1
 }
 
 // Init initializes the global default client. Safe to call multiple times.
@@ -328,7 +329,7 @@ func createClient(config Config) (*http.Client, error) {
 	transport := &http.Transport{
 		// Force HTTP/2 protocol negotiation (Required for custom Transports in Go 1.13+)
 		// 默认尝试 HTTP/2 (自定义 Transport 时必须显式设置为 true 才会启用 h2)
-		ForceAttemptHTTP2: true,
+		ForceAttemptHTTP2: !config.DisableHTTP2,
 
 		// Automatically read HTTP_PROXY/HTTPS_PROXY env variables by default
 		// 默认使用环境变量代理
@@ -418,13 +419,14 @@ func buildPoolKey(c Config) string {
 	}
 
 	return fmt.Sprintf(
-		"proxy=%s|timeout=%d|firstBytes=%d|maxIdle=%d|maxIdleHost=%d|skipVerify=%t",
+		"proxy=%s|timeout=%d|firstBytes=%d|maxIdle=%d|maxIdleHost=%d|skipVerify=%t|disableHTTP2=%t",
 		proxyKey,
 		int64(c.Timeout),
 		int64(c.FirstBytesTimeout),
 		c.MaxIdleConns,
 		c.MaxIdlePerHost,
 		c.SkipVerify,
+		c.DisableHTTP2,
 	)
 }
 

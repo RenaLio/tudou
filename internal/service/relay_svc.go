@@ -126,13 +126,6 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 	var lastErr error
 	var retryTrace []models.RetryDetail
 
-	httpClient, err := httpclient.GetDefineClient(httpclient.Config{
-		Timeout: -1,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	header := http.Header{}
 
 	exceptedHeaderKeys := []string{"Content-Type", "User-Agent", "X-Request-Id"}
@@ -155,6 +148,19 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 		}
 		if s.collector != nil {
 			s.collector.IncConn(candidate.Channel.ID)
+		}
+
+		httpClient, err := httpclient.GetDefineClient(httpclient.Config{
+			Timeout:      -1,
+			DisableHTTP2: candidate.Channel.Settings.DisableHTTP2,
+		})
+		if err != nil {
+			lastErr = err
+			plog.Error("build http client error:", err)
+			if s.collector != nil {
+				s.collector.DecConn(candidate.Channel.ID)
+			}
+			continue
 		}
 
 		prov := buildProvider(string(candidate.Channel.Type), candidate.Channel.BaseURL, candidate.Channel.APIKey, httpClient)

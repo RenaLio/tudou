@@ -109,6 +109,7 @@ type ChannelSettings struct {
 	Timeout            int     `json:"timeout,omitempty"`            // 请求超时(秒)
 	MaxRetries         int     `json:"maxRetries,omitempty"`         // 最大重试次数
 	RetryInterval      int     `json:"retryInterval,omitempty"`      // 重试间隔(毫秒)
+	DisableHTTP2       bool    `json:"disableHttp2,omitempty"`       // 是否禁用 HTTP/2（强制使用 HTTP/1.1）
 	EnableStream       bool    `json:"enableStream,omitempty"`       // 是否支持流式
 	StreamTimeout      int     `json:"streamTimeout,omitempty"`      // 流式超时(秒)
 	MaxTokens          int     `json:"maxTokens,omitempty"`          // 最大token限制
