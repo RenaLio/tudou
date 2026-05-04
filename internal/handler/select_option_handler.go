@@ -7,6 +7,7 @@ import (
 	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
 	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
+	relaystation "github.com/RenaLio/tudou/pkg/provider/platforms/relay_station"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 	"github.com/gin-gonic/gin"
 )
@@ -53,6 +54,14 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Extra: map[string]any{
 					"exampleBaseUrl": openai.DefaultBaseURL,
 					"paths":          openai.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "中转适配",
+				Value: relaystation.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": relaystation.DefaultBaseURL,
+					"paths":          relaystation.DefaultFormatPathMap,
 				},
 			},
 			{

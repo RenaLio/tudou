@@ -12,8 +12,10 @@ const PlatformId = "openai"
 const DefaultBaseURL = "https://api.openai.com"
 
 var DefaultFormatPathMap = map[types.Format]string{
-	types.FormatChatCompletion:  "/v1/chat/completions",
-	types.FormatOpenAIResponses: "/v1/responses",
+	types.FormatChatCompletion:         "/v1/chat/completions",
+	types.FormatOpenAIResponses:        "/v1/responses",
+	types.FormatOpenAIResponsesCompact: "/v1/responses/compact",
+	types.FormatOpenAIEmbeddings:       "/v1/embeddings",
 }
 
 type Client struct {
@@ -29,7 +31,12 @@ func NewClient(httpC *http.Client, baseURL string, apiKey string) *Client {
 		baseURL,
 		apiKey,
 		PlatformId,
-		[]types.Ability{types.AbilityChatCompletions, types.AbilityResponses},
+		[]types.Ability{
+			types.AbilityChatCompletions,
+			types.AbilityResponses,
+			types.AbilityResponsesCompact,
+			types.AbilityEmbeddings,
+		},
 		DefaultFormatPathMap,
 	)
 	return &Client{Client: client}
