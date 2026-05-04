@@ -59,7 +59,7 @@ const emit = defineEmits<{
       <SelectContent
         position="popper"
         :side-offset="4"
-        class="bg-bg-card border border-border rounded-md shadow-[0_8px_24px_rgba(0,0,0,0.2)] z-[100] min-w-[var(--reka-select-trigger-width)]"
+        class="bg-bg-card border border-border rounded-md shadow-[0_8px_24px_rgba(0,0,0,0.2)] z-[500] min-w-[var(--reka-select-trigger-width)]"
       >
         <SelectViewport class="p-1 max-h-[260px] overflow-y-auto">
           <SelectItem
