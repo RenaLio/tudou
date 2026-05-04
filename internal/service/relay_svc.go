@@ -165,6 +165,7 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 
 		prov := buildProvider(string(candidate.Channel.Type), candidate.Channel.BaseURL, candidate.Channel.APIKey, httpClient)
 		curUpstreamModel := candidate.UpstreamModel
+		hasLogged := false
 		body := helpers.SetModelName(body, curUpstreamModel)
 		req := &ptypes.Request{
 			Model:    curUpstreamModel,
@@ -201,6 +202,7 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 			// 成功 || 达到最大重试次数 || 没有后继候选
 			// - 记录日志
 			if metrics.Status == 1 || i >= maxRetry-1 || i == len(candidates)-1 {
+				hasLogged = true
 				status := models.RequestStatusSuccess
 				if metrics.Status != 1 {
 					status = models.RequestStatusFail
@@ -301,6 +303,11 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 				StatusCode:    -1,
 				StatusBody:    execErr.Error(),
 			})
+			if !hasLogged && (i >= maxRetry-1 || i == len(candidates)-1) {
+				if err := s.logFinalExecuteError(ctx, meta, model, candidate, curUpstreamModel, rawHeader, retryTrace, execErr, prov, req.IsStream); err != nil {
+					plog.Error("create fallback request log error:", err)
+				}
+			}
 			continue
 		}
 		lastResp = resp
@@ -355,6 +362,73 @@ func (s *RelayService) createLog(ctx context.Context, meta types.RelayMeta, mode
 		log.TransferTime = time.Since(startTime).Milliseconds()
 	}
 	return s.requestLog.CreateAsync(ctx, log)
+}
+
+func (s *RelayService) logFinalExecuteError(
+	ctx context.Context,
+	meta types.RelayMeta,
+	model string,
+	candidate *loadbalancer.Result,
+	upstreamModel string,
+	rawHeader http.Header,
+	retryTrace []models.RetryDetail,
+	execErr error,
+	prov provider.Provider,
+	isStream bool,
+) error {
+	if candidate == nil {
+		return nil
+	}
+
+	headerMap := make(map[string]string)
+	for key, values := range rawHeader {
+		if len(values) == 0 {
+			continue
+		}
+		headerMap[key] = values[0]
+	}
+	delete(headerMap, "Authorization")
+	delete(headerMap, "authorization")
+
+	reqLog := models.RequestLog{
+		ID:                        s.NextID(),
+		RequestID:                 getRequestId(ctx),
+		UserID:                    meta.UserID,
+		TokenID:                   meta.TokenID,
+		TokenName:                 meta.TokenName,
+		GroupID:                   meta.GroupID,
+		GroupName:                 meta.GroupName,
+		ChannelID:                 candidate.Channel.ID,
+		ChannelName:               candidate.Channel.Name,
+		ChannelPriceRate:          candidate.Channel.PriceRate,
+		Model:                     model,
+		UpstreamModel:             upstreamModel,
+		InputToken:                0,
+		OutputToken:               0,
+		CachedCreationInputTokens: 0,
+		CachedReadInputTokens:     0,
+		Pricing:                   models.ModelPricing{},
+		CostMicros:                0,
+		Status:                    models.RequestStatusFail,
+		TTFT:                      0,
+		TransferTime:              0,
+		ErrorCode:                 "-1",
+		ErrorMsg:                  execErr.Error(),
+		IsStream:                  isStream,
+		Extra: models.RequestExtra{
+			Headers:     headerMap,
+			IP:          meta.Extra.IP,
+			UserAgent:   rawHeader.Get("User-Agent"),
+			RequestPath: meta.Extra.Path,
+			RetryTrace:  retryTrace,
+		},
+		ProviderDetail: models.ProviderDetail{
+			Provider:      prov.Identifier(),
+			RequestFormat: string(meta.Format),
+		},
+	}
+	reqLog.ProviderDetail.TransFormat = string(meta.Format)
+	return s.requestLog.CreateAsync(ctx, &reqLog)
 }
 
 func buildProvider(platform string, baseURL string, apiKey string, httpc *http.Client) provider.Provider {
