@@ -172,6 +172,7 @@ func runClaudeToResponsesStream(st *types.ComplexEventStream, req *types.Request
 				SequenceNumber: nextSeq(state),
 				Type:           "response.output_item.added",
 			}
+			claudeBlockIndex := int(gjson.Get(line, "index").Int())
 			switch gjson.Get(line, "content_block.type").String() {
 			case "text":
 				// reset
@@ -237,7 +238,7 @@ func runClaudeToResponsesStream(st *types.ComplexEventStream, req *types.Request
 				toolCallId := gjson.Get(line, "content_block.id").String()
 				state.effectiveToolIndex = state.curIndex
 				toolName := gjson.Get(line, "content_block.name").String()
-				state.tools[state.curIndex] = &responseToolState{
+				state.tools[claudeBlockIndex] = &responseToolState{
 					outputIndex: state.curIndex,
 					itemId:      itemId,
 					callId:      toolCallId,
@@ -256,6 +257,7 @@ func runClaudeToResponsesStream(st *types.ComplexEventStream, req *types.Request
 				emitResponsesEvent(st, "response.output_item.added", outputAddEvent)
 			}
 		case "content_block_delta":
+			claudeBlockIndex := int(gjson.Get(line, "index").Int())
 			switch gjson.Get(line, "delta.type").String() {
 			case "text_delta":
 				textDelta := gjson.Get(line, "delta.text").String()
@@ -272,10 +274,10 @@ func runClaudeToResponsesStream(st *types.ComplexEventStream, req *types.Request
 				emitResponsesEvent(st, "response.output_text.delta", outputTextDeltaEvent)
 			case "input_json_delta":
 				inputJsonDelta := gjson.Get(line, "delta.partial_json").String()
-				state.tools[state.curIndex].args += inputJsonDelta
+				state.tools[claudeBlockIndex].args += inputJsonDelta
 				fcArgsDeltaEvent := oaimodel.ResponseFunctionCallArgumentsDeltaEvent{
 					Delta:          inputJsonDelta,
-					ItemID:         state.tools[state.curIndex].itemId,
+					ItemID:         state.tools[claudeBlockIndex].itemId,
 					OutputIndex:    state.curIndex,
 					SequenceNumber: nextSeq(state),
 					Type:           "response.function_call_arguments.delta",
@@ -312,6 +314,7 @@ func runClaudeToResponsesStream(st *types.ComplexEventStream, req *types.Request
 				SequenceNumber: 0,
 				Type:           "response.content_part.done",
 			}
+			claudeBlockIndex := int(gjson.Get(line, "index").Int())
 			switch state.curBlockType {
 			case "text":
 				textDone := oaimodel.ResponseOutputTextDoneEvent{
@@ -374,9 +377,9 @@ func runClaudeToResponsesStream(st *types.ComplexEventStream, req *types.Request
 				state.curIndex++
 			case "tool_use":
 				fcArgsDone := oaimodel.ResponseFunctionCallArgumentsDoneEvent{
-					Arguments:      state.tools[state.curIndex].args,
-					ItemID:         state.tools[state.curIndex].itemId,
-					Name:           state.tools[state.curIndex].name,
+					Arguments:      state.tools[claudeBlockIndex].args,
+					ItemID:         state.tools[claudeBlockIndex].itemId,
+					Name:           state.tools[claudeBlockIndex].name,
 					OutputIndex:    state.curIndex,
 					SequenceNumber: nextSeq(state),
 					Type:           "response.function_call_arguments.done",
@@ -384,10 +387,10 @@ func runClaudeToResponsesStream(st *types.ComplexEventStream, req *types.Request
 				emitResponsesEvent(st, "response.function_call_arguments.done", fcArgsDone)
 				fcOutput := oaimodel.ResponseFunctionCall{
 					Type:      "function_call",
-					Arguments: state.tools[state.curIndex].args,
-					CallID:    state.tools[state.curIndex].callId,
-					Name:      state.tools[state.curIndex].name,
-					Id:        state.tools[state.curIndex].itemId,
+					Arguments: state.tools[claudeBlockIndex].args,
+					CallID:    state.tools[claudeBlockIndex].callId,
+					Name:      state.tools[claudeBlockIndex].name,
+					Id:        state.tools[claudeBlockIndex].itemId,
 					Status:    "completed",
 				}
 				state.outputs = append(state.outputs, mustMarshal(fcOutput))
