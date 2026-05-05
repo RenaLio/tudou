@@ -109,14 +109,16 @@ type ChannelSettings struct {
 	Timeout            int     `json:"timeout,omitempty"`            // 请求超时(秒)
 	MaxRetries         int     `json:"maxRetries,omitempty"`         // 最大重试次数
 	RetryInterval      int     `json:"retryInterval,omitempty"`      // 重试间隔(毫秒)
-	DisableHTTP2       bool    `json:"disableHttp2,omitempty"`       // 是否禁用 HTTP/2（强制使用 HTTP/1.1）
 	EnableStream       bool    `json:"enableStream,omitempty"`       // 是否支持流式
 	StreamTimeout      int     `json:"streamTimeout,omitempty"`      // 流式超时(秒)
 	MaxTokens          int     `json:"maxTokens,omitempty"`          // 最大token限制
 	DefaultTemperature float32 `json:"defaultTemperature,omitempty"` // 默认温度
 	CircuitThreshold   int     `json:"circuitThreshold,omitempty"`   // 熔断阈值(连续失败次数)
 	CircuitTimeout     int     `json:"circuitTimeout,omitempty"`     // 熔断恢复时间(秒)
-	MaxConcurrent      int     `json:"maxConcurrent,omitempty"`      // 最大并发数
+
+	DisableHTTP2  bool              `json:"disableHttp2,omitempty"`  // 是否禁用 HTTP/2（强制使用 HTTP/1.1）
+	MaxConcurrent int               `json:"maxConcurrent,omitempty"` // 最大并发数
+	CustomHeaders map[string]string `json:"customHeaders,omitempty"` // 自定义请求头
 }
 
 // Value 实现 driver.Valuer 接口
@@ -135,7 +137,6 @@ func (s *ChannelSettings) Scan(value interface{}) error {
 
 // ChannelExtra 渠道扩展信息JSON字段
 type ChannelExtra struct {
-	Headers       map[string]string `json:"headers,omitempty"`       // 自定义请求头
 	Description   string            `json:"description,omitempty"`   // 详细描述
 	DocsURL       string            `json:"docsURL,omitempty"`       // 文档链接
 	Region        string            `json:"region,omitempty"`        // 区域

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
@@ -126,13 +127,13 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 	var lastErr error
 	var retryTrace []models.RetryDetail
 
-	header := http.Header{}
+	baseHeader := http.Header{}
 
 	exceptedHeaderKeys := []string{"Content-Type", "User-Agent", "X-Request-Id"}
 
 	for _, key := range exceptedHeaderKeys {
 		if val, ok := rawHeader[key]; ok {
-			header[key] = val
+			baseHeader[key] = val
 		}
 	}
 
@@ -167,11 +168,19 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 		curUpstreamModel := candidate.UpstreamModel
 		hasLogged := false
 		body := helpers.SetModelName(body, curUpstreamModel)
+		reqHeader := baseHeader.Clone()
+		for key, value := range candidate.Channel.Settings.CustomHeaders {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			reqHeader.Set(key, value)
+		}
 		req := &ptypes.Request{
 			Model:    curUpstreamModel,
 			Payload:  body,
 			Format:   meta.Format,
-			Headers:  header,
+			Headers:  reqHeader,
 			IsStream: helpers.GetStream(body),
 		}
 		var resp *ptypes.Response
@@ -296,18 +305,19 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 			if s.collector != nil {
 				s.collector.DecConn(candidate.Channel.ID)
 			}
-			retryTrace = append(retryTrace, models.RetryDetail{
+			tryDetail := models.RetryDetail{
 				ChannelID:     candidate.Channel.ID,
 				ChannelName:   candidate.Channel.Name,
 				UpstreamModel: candidate.UpstreamModel,
 				StatusCode:    -1,
 				StatusBody:    execErr.Error(),
-			})
+			}
 			if !hasLogged && (i >= maxRetry-1 || i == len(candidates)-1) {
 				if err := s.logFinalExecuteError(ctx, meta, model, candidate, curUpstreamModel, rawHeader, retryTrace, execErr, prov, req.IsStream); err != nil {
 					plog.Error("create fallback request log error:", err)
 				}
 			}
+			retryTrace = append(retryTrace, tryDetail)
 			continue
 		}
 		lastResp = resp
