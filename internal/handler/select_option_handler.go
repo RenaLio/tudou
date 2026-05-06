@@ -7,6 +7,7 @@ import (
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
 	jdcoding "github.com/RenaLio/tudou/pkg/provider/platforms/jd_coding"
+	kimiforcoding "github.com/RenaLio/tudou/pkg/provider/platforms/kimi_for_coding"
 	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
 	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
@@ -73,6 +74,14 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Extra: map[string]any{
 					"exampleBaseUrl": alibabacodingplancn.DefaultBaseURL,
 					"paths":          alibabacodingplancn.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "Kimi For Coding",
+				Value: kimiforcoding.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": kimiforcoding.DefaultBaseURL,
+					"paths":          kimiforcoding.DefaultFormatPathMap,
 				},
 			},
 			{

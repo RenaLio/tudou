@@ -23,6 +23,7 @@ import (
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
 	jdcoding "github.com/RenaLio/tudou/pkg/provider/platforms/jd_coding"
+	kimiforcoding "github.com/RenaLio/tudou/pkg/provider/platforms/kimi_for_coding"
 	mimocoding "github.com/RenaLio/tudou/pkg/provider/platforms/mimo_coding"
 	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
@@ -460,6 +461,8 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 		return jdcoding.NewClient(httpc, baseURL, apiKey)
 	case alibabacodingplancn.PlatformId:
 		return alibabacodingplancn.NewClient(httpc, baseURL, apiKey)
+	case kimiforcoding.PlatformId:
+		return kimiforcoding.NewClient(httpc, baseURL, apiKey)
 	case "coding-plan-adapter":
 		return codingplan.NewClient(httpc, baseURL, apiKey)
 	case "chat-completion":
