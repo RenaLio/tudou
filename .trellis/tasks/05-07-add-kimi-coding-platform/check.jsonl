@@ -1,0 +1,3 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend quality review should follow the canonical checklist."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Verify new provider handles model fetch and fallback behavior consistently."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Check sub-agent should validate tests and implementation against quality rules."}

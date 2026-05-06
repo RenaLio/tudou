@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend spec index and pre-development checklist for provider/platform changes."}
+{"file":".trellis/spec/backend/directory-structure.md","reason":"Keep new provider files placed consistently under pkg/provider/platforms and backend wiring locations."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Align provider model-fetch fallback and error behavior conventions."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Implementation quality gates and verification expectations for backend changes."}
