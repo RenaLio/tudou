@@ -49,6 +49,11 @@ const router = createRouter({
           name: 'settings',
           component: () => import('@/views/SettingsView.vue'),
         },
+        {
+          path: 'debug',
+          name: 'debug',
+          component: () => import('@/views/DebugView.vue'),
+        },
       ],
     },
   ],

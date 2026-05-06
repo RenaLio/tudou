@@ -11,10 +11,10 @@ import (
 // Channel 负载均衡器中的渠道包装
 type Channel struct {
 	*models.Channel
-	ActiveConns   int64   // 当前活跃连接数
-	LastUsedAt    int64   // 最后使用时间戳
-	SuccessRate   float64 // 成功率 0-1.0，展示使用，不参与决策
-	supportModels map[string]struct{}
+	ActiveConns   int64               `json:"activeConns"` // 当前活跃连接数
+	LastUsedAt    int64               `json:"lastUsedAt"`  // 最后使用时间戳
+	SuccessRate   float64             `json:"successRate"` // 成功率 0-1.0，展示使用，不参与决策
+	supportModels map[string]struct{} `json:"-"`
 	mu            sync.RWMutex
 }
 

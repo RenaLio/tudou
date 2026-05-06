@@ -9,9 +9,9 @@ import (
 // Registry 存储数据
 type Registry struct {
 	mu        sync.RWMutex
-	Channels  map[int64]*Channel
-	Groups    map[int64]*Group
-	Endpoints map[string]map[int64]*Endpoint // map[modelId]map[channelId]Endpoint
+	Channels  map[int64]*Channel             `json:"channels"`
+	Groups    map[int64]*Group               `json:"groups"`
+	Endpoints map[string]map[int64]*Endpoint `json:"endpoints"` // map[modelId]map[channelId]Endpoint
 }
 
 func NewRegistry() *Registry {
