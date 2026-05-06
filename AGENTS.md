@@ -1,54 +1,32 @@
-# Repository Guidelines
+<!-- TRELLIS:START -->
+# Trellis Instructions
 
-## Project Structure & Module Organization
-This repository is a Go-based LLM gateway backend, with an optional frontend in `web/`.
+These instructions are for AI assistants working in this project.
 
-- `cmd/server`: main backend entrypoint.
-- `cmd/server/wire`: dependency injection setup (`wire.go`) and generated injector (`wire_gen.go`).
-- `internal/`: core backend modules (`handler`, `service`, `repository`, `models`, `tasks`, `loadbalancer`, `router`, etc.).
-- `api/v1`: API request/response DTOs.
-- `pkg/`: reusable provider/http tooling used by the backend.
-- `config/`: runtime configuration (`config.yaml`).
-- `storage/`: local runtime assets (SQLite DB, logs).
-- `web/`: frontend app (has its own `web/AGENTS.md`).
+This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
 
-## Build, Test, and Development Commands
-- `go run ./cmd/server -conf config/config.yaml`  
-  Run the backend locally.
-- `go build ./cmd/server`  
-  Build backend binary for validation.
-- `go test ./internal/...`  
-  Run backend-focused tests.
-- `go test ./internal/tasks -run TestPriceSyncTask -count=1`  
-  Example targeted test run.
-- `go generate ./cmd/server/wire`  
-  Regenerate `wire_gen.go` after editing DI wiring.
+- `.trellis/workflow.md` — development phases, when to create tasks, skill routing
+- `.trellis/spec/` — package- and layer-scoped coding guidelines (read before writing code in a given layer)
+- `.trellis/workspace/` — per-developer journals and session traces
+- `.trellis/tasks/` — active and archived tasks (PRDs, research, jsonl context)
 
-## Coding Style & Naming Conventions
-- Use standard Go formatting (`gofmt`) before commit.
-- Package names are lowercase; file names typically use `snake_case.go`.
-- Exported identifiers: `CamelCase`; unexported: `camelCase`.
-- Keep `context.Context` as the first parameter for request-scoped operations.
-- Do not manually edit generated files (`cmd/server/wire/wire_gen.go`).
+If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
 
-## Testing Guidelines
-- Place tests next to implementation as `*_test.go`.
-- Prefer descriptive names like `TestXxx_Scenario`.
-- Cover boundary cases (e.g., pricing thresholds), fallback logic, and error paths.
-- For changed backend logic, add or update targeted tests in the same module.
+If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
+- `.agents/skills/` — reusable Trellis skills
+- `.codex/agents/` — optional custom subagents
 
-## Commit & Pull Request Guidelines
-- Follow Conventional Commits seen in history, e.g.:
-  - `feat: ...`
-  - `feat(scope): ...`
-  - `fix(scope): ...`
-- Keep each commit focused on one concern (feature/fix/refactor).
-- PRs should include:
-  - what changed and why,
-  - affected modules/files,
-  - test commands and results,
-  - migration/config notes if DB or config behavior changes.
+## Subagents
 
-## Security & Configuration Tips
-- Never commit real secrets; use local `.env`/`.env.local` only.
-- Validate DB-impacting changes against `storage/tudou.db` carefully before merge.
+- ALWAYS wait for every spawned subagent to reach a terminal status before yielding, acting on partial results, or spawning followups.
+  - On Codex, this means calling the `wait` tool with the subagent's thread id (requires `multi_agent_v2`). Do NOT infer completion from elapsed time.
+  - On Claude Code / OpenCode, this means awaiting the Task/agent tool result before continuing.
+- NEVER cancel or re-spawn a subagent that hasn't finished. If a subagent appears stuck, raise the wait timeout (Codex default 30s, max 1h) before judging it broken.
+- Spawn subagents automatically when:
+  - Parallelizable work (e.g., install + verify, npm test + typecheck, multiple tasks from plan)
+  - Long-running or blocking tasks where a worker can run independently
+  - Isolation for risky changes or checks
+
+Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
+
+<!-- TRELLIS:END -->
