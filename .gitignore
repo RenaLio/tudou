@@ -40,3 +40,16 @@ docs/
 *.tar
 
 
+### Trellis runtime artifacts (ignore)
+.trellis/workspace/
+.trellis/workspace/**
+.trellis/tasks/
+.trellis/tasks/**
+
+### Local agent runtime directories
+.claude/
+.cursor/
+.codex/
+.opencode/
+.pi/
+
