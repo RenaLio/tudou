@@ -121,12 +121,13 @@ function safeJSONStringify(data: unknown) {
 }
 
 function tokenBarSegments(log: RequestLogResponse) {
-  const total = log.inputToken + log.outputToken + log.cachedReadInputTokens + log.cachedCreationInputTokens
+  const total = log.inputToken + log.outputToken
   if (total === 0) {
     return { input: 0, output: 0, cachedRead: 0, cachedCreate: 0, total: 0 }
   }
+  const realInput = Math.max(0, log.inputToken - log.cachedReadInputTokens - log.cachedCreationInputTokens)
   return {
-    input: (log.inputToken / total) * 100,
+    input: (realInput / total) * 100,
     output: (log.outputToken / total) * 100,
     cachedRead: (log.cachedReadInputTokens / total) * 100,
     cachedCreate: (log.cachedCreationInputTokens / total) * 100,
@@ -507,7 +508,7 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="flex flex-col items-center gap-1 p-2 bg-bg-primary border border-border-hover rounded-sm">
                   <span class="text-[0.625rem] text-text-muted font-mono">总计</span>
-                  <span class="text-xs text-accent font-mono font-semibold">{{ formatTokens(selectedLog.inputToken + selectedLog.outputToken + selectedLog.cachedReadInputTokens + selectedLog.cachedCreationInputTokens) }}</span>
+                  <span class="text-xs text-accent font-mono font-semibold">{{ formatTokens(selectedLog.inputToken + selectedLog.outputToken) }}</span>
                 </div>
               </div>
             </div>

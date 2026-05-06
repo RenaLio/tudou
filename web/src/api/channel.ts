@@ -8,7 +8,7 @@ import type {
   ListResponse,
 } from '@/types';
 
-export type { ChannelExtra, };
+export type { ChannelExtra, ChannelSettings, };
 import client from './client';
 
 export interface CreateChannelRequest {
@@ -25,6 +25,7 @@ export interface CreateChannelRequest {
   expiredAt?: string;
   groupIDs?: string[];
   extra?: ChannelExtra;
+  settings?: ChannelSettings;
 }
 
 export interface UpdateChannelRequest {
@@ -42,6 +43,7 @@ export interface UpdateChannelRequest {
   expiredAt?: string | null;
   groupIDs?: string[];
   extra?: ChannelExtra;
+  settings?: ChannelSettings;
 }
 
 export interface ListChannelsParams {

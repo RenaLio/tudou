@@ -99,7 +99,9 @@ export interface ChannelSettings {
   defaultTemperature?: number;
   circuitThreshold?: number;
   circuitTimeout?: number;
+  disableHttp2?: boolean;
   maxConcurrent?: number;
+  customHeaders?: Record<string, string>;
 }
 
 export interface ChannelExtra {

@@ -38,6 +38,6 @@ func NewClient(httpC *http.Client, baseURL string, apiKey string) *Client {
 	}
 }
 
-func (c *Client) Models() ([]string, error) {
-	return ModelList, nil
-}
+//func (c *Client) Models() ([]string, error) {
+//	return ModelList, nil
+//}

@@ -130,6 +130,7 @@ const formData = ref<CreateChannelRequest>({
   extra: {
     modelMappings: {},
   },
+  settings: {},
 })
 
 // Edit form status (separate from create)
@@ -279,6 +280,7 @@ function openCreateDialog() {
     extra: {
       modelMappings: {},
     },
+    settings: {},
   }
   availableModels.value = []
   loadModelMappings()
@@ -305,6 +307,7 @@ function openEditDialog(channel: Channel) {
     extra: {
       modelMappings: channel.extra?.modelMappings ? { ...channel.extra.modelMappings } : {},
     },
+    settings: { ...channel.settings },
   }
   loadModelMappings(channel.extra)
   // 解析已有模型作为可用模型
@@ -887,6 +890,54 @@ onMounted(() => {
                   </AppFormField>
                   <AppFormField label="价格倍率">
                     <AppInput v-model.number="formData.priceRate" type="number" step="0.01" min="0" />
+                  </AppFormField>
+                </div>
+              </div>
+
+              <!-- Section: Advanced -->
+              <div>
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-1 h-3.5 rounded-full bg-primary/60"></div>
+                  <span class="text-[11px] font-mono tracking-wider uppercase text-text-muted">高级设置</span>
+                  <div class="flex-1 h-px bg-border/40"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <AppFormField label="最大并发数" hint="0 或留空表示不限制">
+                    <AppInput v-model.number="formData.settings!.maxConcurrent" type="number" min="0" placeholder="不限制" />
+                  </AppFormField>
+                  <AppFormField label="禁用 HTTP/2">
+                    <label class="flex items-center gap-2.5 cursor-pointer py-2">
+                      <input
+                        type="checkbox"
+                        :checked="formData.settings?.disableHttp2"
+                        @change="formData.settings!.disableHttp2 = ($event.target as HTMLInputElement).checked"
+                        class="sr-only"
+                      />
+                      <span
+                        class="w-9 h-5 rounded-full transition-colors duration-200 relative"
+                        :class="formData.settings?.disableHttp2 ? 'bg-primary' : 'bg-text-muted/30'"
+                      >
+                        <span
+                          class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200"
+                          :class="formData.settings?.disableHttp2 ? 'translate-x-4' : 'translate-x-0'"
+                        ></span>
+                      </span>
+                      <span class="text-sm text-text-secondary">强制使用 HTTP/1.1</span>
+                    </label>
+                  </AppFormField>
+                  <AppFormField label="自定义请求头" class="col-span-2" hint="JSON 格式，如 {&quot;X-Custom&quot;: &quot;value&quot;}">
+                    <textarea
+                      :value="formData.settings?.customHeaders ? JSON.stringify(formData.settings.customHeaders, null, 2) : ''"
+                      @change="(e: Event) => {
+                        const val = (e.target as HTMLTextAreaElement).value.trim()
+                        if (!val) { formData.settings!.customHeaders = undefined; return }
+                        try { formData.settings!.customHeaders = JSON.parse(val) }
+                        catch { /* ignore invalid JSON */ }
+                      }"
+                      rows="3"
+                      placeholder='{"X-Custom-Header": "value"}'
+                      class="w-full px-3 py-2.5 bg-bg-secondary text-text-primary placeholder:text-text-muted border border-border rounded-lg text-sm font-mono transition-all duration-200 focus:outline-none focus:border-border-focus focus:shadow-[0_0_12px_rgba(139,195,74,0.08)] focus:ring-1 focus:ring-primary/20 resize-y min-h-[68px]"
+                    ></textarea>
                   </AppFormField>
                 </div>
               </div>
