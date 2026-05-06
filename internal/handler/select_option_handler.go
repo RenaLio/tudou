@@ -2,6 +2,7 @@ package handler
 
 import (
 	v1 "github.com/RenaLio/tudou/api/v1"
+	alibabacodingplancn "github.com/RenaLio/tudou/pkg/provider/platforms/alibaba_coding_plan_cn"
 	baiducoding "github.com/RenaLio/tudou/pkg/provider/platforms/baidu_coding"
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
@@ -64,6 +65,14 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Extra: map[string]any{
 					"exampleBaseUrl": relaystation.DefaultBaseURL,
 					"paths":          relaystation.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "Alibaba Coding CN",
+				Value: alibabacodingplancn.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": alibabacodingplancn.DefaultBaseURL,
+					"paths":          alibabacodingplancn.DefaultFormatPathMap,
 				},
 			},
 			{

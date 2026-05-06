@@ -17,6 +17,7 @@ import (
 	"github.com/RenaLio/tudou/pkg/httpclient"
 	"github.com/RenaLio/tudou/pkg/provider"
 	"github.com/RenaLio/tudou/pkg/provider/constant"
+	alibabacodingplancn "github.com/RenaLio/tudou/pkg/provider/platforms/alibaba_coding_plan_cn"
 	baiducoding "github.com/RenaLio/tudou/pkg/provider/platforms/baidu_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
@@ -457,6 +458,8 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 		return baiducoding.NewClient(httpc, baseURL, apiKey)
 	case jdcoding.PlatformId:
 		return jdcoding.NewClient(httpc, baseURL, apiKey)
+	case alibabacodingplancn.PlatformId:
+		return alibabacodingplancn.NewClient(httpc, baseURL, apiKey)
 	case "coding-plan-adapter":
 		return codingplan.NewClient(httpc, baseURL, apiKey)
 	case "chat-completion":
