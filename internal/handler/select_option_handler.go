@@ -12,6 +12,7 @@ import (
 	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	relaystation "github.com/RenaLio/tudou/pkg/provider/platforms/relay_station"
+	tencentcodingplan "github.com/RenaLio/tudou/pkg/provider/platforms/tencent_coding_plan"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 	"github.com/gin-gonic/gin"
 )
@@ -82,6 +83,14 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Extra: map[string]any{
 					"exampleBaseUrl": kimiforcoding.DefaultBaseURL,
 					"paths":          kimiforcoding.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "Tencent Coding Plan",
+				Value: tencentcodingplan.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": tencentcodingplan.DefaultBaseURL,
+					"paths":          tencentcodingplan.DefaultFormatPathMap,
 				},
 			},
 			{

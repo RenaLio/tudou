@@ -87,7 +87,9 @@ func (s *channelService) Create(ctx context.Context, req v1.CreateChannelRequest
 		s.registry.ReloadChannel(latest)
 	}
 	if len(req.GroupIDs) > 0 {
-		ReloadGroup(ctx, s.groupRepo, s.registry)
+		if err := ReloadGroup(ctx, s.groupRepo, s.registry); err != nil {
+			return nil, err
+		}
 	}
 	resp := toChannelResponse(latest)
 	return &resp, nil
@@ -135,7 +137,9 @@ func (s *channelService) BatchCreate(ctx context.Context, reqs []v1.CreateChanne
 	for i := range channels {
 		resp = append(resp, toChannelResponse(channels[i]))
 	}
-	ReloadGroup(ctx, s.groupRepo, s.registry)
+	if err := ReloadGroup(ctx, s.groupRepo, s.registry); err != nil {
+		return nil, err
+	}
 	return resp, nil
 }
 
@@ -249,7 +253,9 @@ func (s *channelService) Update(ctx context.Context, id int64, req v1.UpdateChan
 		s.registry.ReloadChannel(latest)
 	}
 	if len(req.GroupIDs) > 0 {
-		ReloadGroup(ctx, s.groupRepo, s.registry)
+		if err := ReloadGroup(ctx, s.groupRepo, s.registry); err != nil {
+			return nil, err
+		}
 	}
 
 	resp := toChannelResponse(latest)
@@ -278,7 +284,9 @@ func (s *channelService) Delete(ctx context.Context, id int64) error {
 	if s.registry != nil {
 		s.registry.UnregisterChannel(id)
 	}
-	ReloadGroup(ctx, s.groupRepo, s.registry)
+	if err := ReloadGroup(ctx, s.groupRepo, s.registry); err != nil {
+		return err
+	}
 	return nil
 }
 

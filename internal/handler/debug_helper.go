@@ -11,7 +11,7 @@ type DebugHelperHandler struct {
 }
 
 type RegistryHelper interface {
-	ExportRegistryData() loadbalancer.Registry
+	ExportRegistryData() *loadbalancer.Registry
 }
 
 func NewDebugHelperHandler(h *Handler, r RegistryHelper) *DebugHelperHandler {

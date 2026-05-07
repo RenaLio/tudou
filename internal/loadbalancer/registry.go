@@ -145,6 +145,6 @@ func (r *Registry) removeChannelEndpointsLocked(channelID int64) {
 	}
 }
 
-func (c *Registry) ExportRegistryData() Registry {
-	return *c
+func (c *Registry) ExportRegistryData() *Registry {
+	return c
 }

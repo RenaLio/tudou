@@ -131,7 +131,9 @@ func (h *RelayHandler) handleNonStreamResponse(ctx *gin.Context, resp *ptypes.Re
 }
 
 func (h *RelayHandler) handleStreamResponse(ctx *gin.Context, resp *ptypes.Response) {
-	defer resp.Stream.Close()
+	defer func() {
+		_ = resp.Stream.Close()
+	}()
 	ctx.Header("Content-Type", "text/event-stream")
 	ctx.Header("Cache-Control", "no-cache")
 	ctx.Header("Connection", "keep-alive")
@@ -174,15 +176,4 @@ func (h *RelayHandler) handleError(ctx *gin.Context, err error) {
 		return
 	}
 	v1.Fail(ctx, v1.ErrInternalServerError.WithMessage(msg), nil)
-}
-
-func toInt64(v any) int64 {
-	switch val := v.(type) {
-	case int64:
-		return val
-	case int:
-		return int64(val)
-	default:
-		return 0
-	}
 }

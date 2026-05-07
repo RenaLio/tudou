@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/helpers"
@@ -28,9 +27,9 @@ import (
 	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	relaystation "github.com/RenaLio/tudou/pkg/provider/platforms/relay_station"
+	tencentcodingplan "github.com/RenaLio/tudou/pkg/provider/platforms/tencent_coding_plan"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
-	"github.com/google/uuid"
 )
 
 const maxRetry = 3
@@ -260,7 +259,7 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 					reqLog.ProviderDetail.TransFormat = string(reqFormatStr)
 				}
 
-				if resp != nil && !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+				if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
 					reqLog.ErrorMsg = string(resp.RawData)
 				}
 
@@ -351,31 +350,6 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 	return nil, loadbalancer.ErrNoAvailableChannel
 }
 
-func (s *RelayService) createLog(ctx context.Context, meta types.RelayMeta, model string, candidate *loadbalancer.Result, resp *ptypes.Response, startTime time.Time, body []byte) error {
-	log := &models.RequestLog{
-		RequestID:     uuid.New().String(),
-		UserID:        meta.UserID,
-		TokenID:       meta.TokenID,
-		GroupID:       meta.GroupID,
-		ChannelID:     candidate.Channel.ID,
-		ChannelName:   candidate.Channel.Name,
-		Model:         model,
-		UpstreamModel: candidate.UpstreamModel,
-		Status:        models.RequestStatusSuccess,
-		CreatedAt:     startTime,
-		IsStream:      helpers.GetStream(body),
-	}
-	if resp != nil {
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			log.Status = models.RequestStatusSuccess
-		} else {
-			log.Status = models.RequestStatusFail
-		}
-		log.TransferTime = time.Since(startTime).Milliseconds()
-	}
-	return s.requestLog.CreateAsync(ctx, log)
-}
-
 func (s *RelayService) logFinalExecuteError(
 	ctx context.Context,
 	meta types.RelayMeta,
@@ -463,6 +437,8 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 		return alibabacodingplancn.NewClient(httpc, baseURL, apiKey)
 	case kimiforcoding.PlatformId:
 		return kimiforcoding.NewClient(httpc, baseURL, apiKey)
+	case tencentcodingplan.PlatformId:
+		return tencentcodingplan.NewClient(httpc, baseURL, apiKey)
 	case "coding-plan-adapter":
 		return codingplan.NewClient(httpc, baseURL, apiKey)
 	case "chat-completion":

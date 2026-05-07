@@ -307,10 +307,6 @@ func toTokenWithRelationsResponse(token *models.Token) v1.TokenWithRelationsResp
 	}
 
 	if token.Group.ID != 0 {
-		channelIDs := make([]int64, 0, len(token.Group.Channels))
-		for _, channel := range token.Group.Channels {
-			channelIDs = append(channelIDs, channel.ID)
-		}
 		groupResp := v1.ChannelGroupResponse{
 			ID:                  token.Group.ID,
 			Name:                token.Group.Name,

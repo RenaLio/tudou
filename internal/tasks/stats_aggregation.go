@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1379,7 +1380,7 @@ func logsNormalize(logs []*models.RequestLog) []*models.RequestLog {
 			// 强制将状态设为失败（重试本质上是一次失败尝试）
 			cloneLog.Status = models.RequestStatusFail
 			// 记录错误码和错误详情，便于分析失败原因
-			cloneLog.ErrorCode = string(retry.StatusCode)
+			cloneLog.ErrorCode = strconv.Itoa(retry.StatusCode)
 			cloneLog.ErrorMsg = retry.StatusBody
 
 			// 将这次重试对应的失败日志追加到结果集
