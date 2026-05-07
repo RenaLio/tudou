@@ -20,6 +20,7 @@ import (
 	baiducoding "github.com/RenaLio/tudou/pkg/provider/platforms/baidu_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
+	ctyuncoding "github.com/RenaLio/tudou/pkg/provider/platforms/ctyuncoding"
 	cucloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/cucloud_coding"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
 	jdcoding "github.com/RenaLio/tudou/pkg/provider/platforms/jd_coding"
@@ -440,6 +441,8 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 		return baiducoding.NewClient(httpc, baseURL, apiKey)
 	case cucloudcoding.PlatformId:
 		return cucloudcoding.NewClient(httpc, baseURL, apiKey)
+	case ctyuncoding.PlatformId:
+		return ctyuncoding.NewClient(httpc, baseURL, apiKey)
 	case jdcoding.PlatformId:
 		return jdcoding.NewClient(httpc, baseURL, apiKey)
 	case alibabacodingplancn.PlatformId:
