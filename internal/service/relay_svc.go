@@ -255,13 +255,19 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 						RequestFormat: string(metrics.Format),
 					},
 				}
+				if metrics.ProcessingError != nil {
+					reqLog.ErrorMsg = metrics.ProcessingError.Error()
+				}
 				reqFormat := metrics.Extra[constant.RequestFormatKey]
 				if reqFormatStr, ok := reqFormat.(ptypes.Format); ok {
 					reqLog.ProviderDetail.TransFormat = string(reqFormatStr)
 				}
 
 				if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-					reqLog.ErrorMsg = string(resp.RawData)
+					temp := string(resp.RawData)
+					if temp != "" {
+						reqLog.ErrorMsg = temp
+					}
 				}
 
 				headerMap := make(map[string]string)

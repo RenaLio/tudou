@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptrace"
@@ -19,6 +20,8 @@ import (
 )
 
 type UsageParse func([]byte) *types.Usage
+
+const maxProcessingErrorLen = 8 * 1024
 
 func ChatCompletionsParse(raw []byte) (*types.StreamEvent, error) {
 	cloneRaw := bytes.TrimRight(raw, "\n")
@@ -276,6 +279,16 @@ func (c *Client) executeJSONRequest(
 		usage := usageParse(data)
 		if usage != nil {
 			metrics.Usage = *usage
+		}
+		if metrics.StatusCode >= http.StatusBadRequest {
+			msg := strings.TrimSpace(string(data))
+			if msg == "" {
+				msg = http.StatusText(metrics.StatusCode)
+			}
+			if len(msg) > maxProcessingErrorLen {
+				msg = msg[:maxProcessingErrorLen]
+			}
+			metrics.ProcessingError = errors.New(msg)
 		}
 		if cb != nil {
 			cb(metrics)

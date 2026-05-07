@@ -23,8 +23,9 @@ type ResponseMetrics struct {
 
 	TTFT time.Duration `json:"TTFT"` // 首token时间
 
-	Usage Usage          `json:"usage"`
-	Extra map[string]any `json:"extra"`
+	Usage           Usage          `json:"usage"`
+	Extra           map[string]any `json:"extra"`
+	ProcessingError error          `json:"processingError"`
 }
 
 func (m *ResponseMetrics) String() string {

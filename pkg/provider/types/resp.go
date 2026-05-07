@@ -62,6 +62,7 @@ type BaseStreamIterator struct {
 	startTime    time.Time
 	isFirstToken bool
 	closeOnce    sync.Once // 确保 Close 逻辑只执行一次
+	recvErr      error     // 存储Recv 方法的错误
 }
 
 // 确保 BaseStreamIterator 实现了接口 (编译期检查)
@@ -137,6 +138,7 @@ func (it *BaseStreamIterator) Recv() (*StreamEvent, error) {
 			}
 			// 网络断开、超时或其他底层错误
 			plog.Error("read stream recv error", err)
+			it.recvErr = err
 			return nil, err
 		}
 
@@ -156,6 +158,10 @@ func (it *BaseStreamIterator) Close() error {
 			it.metrics.TransferTime = it.metrics.TotalTime - it.metrics.TTFT
 		} else {
 			it.metrics.TransferTime = 0
+		}
+		if it.recvErr != nil {
+			it.metrics.Status = 2
+			it.metrics.ProcessingError = it.recvErr
 		}
 
 		// 2. 触发回调，将指标喂给负载均衡器
