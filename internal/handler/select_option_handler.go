@@ -5,6 +5,7 @@ import (
 	alibabacodingplancn "github.com/RenaLio/tudou/pkg/provider/platforms/alibaba_coding_plan_cn"
 	baiducoding "github.com/RenaLio/tudou/pkg/provider/platforms/baidu_coding"
 	codingplan "github.com/RenaLio/tudou/pkg/provider/platforms/coding_plan"
+	cucloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/cucloud_coding"
 	ecloudcoding "github.com/RenaLio/tudou/pkg/provider/platforms/ecloud_coding"
 	jdcoding "github.com/RenaLio/tudou/pkg/provider/platforms/jd_coding"
 	kimiforcoding "github.com/RenaLio/tudou/pkg/provider/platforms/kimi_for_coding"
@@ -99,6 +100,14 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Extra: map[string]any{
 					"exampleBaseUrl": baiducoding.DefaultBaseURL,
 					"paths":          baiducoding.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "CUCloud Coding",
+				Value: cucloudcoding.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": cucloudcoding.DefaultBaseURL,
+					"paths":          cucloudcoding.DefaultFormatPathMap,
 				},
 			},
 			{
