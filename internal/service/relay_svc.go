@@ -31,6 +31,7 @@ import (
 	relaystation "github.com/RenaLio/tudou/pkg/provider/platforms/relay_station"
 	scnetcoding "github.com/RenaLio/tudou/pkg/provider/platforms/scnet_coding"
 	tencentcodingplan "github.com/RenaLio/tudou/pkg/provider/platforms/tencent_coding_plan"
+	volcenginecoding "github.com/RenaLio/tudou/pkg/provider/platforms/volcengine_coding"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 )
@@ -454,6 +455,8 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 		return kimiforcoding.NewClient(httpc, baseURL, apiKey)
 	case tencentcodingplan.PlatformId:
 		return tencentcodingplan.NewClient(httpc, baseURL, apiKey)
+	case volcenginecoding.PlatformId:
+		return volcenginecoding.NewClient(httpc, baseURL, apiKey)
 	case "coding-plan-adapter":
 		return codingplan.NewClient(httpc, baseURL, apiKey)
 	case "chat-completion":

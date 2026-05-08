@@ -16,6 +16,7 @@ import (
 	relaystation "github.com/RenaLio/tudou/pkg/provider/platforms/relay_station"
 	scnetcoding "github.com/RenaLio/tudou/pkg/provider/platforms/scnet_coding"
 	tencentcodingplan "github.com/RenaLio/tudou/pkg/provider/platforms/tencent_coding_plan"
+	volcenginecoding "github.com/RenaLio/tudou/pkg/provider/platforms/volcengine_coding"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 	"github.com/gin-gonic/gin"
 )
@@ -102,6 +103,14 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Extra: map[string]any{
 					"exampleBaseUrl": tencentcodingplan.DefaultBaseURL,
 					"paths":          tencentcodingplan.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "火山方舟Coding",
+				Value: volcenginecoding.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": volcenginecoding.DefaultBaseURL,
+					"paths":          volcenginecoding.DefaultFormatPathMap,
 				},
 			},
 			{
