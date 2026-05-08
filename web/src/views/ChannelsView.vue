@@ -194,6 +194,31 @@ function addModelMapping() {
   modelMappings.value = [...modelMappings.value, { key: '', value: '' }]
 }
 
+function addQuickMapping(model: string) {
+  const lower = model.toLowerCase()
+  if (lower === model) return
+  const exists = modelMappings.value.some(m => m.key === lower && m.value === model)
+  if (exists) return
+  modelMappings.value = [...modelMappings.value, { key: lower, value: model }]
+}
+
+const quickMappingModels = computed(() => {
+  const all = [...new Set([...selectedModels.value, ...customModels.value])]
+  return all.filter(m => {
+    const lower = m.toLowerCase()
+    if (lower === m) return false
+    return !modelMappings.value.some(mp => mp.key === lower && mp.value === m)
+  })
+})
+
+const quickMappingSearch = ref('')
+
+const filteredQuickMappingModels = computed(() => {
+  if (!quickMappingSearch.value) return quickMappingModels.value
+  const q = quickMappingSearch.value.toLowerCase()
+  return quickMappingModels.value.filter(m => m.toLowerCase().includes(q))
+})
+
 function removeModelMapping(index: number) {
   modelMappings.value = [...modelMappings.value.slice(0, index), ...modelMappings.value.slice(index + 1)]
 }
@@ -1142,6 +1167,33 @@ onMounted(() => {
                           <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
                       </AppButton>
+                    </div>
+                    <div v-if="quickMappingModels.length > 0" class="flex flex-col gap-2 pt-1">
+                      <div class="flex items-center gap-2">
+                        <span class="text-[11px] text-text-muted shrink-0">快捷添加:</span>
+                        <input
+                          v-model="quickMappingSearch"
+                          type="text"
+                          placeholder="搜索模型..."
+                          class="flex-1 max-w-[200px] px-2 py-1 bg-bg-primary text-text-primary placeholder:text-text-muted/50 border border-border/60 rounded-md text-[11px] font-mono transition-all duration-200 focus:outline-none focus:border-primary/40"
+                        />
+                        <span class="text-[10px] text-text-muted/50">{{ filteredQuickMappingModels.length }}/{{ quickMappingModels.length }}</span>
+                      </div>
+                      <div class="flex flex-wrap gap-1.5">
+                        <button
+                          v-for="model in filteredQuickMappingModels"
+                          :key="'quick-' + model"
+                        type="button"
+                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono cursor-pointer transition-all duration-200 border border-dashed border-primary/30 text-primary/70 bg-primary/5 hover:border-primary/60 hover:bg-primary/10 hover:text-primary active:scale-[0.96]"
+                        @click="addQuickMapping(model)"
+                      >
+                        <span class="text-text-muted">{{ model.toLowerCase() }}</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-text-muted/60">
+                          <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                        <span>{{ model }}</span>
+                      </button>
+                      </div>
                     </div>
                     <AppButton
                       variant="secondary"
