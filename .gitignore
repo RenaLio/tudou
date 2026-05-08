@@ -47,6 +47,7 @@ docs/
 .trellis/tasks/**
 
 ### Local agent runtime directories
+.agents/
 .claude/
 .cursor/
 .codex/
