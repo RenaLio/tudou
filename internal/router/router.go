@@ -70,5 +70,11 @@ func RegisterHTTPRoutes(engine *gin.Engine, deps *Deps) error {
 	v1Group.Use(middleware.RequireToken(deps.TokenService))
 	deps.RelayHandler.RegisterRoutes(v1Group)
 
+	// Root-level /models route (same auth as /v1/models)
+	rootGroup := engine.Group("")
+	rootGroup.Use(middleware.RequestID(deps.Logger))
+	rootGroup.Use(middleware.RequireToken(deps.TokenService))
+	rootGroup.GET("/models", deps.RelayHandler.TokenModels)
+
 	return nil
 }
