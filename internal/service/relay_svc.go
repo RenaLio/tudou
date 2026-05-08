@@ -36,8 +36,6 @@ import (
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 )
 
-const maxRetry = 3
-
 type RelayService struct {
 	lb          loadbalancer.LoadBalancer
 	collector   loadbalancer.MetricsCollector
@@ -128,6 +126,8 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 		return nil, loadbalancer.ErrNoAvailableChannel
 	}
 
+	retryLimit := calcRetryLimit(len(candidates))
+
 	var lastResp *ptypes.Response
 	var lastErr error
 	var retryTrace []models.RetryDetail
@@ -143,7 +143,7 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 	}
 
 	for i, candidate := range candidates {
-		if i >= maxRetry {
+		if i >= retryLimit {
 			break
 		}
 		select {
@@ -215,7 +215,7 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 
 			// 成功 || 达到最大重试次数 || 没有后继候选
 			// - 记录日志
-			if metrics.Status == 1 || i >= maxRetry-1 || i == len(candidates)-1 {
+			if metrics.Status == 1 || i >= retryLimit-1 || i == len(candidates)-1 {
 				hasLogged = true
 				status := models.RequestStatusSuccess
 				if metrics.Status != 1 {
@@ -323,7 +323,7 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 				StatusCode:    -1,
 				StatusBody:    execErr.Error(),
 			}
-			if !hasLogged && (i >= maxRetry-1 || i == len(candidates)-1) {
+			if !hasLogged && (i >= retryLimit-1 || i == len(candidates)-1) {
 				if err := s.logFinalExecuteError(ctx, meta, model, candidate, curUpstreamModel, rawHeader, retryTrace, execErr, prov, req.IsStream); err != nil {
 					plog.Error("create fallback request log error:", err)
 				}
@@ -425,6 +425,20 @@ func (s *RelayService) logFinalExecuteError(
 	}
 	reqLog.ProviderDetail.TransFormat = string(meta.Format)
 	return s.requestLog.CreateAsync(ctx, &reqLog)
+}
+
+const retryMin = 3
+const retryMax = 8
+
+func calcRetryLimit(n int) int {
+	limit := n / 3
+	if limit < retryMin {
+		limit = retryMin
+	}
+	if limit > retryMax {
+		limit = retryMax
+	}
+	return limit
 }
 
 func buildProvider(platform string, baseURL string, apiKey string, httpc *http.Client) provider.Provider {
