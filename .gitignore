@@ -40,9 +40,8 @@ docs/
 *.tar
 
 
-.trellis/
-
 ### Local agent runtime directories
+.trellis/
 .agents/
 .claude/
 .cursor/
