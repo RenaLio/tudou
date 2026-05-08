@@ -40,11 +40,7 @@ docs/
 *.tar
 
 
-### Trellis runtime artifacts (ignore)
-.trellis/workspace/
-.trellis/workspace/**
-.trellis/tasks/
-.trellis/tasks/**
+.trellis/
 
 ### Local agent runtime directories
 .agents/
