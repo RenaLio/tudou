@@ -14,6 +14,7 @@ import (
 	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	relaystation "github.com/RenaLio/tudou/pkg/provider/platforms/relay_station"
+	scnetcoding "github.com/RenaLio/tudou/pkg/provider/platforms/scnet_coding"
 	tencentcodingplan "github.com/RenaLio/tudou/pkg/provider/platforms/tencent_coding_plan"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 	"github.com/gin-gonic/gin"
@@ -85,6 +86,14 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Extra: map[string]any{
 					"exampleBaseUrl": kimiforcoding.DefaultBaseURL,
 					"paths":          kimiforcoding.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "国家超算Coding",
+				Value: scnetcoding.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": scnetcoding.DefaultBaseURL,
+					"paths":          scnetcoding.DefaultFormatPathMap,
 				},
 			},
 			{

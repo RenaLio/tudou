@@ -43,26 +43,28 @@ tudou/
 ## Tech Stack
 
 **Backend**
+
 - Go 1.26 + Gin + GORM + Wire (DI)
 - SQLite (default) / MySQL / PostgreSQL
 - Viper (config), Zap (logging), Snowflake (ID generation)
 - BigCache (in-memory cache)
 
 **Frontend**
+
 - Vue 3 + TypeScript + Vite + Tailwind CSS v4
 - Pinia (state) + @tanstack/vue-query (server state caching)
 - echarts (charts), reka-ui (headless UI primitives)
 
 ## Core Concepts
 
-| Concept | Description |
-|---|---|
-| **Channel** | Upstream LLM provider (base_url + api_key + type). Supports model lists, custom model mappings, and price rate multiplier. |
-| **ChannelGroup** | Group of channels. Tokens bind to groups; load balancing strategy is shared across channels in a group. |
-| **Token** | Relay API access token. Bound to a user and channel group. Supports usage limits, expiration, and strategy override. |
-| **User** | Admin dashboard user (JWT auth). Default: admin/admin. |
-| **AIModel** | Model definition + pricing info (per-token / per-request, with 200K context threshold pricing). |
-| **RequestLog** | Request log capturing full metrics per relay call (TTFT, TPS, token usage, cost, retry chain). |
+| Concept          | Description                                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Channel**      | Upstream LLM provider (base_url + api_key + type). Supports model lists, custom model mappings, and price rate multiplier. |
+| **ChannelGroup** | Group of channels. Tokens bind to groups; load balancing strategy is shared across channels in a group.                    |
+| **Token**        | Relay API access token. Bound to a user and channel group. Supports usage limits, expiration, and strategy override.       |
+| **User**         | Admin dashboard user (JWT auth). Default: admin/admin.                                                                     |
+| **AIModel**      | Model definition + pricing info (per-token / per-request, with 200K context threshold pricing).                            |
+| **RequestLog**   | Request log capturing full metrics per relay call (TTFT, TPS, token usage, cost, retry chain).                             |
 
 ## Relay Request Flow
 
@@ -90,6 +92,7 @@ Weighted scoring based on real-time metrics (success rate, TTFT, TPS, weight, co
 ## API Routes
 
 **Management API** (`/api/v1/...`, JWT auth)
+
 - `/api/v1/user/login`, `/api/v1/user/register` — Auth (public)
 - `/api/v1/channels`, `/api/v1/channel-groups`, `/api/v1/tokens`, `/api/v1/models` — CRUD
 - `/api/v1/stats/...` — Usage statistics
@@ -97,6 +100,7 @@ Weighted scoring based on real-time metrics (success rate, TTFT, TPS, weight, co
 - `/api/v1/system-config` — System config
 
 **Relay API** (`/v1/...`, Token auth)
+
 - `POST /v1/chat/completions` — OpenAI Chat Completions
 - `POST /v1/messages` — Claude Messages
 - `POST /v1/embeddings` — OpenAI Embeddings

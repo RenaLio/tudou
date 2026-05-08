@@ -29,6 +29,7 @@ import (
 	minimaxcoding "github.com/RenaLio/tudou/pkg/provider/platforms/minimax_coding"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	relaystation "github.com/RenaLio/tudou/pkg/provider/platforms/relay_station"
+	scnetcoding "github.com/RenaLio/tudou/pkg/provider/platforms/scnet_coding"
 	tencentcodingplan "github.com/RenaLio/tudou/pkg/provider/platforms/tencent_coding_plan"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
@@ -437,6 +438,8 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 		return minimaxcoding.NewClient(httpc, baseURL, apiKey)
 	case relaystation.PlatformId:
 		return relaystation.NewClient(httpc, baseURL, apiKey)
+	case scnetcoding.PlatformId:
+		return scnetcoding.NewClient(httpc, baseURL, apiKey)
 	case baiducoding.PlatformId:
 		return baiducoding.NewClient(httpc, baseURL, apiKey)
 	case cucloudcoding.PlatformId:

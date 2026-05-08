@@ -13,8 +13,8 @@ const PlatformId = "coding-plan-adapter"
 const DefaultBaseURL = "https://api.example.com/v1"
 
 var DefaultFormatPathMap = map[types.Format]string{
-	types.FormatChatCompletion:  "/chat/completions",
-	types.AbilityClaudeMessages: "/messages",
+	types.FormatChatCompletion: "/chat/completions",
+	types.FormatClaudeMessages: "/messages",
 }
 
 type Client struct {
