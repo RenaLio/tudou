@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useClipboard } from '@vueuse/core'
 import dayjs from 'dayjs'
 import {
   TooltipProvider,
@@ -16,7 +17,6 @@ import {
   deleteToken,
   setTokenStatus,
   formatToken,
-  copyToClipboard,
   TOKEN_STATUS_LABELS,
   type CreateTokenRequest,
   type UpdateTokenRequest,
@@ -96,7 +96,8 @@ const newlyCreatedToken = ref<string>('')
 const deletingToken = ref<TokenWithRelations | null>(null)
 const deleteLoading = ref(false)
 
-// Copy feedback
+// Copy
+const { copy, copied } = useClipboard()
 const copiedTokenId = ref<string | null>(null)
 
 // Form data
@@ -250,13 +251,11 @@ async function handleDelete() {
 }
 
 async function handleCopyToken(token: TokenWithRelations) {
-  const success = await copyToClipboard(token.token)
-  if (success) {
-    copiedTokenId.value = token.id
-    setTimeout(() => {
-      copiedTokenId.value = null
-    }, 2000)
-  }
+  await copy(token.token)
+  copiedTokenId.value = token.id
+  setTimeout(() => {
+    copiedTokenId.value = null
+  }, 2000)
 }
 
 function handleSearch() {
@@ -523,7 +522,7 @@ onMounted(() => {
           <p class="text-[13px] text-text-secondary mb-2">请立即复制保存，此令牌仅显示一次：</p>
           <div class="flex items-center gap-2 p-3 bg-bg-card rounded-md border border-border">
             <code class="flex-1 font-mono text-sm text-text-primary break-all">{{ newlyCreatedToken }}</code>
-            <AppButton variant="primary" size="sm" @click="copyToClipboard(newlyCreatedToken)">复制</AppButton>
+            <AppButton variant="primary" size="sm" @click="copy(newlyCreatedToken)">复制</AppButton>
           </div>
         </div>
       </div>

@@ -100,12 +100,3 @@ export function formatToken(token: string,): string {
   return `${token.slice(0, 8,)}...${token.slice(-4,)}`;
 }
 
-// Copy to clipboard
-export async function copyToClipboard(text: string,): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text,);
-    return true;
-  } catch {
-    return false;
-  }
-}
