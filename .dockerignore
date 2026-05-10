@@ -60,7 +60,10 @@ docker-compose*.yml
 docker-compose*.yaml
 compose*.yml
 compose*.yaml
+docker-bake.hcl
+docker-bake.example.hcl
 LICENSE
+README.md
 
 # =============================================================================
 # 前端 (web/) 处理

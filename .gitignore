@@ -39,6 +39,10 @@ bin/
 *.tar
 
 
+### Docker
+# docker-bake.hcl may contain private registry config
+docker-bake.hcl
+
 ### Local agent runtime directories
 .trellis/
 .agents/
