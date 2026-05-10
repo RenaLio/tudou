@@ -41,6 +41,9 @@ func NewHttpServer(deps *router.Deps) *http.Server {
 
 	engine := gin.New()
 	engine.Use(gin.Logger(), gin.Recovery(), middleware.CORS())
+	if deps.Conf.Http.Gzip.Enabled {
+		engine.Use(middleware.Gzip(deps.Conf.Http.Gzip.Level))
+	}
 
 	s := http.NewServer(
 		engine,

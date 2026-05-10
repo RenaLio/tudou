@@ -7,8 +7,22 @@ type Config struct {
 		DB      bool `mapstructure:"db"`
 	} `mapstructure:"debug"`
 	Http struct {
-		Host string `mapstructure:"host"`
-		Port int    `mapstructure:"port"`
+		Host      string `mapstructure:"host"`
+		Port      int    `mapstructure:"port"`
+		RateLimit struct {
+			Enabled       bool    `mapstructure:"enabled"`
+			GlobalEnabled bool    `mapstructure:"global_enabled"`
+			GlobalRPS     float64 `mapstructure:"global_rps"`
+			GlobalBurst   int     `mapstructure:"global_burst"`
+			IPEnabled     bool    `mapstructure:"ip_enabled"`
+			IPRPS         float64 `mapstructure:"ip_rps"`
+			IPBurst       int     `mapstructure:"ip_burst"`
+			IPTTLMinutes  int     `mapstructure:"ip_ttl_minutes"`
+		} `mapstructure:"rate_limit"`
+		Gzip struct {
+			Enabled bool `mapstructure:"enabled"`
+			Level   int  `mapstructure:"level"`
+		} `mapstructure:"gzip"`
 	} `mapstructure:"http"`
 	Security struct {
 		JWT struct {
