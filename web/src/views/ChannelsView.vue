@@ -608,13 +608,42 @@ onMounted(() => {
               </span>
             </td>
             <td class="px-4 py-4 border-b border-border align-middle">
-              <AppBadge
-                :variant="channel.status === 'enabled' ? 'success' : channel.status === 'disabled' ? 'warning' : 'danger'"
-                size="md"
-                pulse
-              >
-                {{ CHANNEL_STATUS_LABELS[channel.status]?.label }}
-              </AppBadge>
+              <div class="flex items-center gap-1.5">
+                <AppBadge
+                  :variant="channel.status === 'enabled' ? 'success' : channel.status === 'disabled' ? 'warning' : 'danger'"
+                  size="md"
+                  pulse
+                >
+                  {{ CHANNEL_STATUS_LABELS[channel.status]?.label }}
+                </AppBadge>
+                <TooltipRoot v-if="channel.stats?.lastStatusCode">
+                  <TooltipTrigger as-child>
+                    <span
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold cursor-help"
+                      :class="channel.stats.lastStatusCode.startsWith('2') ? 'bg-success/10 text-success' : channel.stats.lastStatusCode.startsWith('4') ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'"
+                    >{{ channel.stats.lastStatusCode }}</span>
+                  </TooltipTrigger>
+                  <TooltipPortal to="body">
+                    <TooltipContent side="bottom" class="bg-bg-secondary border border-border-hover rounded-md px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.3)] text-[0.6875rem] font-mono text-text-primary whitespace-nowrap">
+                      <div class="flex flex-col gap-1">
+                        <div class="flex gap-2">
+                          <span class="text-text-muted min-w-[40px]">状态</span>
+                          <span class="font-medium" :class="channel.stats.lastStatusCode.startsWith('2') ? 'text-success' : channel.stats.lastStatusCode.startsWith('4') ? 'text-warning' : 'text-danger'">{{ channel.stats.lastStatusCode }}</span>
+                        </div>
+                        <div v-if="channel.stats.lastErrorMessage" class="flex gap-2">
+                          <span class="text-text-muted min-w-[40px]">错误</span>
+                          <span class="font-medium text-danger max-w-[280px] truncate" :title="channel.stats.lastErrorMessage">{{ channel.stats.lastErrorMessage }}</span>
+                        </div>
+                        <div v-if="channel.stats.lastRequestAt" class="flex gap-2">
+                          <span class="text-text-muted min-w-[40px]">时间</span>
+                          <span class="font-medium">{{ dayjs(channel.stats.lastRequestAt).format('MM-DD HH:mm:ss') }}</span>
+                        </div>
+                      </div>
+                      <TooltipArrow class="fill-bg-secondary" />
+                    </TooltipContent>
+                  </TooltipPortal>
+                </TooltipRoot>
+              </div>
             </td>
             <td class="px-4 py-4 border-b border-border align-middle">
               <span class="text-sm text-text-secondary">{{ channel.weight }}</span>

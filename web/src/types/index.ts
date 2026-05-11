@@ -147,6 +147,9 @@ export interface ChannelStats {
   totalCost: number;
   avgTTFT: number;
   avgTPS: number;
+  lastStatusCode: string;
+  lastErrorMessage: string;
+  lastRequestAt: string | null;
   window3h?: ObservationWindow3H;
 }
 

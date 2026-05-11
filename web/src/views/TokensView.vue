@@ -97,7 +97,7 @@ const deletingToken = ref<TokenWithRelations | null>(null)
 const deleteLoading = ref(false)
 
 // Copy
-const { copy, copied } = useClipboard()
+const { copy, copied } = useClipboard({ legacy: true })
 const copiedTokenId = ref<string | null>(null)
 
 // Form data
