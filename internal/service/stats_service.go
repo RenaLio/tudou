@@ -485,6 +485,9 @@ func toChannelStatsResponse(stats *models.ChannelStats) v1.ChannelStatsResponse 
 		TotalCost:                 models.MoneyMicrosToFloat(stats.TotalCostMicros),
 		AvgTTFT:                   stats.AvgTTFT,
 		AvgTPS:                    stats.AvgTPS,
+		LastStatusCode:            stats.LastStatusCode,
+		LastErrorMessage:          stats.LastErrorMessage,
+		LastRequestAt:             stats.LastRequestAt,
 		Window3H:                  toObservationWindow3HResponse(stats.Window3H),
 	}
 }

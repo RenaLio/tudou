@@ -29,6 +29,9 @@ type ChannelStatsResponse struct {
 	TotalCost                 float64                     `json:"totalCost"`
 	AvgTTFT                   int                         `json:"avgTTFT"`
 	AvgTPS                    float64                     `json:"avgTPS"`
+	LastStatusCode            string                      `json:"lastStatusCode"`
+	LastErrorMessage          string                      `json:"lastErrorMessage"`
+	LastRequestAt             *time.Time                  `json:"lastRequestAt,omitempty"`
 	Window3H                  ObservationWindow3HResponse `json:"window3h"`
 }
 

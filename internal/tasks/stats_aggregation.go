@@ -122,6 +122,23 @@ type channelModelKey struct {
 	model     string
 }
 
+// lastRequestInfo 记录渠道最近一次请求的状态信息。
+type lastRequestInfo struct {
+	statusCode   string
+	errorMessage string
+	requestAt    time.Time
+}
+
+const maxErrorMsgLen = 500
+
+func truncateErrorMsg(s string) string {
+	runes := []rune(s)
+	if len(runes) <= maxErrorMsgLen {
+		return s
+	}
+	return string(runes[:maxErrorMsgLen])
+}
+
 // dailyKey 用作映射键，组合用户 ID 与日期字符串。
 type dailyKey struct {
 	userID int64
@@ -146,6 +163,7 @@ type aggregationSnapshot struct {
 
 	channelCounterMap      map[int64]*statsCounter           // 渠道 ID -> 计数器（用于后续合并计算）
 	channelModelCounterMap map[channelModelKey]*statsCounter // 渠道模型键 -> 计数器
+	channelLastRequestMap  map[int64]*lastRequestInfo        // 渠道 ID -> 最新请求信息
 }
 
 // aggregateRequestLogs 从一批请求日志中聚合生成所有维度的统计快照。
@@ -154,6 +172,7 @@ func aggregateRequestLogs(logs []*models.RequestLog, nextID func() int64) *aggre
 	// 初始化各类存储 map，用于存放最终统计记录和对应的累加器
 	channelStatsMap := make(map[int64]*models.ChannelStats)
 	channelCounterMap := make(map[int64]*statsCounter)
+	channelLastRequestMap := make(map[int64]*lastRequestInfo)
 
 	channelModelStatsMap := make(map[channelModelKey]*models.ChannelModelStats)
 	channelModelCounterMap := make(map[channelModelKey]*statsCounter)
@@ -191,6 +210,14 @@ func aggregateRequestLogs(logs []*models.RequestLog, nextID func() int64) *aggre
 			}
 			// 将当前日志累加到对应计数器
 			channelCounterMap[item.ChannelID].add(item)
+			// 记录该渠道最近一次请求的状态信息
+			if lr, ok := channelLastRequestMap[item.ChannelID]; !ok || item.CreatedAt.After(lr.requestAt) {
+				channelLastRequestMap[item.ChannelID] = &lastRequestInfo{
+					statusCode:   strings.TrimSpace(item.ErrorCode),
+					errorMessage: truncateErrorMsg(item.ErrorMsg),
+					requestAt:    item.CreatedAt,
+				}
+			}
 		}
 
 		// 按渠道-模型维度聚合
@@ -292,6 +319,11 @@ func aggregateRequestLogs(logs []*models.RequestLog, nextID func() int64) *aggre
 		stats.AvgTTFT = channelCounterMap[id].avgTTFT()
 		// 渠道级吞吐按“传输耗时 + 成功请求固定调度开销(1s/次)”计算，避免跨模型聚合时过高估计
 		stats.AvgTPS = channelCounterMap[id].avgTPSWithSuccessOverhead(1000)
+		if lr, ok := channelLastRequestMap[id]; ok {
+			stats.LastStatusCode = lr.statusCode
+			stats.LastErrorMessage = lr.errorMessage
+			stats.LastRequestAt = &lr.requestAt
+		}
 	}
 
 	// 渠道-模型统计
@@ -371,6 +403,7 @@ func aggregateRequestLogs(logs []*models.RequestLog, nextID func() int64) *aggre
 		UserUsageHourlyStats:   mapValues(hourlyStatsMap),
 		channelCounterMap:      channelCounterMap,
 		channelModelCounterMap: channelModelCounterMap,
+		channelLastRequestMap:  channelLastRequestMap,
 	}
 }
 
@@ -1015,6 +1048,14 @@ func (t *StatsAggregationTask) mergeChannelStats(ctx context.Context, delta *mod
 	existing.AvgTTFT = mergeAvgInt(oldAvgTTFT, oldSuccess, delta.AvgTTFT, deltaCounter.requestSuccess)
 	deltaTransfer := float64(deltaCounter.transferTimeSum + deltaCounter.requestSuccess*1000)
 	existing.AvgTPS = mergeAvgTPS(oldOutput, oldAvgTPS, delta.OutputToken, deltaTransfer)
+
+	if delta.LastRequestAt != nil {
+		if existing.LastRequestAt == nil || delta.LastRequestAt.After(*existing.LastRequestAt) {
+			existing.LastStatusCode = delta.LastStatusCode
+			existing.LastErrorMessage = delta.LastErrorMessage
+			existing.LastRequestAt = delta.LastRequestAt
+		}
+	}
 
 	return existing, nil
 }

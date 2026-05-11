@@ -56,6 +56,9 @@ func (r *channelStatsRepo) Upsert(ctx context.Context, stats *models.ChannelStat
 			"total_cost_micros",
 			"avg_ttft",
 			"avg_tps",
+			"last_status_code",
+			"last_error_message",
+			"last_request_at",
 			"window_3h",
 		}),
 	}).Create(stats).Error

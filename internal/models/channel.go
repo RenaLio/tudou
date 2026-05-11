@@ -171,6 +171,9 @@ type ChannelStats struct {
 	TotalCostMicros           int64               `gorm:"column:total_cost_micros;type:bigint;default:0;comment:总成本，单位 micros" json:"totalCostMicros"`
 	AvgTTFT                   int                 `gorm:"column:avg_ttft;type:int;default:0;comment:平均首字延迟(ms)" json:"avgTTFT"`
 	AvgTPS                    float64             `gorm:"column:avg_tps;type:decimal(8,2);default:0;comment:平均每秒吐字" json:"avgTPS"`
+	LastStatusCode            string              `gorm:"column:last_status_code;type:varchar(64);default:'';comment:最近请求状态码(原始字符串)" json:"lastStatusCode"`
+	LastErrorMessage          string              `gorm:"column:last_error_message;type:text;comment:最近请求错误信息" json:"lastErrorMessage"`
+	LastRequestAt             *time.Time          `gorm:"column:last_request_at;comment:最近请求时间" json:"lastRequestAt,omitempty"`
 	Window3H                  ObservationWindow3H `gorm:"column:window_3h;type:json" json:"window3h"`
 }
 
