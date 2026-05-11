@@ -51,4 +51,5 @@ docker-bake.hcl
 .codex/
 .opencode/
 .pi/
+.pi-lens/
 

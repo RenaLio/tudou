@@ -145,9 +145,8 @@ func BuildApp(*config.Config, *log.Logger) (*app.App, func(), error) {
 func InitApp(*config.Config, *log.Logger) error {
 	panic(wire.Build(
 		repositorySet,
-		depsSet,
-		serviceSet,
 		serverSet,
+		sid.NewSid,
 		start.InitApp,
 	))
 }

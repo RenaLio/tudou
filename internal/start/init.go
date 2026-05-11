@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/loadbalancer"
 	"github.com/RenaLio/tudou/internal/models"
+	"github.com/RenaLio/tudou/internal/pkg/sid"
 	"github.com/RenaLio/tudou/internal/repository"
 	"github.com/RenaLio/tudou/internal/server"
-	"github.com/RenaLio/tudou/internal/service"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -21,7 +21,7 @@ const (
 	lbRegistryWarmupLimit  = 256
 )
 
-func InitApp(m *server.Migrate, userService service.UserService, channelGroupService service.ChannelGroupService) error {
+func InitApp(m *server.Migrate, userRepo repository.UserRepo, channelGroupRepo repository.ChannelGroupRepo, s *sid.Sid) error {
 	ctx := context.Background()
 	if err := m.Start(ctx); err != nil {
 		return err
@@ -29,21 +29,24 @@ func InitApp(m *server.Migrate, userService service.UserService, channelGroupSer
 
 	// 初始化默认用户
 	const adminUsername = "admin"
-	_, err := userService.GetByUsername(ctx, adminUsername)
+	_, err := userRepo.GetByUsername(ctx, adminUsername)
 	if err == nil {
 		// admin 用户已存在，跳过创建
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
-		role := models.UserRoleAdmin
-		status := models.UserStatusEnabled
-		_, err = userService.Create(ctx, v1.CreateUserRequest{
+		hash, hashErr := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+		if hashErr != nil {
+			return hashErr
+		}
+		user := &models.User{
+			ID:       s.GenInt64(),
 			Username: adminUsername,
-			Password: "admin",
-			Role:     &role,
-			Status:   &status,
+			Password: string(hash),
+			Role:     models.UserRoleAdmin,
+			Status:   models.UserStatusEnabled,
 			Nickname: adminUsername,
-		})
-		if err != nil {
-			return err
+		}
+		if createErr := userRepo.Create(ctx, user); createErr != nil {
+			return createErr
 		}
 	} else {
 		return err
@@ -51,7 +54,7 @@ func InitApp(m *server.Migrate, userService service.UserService, channelGroupSer
 
 	// 初始化默认分组
 	const defaultGroupName = "default"
-	_, err = channelGroupService.GetByName(ctx, defaultGroupName)
+	_, err = channelGroupRepo.GetByName(ctx, defaultGroupName)
 	if err == nil {
 		// default 分组已存在，跳过创建
 		return nil
@@ -60,19 +63,24 @@ func InitApp(m *server.Migrate, userService service.UserService, channelGroupSer
 		return err
 	}
 
-	strategy := models.LoadBalanceStrategyWeighted
-	_, err = channelGroupService.Create(ctx, v1.CreateChannelGroupRequest{
+	group := &models.ChannelGroup{
+		ID:                  s.GenInt64(),
 		Name:                defaultGroupName,
 		NameRemark:          "默认分组",
-		LoadBalanceStrategy: &strategy,
-	})
-	return err
+		LoadBalanceStrategy: models.LoadBalanceStrategyWeighted,
+	}
+	return channelGroupRepo.Create(ctx, group)
 }
 
 func InitLBRegistry(db *gorm.DB, groupRepo repository.ChannelGroupRepo) *loadbalancer.Registry {
 	registry := loadbalancer.NewRegistry()
 	ctx := context.Background()
-	// loading channels and groups
+	// On a fresh database the tables may not exist yet (migration runs later);
+	// return an empty registry so the app can finish migration and start.
+	if !hasTable(db, ctx, "channels") || !hasTable(db, ctx, "channel_groups") || !hasTable(db, ctx, "request_logs") {
+		return registry
+	}
+
 	var channels []*models.Channel
 	if err := db.WithContext(ctx).Find(&channels).Error; err != nil {
 		panic(err)
@@ -106,6 +114,12 @@ func InitLBRegistry(db *gorm.DB, groupRepo repository.ChannelGroupRepo) *loadbal
 	replayRequestLogsToRegistry(registry, recentLogs)
 
 	return registry
+}
+
+// hasTable checks whether a table exists in the database. Used to guard
+// InitLBRegistry queries on a fresh database before migration runs.
+func hasTable(db *gorm.DB, ctx context.Context, table string) bool {
+	return db.WithContext(ctx).Migrator().HasTable(table)
 }
 
 func replayRequestLogsToRegistry(registry *loadbalancer.Registry, logs []*models.RequestLog) {

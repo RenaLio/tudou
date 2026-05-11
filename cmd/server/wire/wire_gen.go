@@ -107,18 +107,12 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 func InitApp(configConfig *config.Config, logger *log.Logger) error {
 	db := repository.NewDB(configConfig, logger)
 	migrate := server.NewMigrate(db, logger)
-	sidSid := sid.NewSid(configConfig)
 	jsonCache := repository.NewCache(configConfig, logger)
-	jwtJWT := jwt.NewJwt(configConfig)
+	sidSid := sid.NewSid(configConfig)
 	repositoryRepository := repository.NewRepository(logger, db, jsonCache, sidSid)
-	transaction := repository.NewTransaction(repositoryRepository)
-	serviceService := service.NewService(logger, sidSid, jsonCache, jwtJWT, transaction)
 	userRepo := repository.NewUserRepo(repositoryRepository)
-	userService := service.NewUserService(serviceService, userRepo)
 	channelGroupRepo := repository.NewChannelGroupRepo(repositoryRepository)
-	registry := start.InitLBRegistry(db, channelGroupRepo)
-	channelGroupService := service.NewChannelGroupService(serviceService, channelGroupRepo, registry)
-	error2 := start.InitApp(migrate, userService, channelGroupService)
+	error2 := start.InitApp(migrate, userRepo, channelGroupRepo, sidSid)
 	return error2
 }
 
