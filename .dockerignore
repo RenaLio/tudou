@@ -68,15 +68,12 @@ README.md
 # =============================================================================
 # 前端 (web/) 处理
 # =============================================================================
-# 注意:web/fs.go 使用 //go:embed dist,Go 编译时会读取 web/dist/。
-# 因此 web/dist/ 不能排除。当前策略假定构建镜像前你已在本地执行过 `bun run build`。
-#
-# 若以后在 Dockerfile 中新增前端构建阶段(node/bun build),
-# 把下面这行的注释去掉,排除本地构建产物以避免污染:
-# web/dist/
+# 前端在 Docker 内通过 bun 构建,本地 node_modules 和 dist 不进镜像。
+# bun.lock 需要保留,供 bun install --frozen-lockfile 使用。
 # =============================================================================
 
 web/node_modules/
+web/dist/
 web/.vscode/
 web/.editorconfig
 web/.gitignore
@@ -87,7 +84,6 @@ web/CLAUDE.md
 web/README.md
 web/eslint.config.ts
 web/dprint.json
-web/bun.lock
 web/env.d.ts
 web/.vite/
 web/coverage/

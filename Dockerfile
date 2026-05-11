@@ -1,5 +1,16 @@
 # ============================================================================
-# Builder stage
+# Frontend build
+# ============================================================================
+FROM oven/bun:1-alpine AS frontend
+
+WORKDIR /build/web
+COPY web/package.json web/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY web/ .
+RUN bun run build
+
+# ============================================================================
+# Go build
 # ============================================================================
 # 关键:--platform=$BUILDPLATFORM 让 builder 用宿主机原生架构运行,
 # 不被 QEMU 模拟拖慢。Go 工具链本身支持交叉编译,通过下面的
@@ -22,10 +33,6 @@ ENV CGO_ENABLED=0 \
     GOPROXY=${GOPROXY} \
     GOSUMDB=sum.golang.org
 
-# 诊断:打印构建时实际拿到的目标平台。
-# 构建日志里这一行如果显示 "linux/amd64" 而你期望 arm64,说明 buildx 没传 --platform
-#RUN echo ">>> Building for $(go env GOOS)/$(go env GOARCH)"
-
 WORKDIR /build
 
 # 优先复制依赖描述,利用层缓存
@@ -33,10 +40,15 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-# 复制源码并构建静态二进制
+# 复制源码
+COPY . .
+
+# 从 frontend stage 拷贝构建产物到 web/dist,供 //go:embed 使用
+COPY --from=frontend /build/web/dist /build/web/dist
+
+# 构建静态二进制
 # - SQLite 使用 modernc.org/sqlite 纯 Go 实现,无需 CGO
 # - -trimpath 让构建可重现; -s -w 去除调试符号缩小体积
-COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
@@ -51,10 +63,6 @@ FROM alpine:3.20
 # - tzdata:        不在镜像里写死时区,留给 compose 通过 TZ 环境变量配置
 RUN apk add --no-cache ca-certificates tzdata
 
-# 创建非 root 用户(UID/GID 1000,与 compose volume 挂载权限一致)
-RUN addgroup -g 1000 appgroup && \
-    adduser -u 1000 -G appgroup -D -H -s /sbin/nologin appuser
-
 WORKDIR /app
 
 # 拷贝二进制与默认配置(运行时配置可由 compose 通过 volume 覆盖)
@@ -62,10 +70,7 @@ COPY --from=builder /out/server       /app/server
 COPY --from=builder /build/config     /app/config
 
 # 预创建数据/日志目录;真实数据预期由 compose 挂载 volume 接管
-RUN mkdir -p /app/storage/logs && \
-    chown -R appuser:appgroup /app
-
-USER appuser:appgroup
+RUN mkdir -p /app/storage/logs
 
 EXPOSE 8080
 
