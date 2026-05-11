@@ -16,11 +16,11 @@ tudou/
 │   ├── constants/           # Constants (context keys, etc.)
 │   ├── handler/             # HTTP handlers (Gin)
 │   ├── helpers/             # Request body parsing helpers
-│   ├── loadbalancer/        # Load balancer (multi-strategy, async metrics)
-│   ├── middleware/           # Auth middleware (JWT + Token)
+│   ├── loadbalancer/        # Load balancer (multi-strategy, circuit breaker, async metrics)
+│   ├── middleware/           # Auth (JWT + Token), rate limiter, gzip, CORS, request tracing
 │   ├── models/              # Domain models (GORM)
 │   ├── pkg/                 # Internal shared libs (log, jwt, sid, http server, app)
-│   ├── repository/          # Data access layer (GORM + transaction management)
+│   ├── repository/          # Data access layer (GORM + BigCache + transaction management)
 │   ├── router/              # Route registration
 │   ├── server/              # HTTP server init + DB migration
 │   ├── service/             # Business logic layer
@@ -32,8 +32,8 @@ tudou/
 │   ├── cache/               # JSON cache (BigCache)
 │   ├── httpclient/          # HTTP client (supports disabling HTTP/2)
 │   ├── provider/            # Provider abstraction + multi-platform implementations
-│   │   ├── platforms/       # Per-platform LLM adapters
-│   │   ├── translator/      # Request/response format translation (OpenAI ↔ Claude ↔ Responses)
+│   │   ├── platforms/       # Per-platform LLM adapters (16 platforms)
+│   │   ├── translator/      # Request/response format translation (OpenAI <-> Claude <-> Responses)
 │   │   ├── types/           # Provider interface types
 │   │   └── plog/            # Provider logging
 │   └── timex/               # Time utilities
@@ -48,6 +48,7 @@ tudou/
 - SQLite (default) / MySQL / PostgreSQL
 - Viper (config), Zap (logging), Snowflake (ID generation)
 - BigCache (in-memory cache)
+- goccy/go-json (JSON), golang-jwt/v5 (JWT), soft_delete (soft delete plugin)
 
 **Frontend**
 
@@ -74,7 +75,7 @@ Client → /v1/chat/completions (Bearer Token)
   → RelayHandler.forward()
     → Parse body to get model name
     → LoadBalancer.Select() (rank candidates by strategy)
-    → Up to 3 retries
+    → Up to N retries (N = candidate count)
       → buildProvider() creates platform adapter
       → provider.Execute() forwards request
       → Async metrics collection (TTFT/TPS/success rate)
@@ -83,11 +84,17 @@ Client → /v1/chat/completions (Bearer Token)
   → Return stream / non-stream response
 ```
 
-## Load Balancing Strategies
+## Load Balancing
 
-`performance` (default), `random`, `ttft_first`, `tps_first`, `success_first`, `cost_first`, `weighted`, `least_conn`
+**Strategies**: `performance` (default), `random`, `ttft_first`, `tps_first`, `success_first`, `cost_first`, `weighted`, `least_conn`
 
 Weighted scoring based on real-time metrics (success rate, TTFT, TPS, weight, cost). 10% random jitter to prevent thundering herd.
+
+**Circuit Breaker**: Endpoints have 3 states (healthy / degraded / circuit-broken). After 3 consecutive failures the endpoint is circuit-broken with exponential backoff recovery (6min min, 1.5hr max). First 2 failures only degrade the score.
+
+**ScorePlugin**: Pluggable scoring middleware applied after sorting, allowing custom endpoint filtering.
+
+**Active Connection Tracking**: Each endpoint tracks `ActiveConns` via `IncConn`/`DecConn` for `least_conn` strategy.
 
 ## API Routes
 
@@ -98,6 +105,8 @@ Weighted scoring based on real-time metrics (success rate, TTFT, TPS, weight, co
 - `/api/v1/stats/...` — Usage statistics
 - `/api/v1/request-logs` — Request logs
 - `/api/v1/system-config` — System config
+- `/api/v1/debug/...` — Debug helpers
+- `/api/v1/select-options/...` — Dropdown/select options for the frontend UI
 
 **Relay API** (`/v1/...`, Token auth)
 
@@ -106,6 +115,85 @@ Weighted scoring based on real-time metrics (success rate, TTFT, TPS, weight, co
 - `POST /v1/embeddings` — OpenAI Embeddings
 - `POST /v1/responses` — OpenAI Responses
 - `GET /v1/models` — Token available model list
+
+**Root-level** (Token auth)
+
+- `GET /models` — Same as `/v1/models`, provided for compatibility with clients that expect the OpenAI-standard `/models` path
+
+## Middleware
+
+| Middleware     | Scope         | Description                                                                          |
+| -------------- | ------------- | ------------------------------------------------------------------------------------ |
+| RequestID      | API + Relay   | Injects unique request ID into context and response header                           |
+| RateLimit      | All routes    | Dual-layer token bucket: global (process-wide) + per-IP. Configurable via `http.rate_limit` |
+| Gzip           | All routes    | Response compression. Skips SSE (`text/event-stream`) responses. Configurable via `http.gzip` |
+| CORS           | All routes    | Cross-origin support                                                                 |
+| RequireAuth    | Management    | JWT token validation for admin routes                                                |
+| RequireToken   | Relay         | Bearer token validation, injects `TokenClaim` into context                           |
+
+## Repository Caching
+
+Three repositories use BigCache with dual-key caching (by ID and by name/key):
+
+- **systemConfigRepo** — caches config by ID and key. Double-delete invalidation (pre-invalidate + post-commit callback). Cache disabled inside transactions.
+- **tokenRepo** — caches tokens with `repo:token` prefix.
+- **aiModelRepo** — caches models with `repo:ai_model` prefix.
+
+All follow the same pattern: `jsoncache.Get/Set` + `invalidateXxxCacheOnCommit` for transactional safety.
+
+## Provider Platforms
+
+16 platform adapters under `pkg/provider/platforms/`:
+
+`alibaba_coding_plan_cn`, `baidu_coding`, `base`, `coding_plan`, `ctyuncoding`, `cucloud_coding`, `ecloud_coding`, `jd_coding`, `kimi_for_coding`, `mimo_coding`, `minimax_coding`, `openai`, `relay_station`, `scnet_coding`, `tencent_coding_plan`, `volcengine_coding`
+
+Format translation (`pkg/provider/translator/`): Bidirectional between OpenAI Chat Completions, OpenAI Responses, and Claude Messages. Translators are registered at init time under `builtin/`.
+
+## Config
+
+Key sections in `config/config.yaml`:
+
+```yaml
+env: dev                          # Environment (dev/prod)
+debug:
+  default: true                   # Debug mode
+  db: false                       # DB query logging
+http:
+  host: 0.0.0.0
+  port: 8080
+  rate_limit:
+    enabled: true
+    global_enabled: true
+    global_rps: 1000
+    global_burst: 2000
+    ip_enabled: true
+    ip_rps: 100
+    ip_burst: 200
+    ip_ttl_minutes: 10
+  gzip:
+    enabled: true
+    level: 5
+security:
+  jwt:
+    secret: <jwt-secret>
+  sid:
+    id: 1                         # Snowflake node ID
+data:
+  db:
+    user:
+      driver: sqlite
+      dsn: storage/tudou.db?_busy_timeout=5000&_journal_mode=WAL&_synchronous=NORMAL&_cache_size=-10000&_temp_store=MEMORY
+log:
+  log_level: debug
+  mode: both                      # console / file / both
+  file_encoding: json
+  console_encoding: console
+  log_path: "./storage/logs"
+  max_backups: 30
+  max_age: 7
+  max_size: 1024
+  compress: true
+```
 
 ## Development Commands
 
@@ -121,6 +209,9 @@ cd web && bun run build
 
 # Docker
 docker compose up -d --build
+
+# Docker buildx bake (multi-arch, private registry)
+docker buildx bake release
 
 # Regenerate Wire DI
 cd cmd/server/wire && wire
@@ -152,9 +243,9 @@ cd web && bun run lint && bun run format
 
 ## Database
 
-Default: SQLite (zero-config, file at `storage/tudou.db`). Also supports MySQL and PostgreSQL. Switch via `data.db.user` in `config/config.yaml`.
+Default: SQLite (zero-config, file at `storage/tudou.db`, WAL mode). Also supports MySQL and PostgreSQL. Switch via `data.db.user` in `config/config.yaml`.
 
 ## Background Tasks
 
-- **StatsAggregation** — Periodically aggregates request logs into statistics tables.
-- **PriceSync** — Syncs model pricing from models.dev every 12 hours.
+- **StatsAggregation** — Periodically aggregates request logs into statistics tables. Uses 3-hour observation windows with 15-minute buckets. Multi-dimensional stats (channel, channel-model, token, user, daily, hourly).
+- **PriceSync** — Syncs model pricing from models.dev every 12 hours. Supports per-model `SyncModelInfoPath` and `DisableSync` controls.
