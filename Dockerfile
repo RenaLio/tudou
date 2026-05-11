@@ -1,13 +1,13 @@
 # ============================================================================
 # Frontend build
 # ============================================================================
-FROM oven/bun:1-alpine AS frontend
+FROM oven/bun:1 AS frontend
 
 WORKDIR /build/web
 COPY web/package.json web/bun.lock ./
 RUN bun install --frozen-lockfile
 COPY web/ .
-RUN bun run build
+RUN bun run build-only
 
 # ============================================================================
 # Go build

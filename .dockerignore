@@ -78,13 +78,12 @@ web/.vscode/
 web/.editorconfig
 web/.gitignore
 web/.gitattributes
-web/.oxlintrc.json
+#web/.oxlintrc.json
 web/AGENTS.md
 web/CLAUDE.md
 web/README.md
 web/eslint.config.ts
-web/dprint.json
-web/env.d.ts
+#web/dprint.json
 web/.vite/
 web/coverage/
 web/*.tsbuildinfo

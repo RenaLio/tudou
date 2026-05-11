@@ -25,6 +25,9 @@ go.work.sum
 # env file
 .env
 
+web/node_modules/
+web/dist/
+
 
 ### dev tools
 .go_cache/
