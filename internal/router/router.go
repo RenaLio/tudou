@@ -66,7 +66,7 @@ func RegisterHTTPRoutes(engine *gin.Engine, deps *Deps) error {
 	if rateLimiter != nil {
 		apiV1Group.Use(rateLimiter)
 	}
-	//apiV1Group.Use(middleware.RequireAuth(deps.UserHandler.Service.JWT()))
+	apiV1Group.Use(middleware.RequireAuth(deps.UserHandler.Service.JWT()))
 	{
 		deps.ChannelHandler.RegisterRoutes(apiV1Group)
 		deps.ModelHandler.RegisterRoutes(apiV1Group)
