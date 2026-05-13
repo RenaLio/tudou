@@ -14,6 +14,9 @@ import (
 type Response struct {
 	// HTTP 状态码
 	StatusCode int
+
+	// 实际上游请求路径
+	RequestPath string
 	// 响应数据格式
 	Format Format
 	// 提供者

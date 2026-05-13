@@ -28,11 +28,12 @@ type RequestExtra struct {
 }
 
 type RetryDetail struct {
-	ChannelID     int64  `json:"channelID,string,omitempty"`
-	ChannelName   string `json:"channelName,omitempty"`
-	UpstreamModel string `json:"upstreamModel,omitempty"`
-	StatusCode    int    `json:"statusCode,omitempty"`
-	StatusBody    string `json:"statusBody,omitempty"`
+	ChannelID         int64  `json:"channelID,string,omitempty"`
+	ChannelName       string `json:"channelName,omitempty"`
+	UpstreamModel     string `json:"upstreamModel,omitempty"`
+	StatusCode        int    `json:"statusCode,omitempty"`
+	StatusBody        string `json:"statusBody,omitempty"`
+	ActualRequestPath string `json:"actualRequestPath,omitempty"`
 }
 
 // Value 实现 driver.Valuer 接口

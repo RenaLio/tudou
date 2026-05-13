@@ -41,6 +41,9 @@ func TestClientExecute_429FillsProcessingErrorForCallback(t *testing.T) {
 	if resp.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("unexpected status: got=%d want=%d", resp.StatusCode, http.StatusTooManyRequests)
 	}
+	if resp.RequestPath != "/v1/chat/completions" {
+		t.Fatalf("unexpected response request path: got=%q want=%q", resp.RequestPath, "/v1/chat/completions")
+	}
 	if captured == nil {
 		t.Fatal("expected callback metrics")
 	}

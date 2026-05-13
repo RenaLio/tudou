@@ -190,9 +190,11 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 		}
 		var resp *ptypes.Response
 		var execErr error
+		var attemptRequestPath string
 
 		resp, execErr = prov.Execute(ctx, req, func(metrics *ptypes.ResponseMetrics) {
 			plog.Debug("metrics:", metrics)
+			attemptRequestPath = metrics.RequestPath
 
 			lbRecord := &loadbalancer.ResultRecord{
 				Model:         model,
@@ -321,14 +323,15 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 				s.collector.DecConn(candidate.Channel.ID)
 			}
 			tryDetail := models.RetryDetail{
-				ChannelID:     candidate.Channel.ID,
-				ChannelName:   candidate.Channel.Name,
-				UpstreamModel: candidate.UpstreamModel,
-				StatusCode:    -1,
-				StatusBody:    execErr.Error(),
+				ChannelID:         candidate.Channel.ID,
+				ChannelName:       candidate.Channel.Name,
+				UpstreamModel:     candidate.UpstreamModel,
+				StatusCode:        -1,
+				StatusBody:        execErr.Error(),
+				ActualRequestPath: attemptRequestPath,
 			}
 			if !hasLogged && (i >= retryLimit-1 || i == len(candidates)-1) {
-				if err := s.logFinalExecuteError(ctx, meta, model, candidate, curUpstreamModel, rawHeader, retryTrace, execErr, prov, req.IsStream); err != nil {
+				if err := s.logFinalExecuteError(ctx, meta, model, candidate, curUpstreamModel, rawHeader, retryTrace, execErr, prov, req.IsStream, attemptRequestPath); err != nil {
 					plog.Error("create fallback request log error:", err)
 				}
 			}
@@ -342,11 +345,15 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 		}
 
 		tryDetail := models.RetryDetail{
-			ChannelID:     candidate.Channel.ID,
-			ChannelName:   candidate.Channel.Name,
-			UpstreamModel: candidate.UpstreamModel,
-			StatusCode:    resp.StatusCode,
-			StatusBody:    "",
+			ChannelID:         candidate.Channel.ID,
+			ChannelName:       candidate.Channel.Name,
+			UpstreamModel:     candidate.UpstreamModel,
+			StatusCode:        resp.StatusCode,
+			StatusBody:        "",
+			ActualRequestPath: resp.RequestPath,
+		}
+		if tryDetail.ActualRequestPath == "" {
+			tryDetail.ActualRequestPath = attemptRequestPath
 		}
 
 		if !resp.IsStream {
@@ -375,6 +382,7 @@ func (s *RelayService) logFinalExecuteError(
 	execErr error,
 	prov provider.Provider,
 	isStream bool,
+	actualRequestPath string,
 ) error {
 	if candidate == nil {
 		return nil
@@ -423,8 +431,9 @@ func (s *RelayService) logFinalExecuteError(
 			RetryTrace:  retryTrace,
 		},
 		ProviderDetail: models.ProviderDetail{
-			Provider:      prov.Identifier(),
-			RequestFormat: string(meta.Format),
+			Provider:          prov.Identifier(),
+			RequestFormat:     string(meta.Format),
+			ActualRequestPath: actualRequestPath,
 		},
 	}
 	reqLog.ProviderDetail.TransFormat = string(meta.Format)

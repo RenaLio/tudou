@@ -296,12 +296,13 @@ func (c *Client) executeJSONRequest(
 		}
 
 		resp := &types.Response{
-			StatusCode: httpResp.StatusCode,
-			Provider:   c.Identifier(),
-			IsStream:   false,
-			Format:     req.Format,
-			RawData:    data,
-			Header:     httpResp.Header,
+			StatusCode:  httpResp.StatusCode,
+			RequestPath: request.URL.Path,
+			Provider:    c.Identifier(),
+			IsStream:    false,
+			Format:      req.Format,
+			RawData:     data,
+			Header:      httpResp.Header,
 		}
 
 		return resp, nil
@@ -311,12 +312,13 @@ func (c *Client) executeJSONRequest(
 	stream := types.NewStreamIterator(httpResp.Body, req, metrics, streamParse, cb, start)
 
 	resp := &types.Response{
-		StatusCode: httpResp.StatusCode,
-		Provider:   c.Identifier(),
-		IsStream:   true,
-		Format:     req.Format,
-		Header:     httpResp.Header,
-		Stream:     stream,
+		StatusCode:  httpResp.StatusCode,
+		RequestPath: request.URL.Path,
+		Provider:    c.Identifier(),
+		IsStream:    true,
+		Format:      req.Format,
+		Header:      httpResp.Header,
+		Stream:      stream,
 	}
 
 	return resp, nil
