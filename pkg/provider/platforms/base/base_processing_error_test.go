@@ -50,5 +50,7 @@ func TestClientExecute_429FillsProcessingErrorForCallback(t *testing.T) {
 	if !strings.Contains(captured.ProcessingError.Error(), "rate limit exceeded") {
 		t.Fatalf("unexpected ProcessingError: %q", captured.ProcessingError.Error())
 	}
+	if captured.RequestPath != "/v1/chat/completions" {
+		t.Fatalf("unexpected RequestPath: got=%q want=%q", captured.RequestPath, "/v1/chat/completions")
+	}
 }
-

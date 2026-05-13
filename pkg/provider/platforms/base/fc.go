@@ -228,6 +228,7 @@ func (c *Client) executeJSONRequest(
 	metrics.Format = originReq.Format
 	metrics.IsStream = req.IsStream
 	metrics.StatusCode = httpResp.StatusCode
+	metrics.RequestPath = request.URL.Path
 	metrics.Extra = make(map[string]any)
 	metrics.Extra[constant.RequestFormatKey] = req.Format
 	var exceptedStatus bool

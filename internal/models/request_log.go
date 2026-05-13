@@ -50,9 +50,10 @@ func (e *RequestExtra) Scan(value interface{}) error {
 }
 
 type ProviderDetail struct {
-	Provider      string `json:"provider,omitempty"`      // 提供商
-	RequestFormat string `json:"requestFormat,omitempty"` // 请求格式
-	TransFormat   string `json:"transFormat,omitempty"`   // 转换格式
+	Provider          string `json:"provider,omitempty"`          // 提供商
+	RequestFormat     string `json:"requestFormat,omitempty"`     // 请求格式
+	TransFormat       string `json:"transFormat,omitempty"`       // 转换格式
+	ActualRequestPath string `json:"actualRequestPath,omitempty"` // 上游实际请求路径
 	// 其他字段...
 }
 

@@ -7,12 +7,13 @@ import (
 )
 
 type ResponseMetrics struct {
-	Provider   string `json:"provider"`
-	Model      string `json:"model"`
-	Format     Format `json:"format"`
-	IsStream   bool   `json:"isStream"`
-	Status     int    `json:"status"` // 状态码 0-未初始化 1-成功 2-失败
-	StatusCode int    `json:"statusCode"`
+	Provider    string `json:"provider"`
+	Model       string `json:"model"`
+	Format      Format `json:"format"`
+	IsStream    bool   `json:"isStream"`
+	Status      int    `json:"status"` // 状态码 0-未初始化 1-成功 2-失败
+	StatusCode  int    `json:"statusCode"`
+	RequestPath string `json:"requestPath"`
 
 	DNSTime      time.Duration `json:"DNSTime"`      // DNS 解析耗时
 	TCPTime      time.Duration `json:""`             // TCP 连接耗时

@@ -254,8 +254,9 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 						RetryTrace:  retryTrace,
 					},
 					ProviderDetail: models.ProviderDetail{
-						Provider:      prov.Identifier(),
-						RequestFormat: string(metrics.Format),
+						Provider:          prov.Identifier(),
+						RequestFormat:     string(metrics.Format),
+						ActualRequestPath: metrics.RequestPath,
 					},
 				}
 				if metrics.ProcessingError != nil {
@@ -280,6 +281,9 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 				reqLog.Extra.Headers = headerMap
 				delete(reqLog.Extra.Headers, "Authorization")
 				delete(reqLog.Extra.Headers, "authorization")
+				delete(reqLog.Extra.Headers, "X-API-Key")
+				delete(reqLog.Extra.Headers, "X-Api-Key")
+				delete(reqLog.Extra.Headers, "x-api-key")
 
 				cbCtx := context.Background()
 				aiModel, err := s.modelRepo.GetByName(cbCtx, curUpstreamModel)
