@@ -74,6 +74,9 @@ func (s *RelayService) GetTokenModels(ctx context.Context, tokenId int64, groupI
 		Data:   make([]v1.RelayModelItemResp, 0),
 	}
 	for _, channel := range channels {
+		if !channel.IsAvailable() {
+			continue
+		}
 		modelMap := channel.Models()
 		for key := range modelMap {
 			if _, ok := modelSet[key]; ok {
