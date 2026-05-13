@@ -12,6 +12,12 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	defaultReadHeaderTimeout = 5 * time.Second
+	defaultIdleTimeout       = 60 * time.Second
+	defaultMaxHeaderBytes    = 1 << 20
+)
+
 type Server struct {
 	*gin.Engine
 	httpSrv *http.Server
@@ -44,8 +50,11 @@ func WithServerPort(port int) Option {
 
 func (s *Server) Start(ctx context.Context) error {
 	s.httpSrv = &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", s.host, s.port),
-		Handler: s,
+		Addr:              fmt.Sprintf("%s:%d", s.host, s.port),
+		Handler:           s,
+		ReadHeaderTimeout: defaultReadHeaderTimeout,
+		IdleTimeout:       defaultIdleTimeout,
+		MaxHeaderBytes:    defaultMaxHeaderBytes,
 	}
 
 	errCh := make(chan error, 1)
