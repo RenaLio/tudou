@@ -56,7 +56,7 @@ func (e *Endpoint) IsAvailable() bool {
 }
 
 // UpdateMetrics 给 MetricsCollector 调用，异步更新指标
-func (e *Endpoint) UpdateMetrics(isSuccess bool, ttft float64, tps float64) {
+func (e *Endpoint) UpdateMetrics(isSuccess bool, isStream bool, ttft float64, tps float64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -65,7 +65,9 @@ func (e *Endpoint) UpdateMetrics(isSuccess bool, ttft float64, tps float64) {
 	if isSuccess {
 		// --- 成功处理逻辑 ---
 		// EMA 平滑公式 (例如 0.8 旧 + 0.2 新)
-		e.EmaTTFT = (0.8 * e.EmaTTFT) + (0.2 * ttft)
+		if isStream {
+			e.EmaTTFT = (0.8 * e.EmaTTFT) + (0.2 * ttft)
+		}
 		e.EmaTPS = (0.8 * e.EmaTPS) + (0.2 * tps)
 		e.EmaSuccessRate = (0.95 * e.EmaSuccessRate) + (0.05 * 1.0)
 

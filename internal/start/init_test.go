@@ -23,6 +23,7 @@ func TestReplayRequestLogsToRegistry(t *testing.T) {
 			ChannelID:     1,
 			Model:         "gpt-4o",
 			Status:        models.RequestStatusSuccess,
+			IsStream:      true,
 			OutputToken:   200,
 			TransferTime:  2000,
 			TTFT:          1000,
@@ -114,5 +115,48 @@ func TestReplayRequestLogsToRegistry(t *testing.T) {
 	// After fail(main fail log): 0.045125
 	if chState.SuccessRate != 0.045125 {
 		t.Fatalf("unexpected channel success rate, got=%v want=0.045125", chState.SuccessRate)
+	}
+}
+
+func TestReplayRequestLogsToRegistrySkipsTTFTForNonStreamSuccess(t *testing.T) {
+	reg := loadbalancer.NewRegistry()
+
+	ch := &models.Channel{
+		ID:    1,
+		Type:  "openai",
+		Name:  "ch-1",
+		Model: "gpt-4o",
+	}
+	reg.ReloadChannel(ch)
+
+	logs := []*models.RequestLog{
+		{
+			ChannelID:     1,
+			Model:         "gpt-4o",
+			Status:        models.RequestStatusSuccess,
+			IsStream:      false,
+			OutputToken:   200,
+			TransferTime:  2000,
+			TTFT:          1000,
+			ErrorCode:     "200",
+			UpstreamModel: "gpt-4o",
+		},
+	}
+
+	replayRequestLogsToRegistry(reg, logs)
+
+	ep := reg.GetEndpoint("gpt-4o", 1)
+	if ep == nil {
+		t.Fatalf("endpoint should exist")
+	}
+
+	if ep.EmaTTFT != 1600 {
+		t.Fatalf("unexpected ema ttft, got=%v want=1600", ep.EmaTTFT)
+	}
+	if ep.EmaTPS != 100 {
+		t.Fatalf("unexpected ema tps, got=%v want=100", ep.EmaTPS)
+	}
+	if ep.EmaSuccessRate != 1.0 {
+		t.Fatalf("unexpected ema success rate, got=%v want=1.0", ep.EmaSuccessRate)
 	}
 }

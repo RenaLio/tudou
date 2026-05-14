@@ -231,7 +231,7 @@ func (a *AsyncMetricsCollector) AsyncUpdateEndpoint() {
 				}
 				tps = float64(data.OutputTokens) * 1000 / (float64(data.Duration))
 			}
-			endpoint.UpdateMetrics(isSuccess, float64(data.TTFT), tps)
+			endpoint.UpdateMetrics(isSuccess, data.IsStream, float64(data.TTFT), tps)
 			if channel != nil {
 				channel.UpdateSuccessRate(isSuccess)
 			}

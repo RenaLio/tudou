@@ -204,6 +204,7 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 				UpstreamModel: curUpstreamModel,
 				ChannelID:     candidate.Channel.ID,
 				ChannelName:   candidate.Channel.Name,
+				IsStream:      metrics.IsStream,
 				OutputTokens:  metrics.Usage.OutputTokens,
 				TTFT:          metrics.TTFT.Milliseconds(),
 				Duration:      metrics.TransferTime.Milliseconds(),

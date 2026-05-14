@@ -157,7 +157,7 @@ func replayRequestLogsToRegistry(registry *loadbalancer.Registry, logs []*models
 			}
 			tps = float64(logItem.OutputToken) * 1000 / float64(duration)
 		}
-		endpoint.UpdateMetrics(isSuccess, float64(logItem.TTFT), tps)
+		endpoint.UpdateMetrics(isSuccess, logItem.IsStream, float64(logItem.TTFT), tps)
 		if channel := registry.GetChannelById(logItem.ChannelID); channel != nil {
 			channel.UpdateSuccessRate(isSuccess)
 		}

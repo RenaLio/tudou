@@ -22,6 +22,7 @@ type ResultRecord struct {
 	UpstreamModel string `json:"upstreamModel"`
 	ChannelID     int64  `json:"channelId"`
 	ChannelName   string `json:"channelName"`
+	IsStream      bool   `json:"isStream"`
 	OutputTokens  int64  `json:"outputTokens"`
 	TTFT          int64  `json:"ttft"`     //ms
 	Duration      int64  `json:"duration"` //ms
