@@ -103,16 +103,31 @@ var taskSet = wire.NewSet(
 	tasks.NewMockTask,
 	tasks.NewStatsAggregationTask,
 	tasks.NewPriceSyncTask,
+	tasks.NewChannelModelSyncTask,
+	provideChannelModelSyncChannelService,
+	provideChannelModelSyncFetcher,
 )
+
+func provideChannelModelSyncChannelService(svc service.ChannelService) tasks.ChannelModelSyncChannelService {
+	return svc
+}
+
+func provideChannelModelSyncFetcher(svc *service.RelayService) tasks.ChannelModelSyncFetcher {
+	return svc
+}
 
 func NewTaskServer(
 	logger *log.Logger,
 	mockTask *tasks.MockTask,
 	statsAggregationTask *tasks.StatsAggregationTask,
 	priceSyncTask *tasks.PriceSyncTask,
+	channelModelSyncTask *tasks.ChannelModelSyncTask,
 ) *task.TaskServer {
-	taskServer := task.NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask)
+	taskServer := task.NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask, channelModelSyncTask)
 	if err := taskServer.SetTaskInterval(tasks.PriceSyncTaskName, 12*time.Hour); err != nil {
+		panic(err)
+	}
+	if err := taskServer.SetTaskInterval(tasks.ChannelModelSyncTaskName, 60*time.Minute); err != nil {
 		panic(err)
 	}
 	return taskServer

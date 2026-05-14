@@ -119,6 +119,8 @@ type ChannelSettings struct {
 	DisableHTTP2  bool              `json:"disableHttp2,omitempty"`  // 是否禁用 HTTP/2（强制使用 HTTP/1.1）
 	MaxConcurrent int               `json:"maxConcurrent,omitempty"` // 最大并发数
 	CustomHeaders map[string]string `json:"customHeaders,omitempty"` // 自定义请求头
+
+	AutoSyncUpstreamModels bool `json:"autoSyncUpstreamModels,omitempty"` // 是否自动同步上游模型列表
 }
 
 // Value 实现 driver.Valuer 接口
