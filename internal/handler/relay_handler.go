@@ -16,6 +16,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var hopByHopResponseHeaders = map[string]struct{}{
+	"Connection":          {},
+	"Keep-Alive":          {},
+	"Proxy-Authenticate":  {},
+	"Proxy-Authorization": {},
+	"TE":                  {},
+	"Trailer":             {},
+	"Transfer-Encoding":   {},
+	"Upgrade":             {},
+	"Content-Length":      {},
+}
+
 type RelayService interface {
 	GetTokenModels(ctx context.Context, tokenId int64, groupId int64) (*v1.RelayListResp[v1.RelayModelItemResp], error)
 	FetchModel(ctx context.Context, req *v1.FetchModelRequest) ([]string, error)
@@ -118,7 +130,14 @@ func (h *RelayHandler) forward(format ptypes.Format) gin.HandlerFunc {
 }
 
 func (h *RelayHandler) handleNonStreamResponse(ctx *gin.Context, resp *ptypes.Response) {
+	contentType := "application/json"
 	for k, vals := range resp.Header {
+		if _, skip := hopByHopResponseHeaders[http.CanonicalHeaderKey(k)]; skip {
+			continue
+		}
+		if http.CanonicalHeaderKey(k) == "Content-Type" && len(vals) > 0 && strings.TrimSpace(vals[0]) != "" {
+			contentType = vals[0]
+		}
 		for _, v := range vals {
 			ctx.Header(k, v)
 		}
@@ -127,7 +146,7 @@ func (h *RelayHandler) handleNonStreamResponse(ctx *gin.Context, resp *ptypes.Re
 	ctx.Header("authorization", "")
 	ctx.Header("X-API-KEY", "")
 	ctx.Header("X-Api-Key", "")
-	ctx.Data(resp.StatusCode, "application/json", resp.RawData)
+	ctx.Data(resp.StatusCode, contentType, resp.RawData)
 }
 
 func (h *RelayHandler) handleStreamResponse(ctx *gin.Context, resp *ptypes.Response) {
