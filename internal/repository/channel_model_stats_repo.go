@@ -15,6 +15,7 @@ type ChannelModelStatsRepo interface {
 	Upsert(ctx context.Context, stats *models.ChannelModelStats) error
 	GetByChannelModel(ctx context.Context, channelID int64, model string) (*models.ChannelModelStats, error)
 	ListByChannelID(ctx context.Context, channelID int64) ([]*models.ChannelModelStats, error)
+	DeleteByChannelIDs(ctx context.Context, channelIDs []int64) (int64, error)
 	ListRequestLogsByChannelModelAndRange(ctx context.Context, channelID int64, model string, start, end time.Time) ([]*models.RequestLog, error)
 	ListRequestLogsByChannelAndRange(ctx context.Context, channelID int64, start, end time.Time) ([]*models.RequestLog, error)
 	ListAll(ctx context.Context) ([]*models.ChannelModelStats, error)
@@ -70,6 +71,18 @@ func (r *channelModelStatsRepo) ListByChannelID(ctx context.Context, channelID i
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *channelModelStatsRepo) DeleteByChannelIDs(ctx context.Context, channelIDs []int64) (int64, error) {
+	channelIDs = uniqueInt64(channelIDs)
+	if len(channelIDs) == 0 {
+		return 0, nil
+	}
+	tx := r.DB(ctx).Where("channel_id IN ?", channelIDs).Delete(&models.ChannelModelStats{})
+	if tx.Error != nil {
+		return 0, tx.Error
+	}
+	return tx.RowsAffected, nil
 }
 
 func (r *channelModelStatsRepo) ListRequestLogsByChannelModelAndRange(ctx context.Context, channelID int64, model string, start, end time.Time) ([]*models.RequestLog, error) {

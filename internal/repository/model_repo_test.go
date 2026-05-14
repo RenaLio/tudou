@@ -476,6 +476,40 @@ func TestAIModelRepo_Delete_TransactionCommitInvalidatesCache(t *testing.T) {
 	}
 }
 
+func TestAIModelRepo_DeleteByIDs_InvalidatesNameCacheWhenIDCacheMissing(t *testing.T) {
+	repo, _ := newAIModelRepoForTest(t)
+	ctx := context.Background()
+
+	model := &models.AIModel{
+		ID:        1014,
+		Name:      "Model-M",
+		Type:      models.ModelTypeChat,
+		IsEnabled: true,
+	}
+	if err := repo.Create(ctx, model); err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	if _, err := repo.GetByName(ctx, model.Name); err != nil {
+		t.Fatalf("GetByName (prime name cache) failed: %v", err)
+	}
+	// Simulate missing id-cache while name-cache still exists.
+	repo.delModelCacheByID(ctx, model.ID)
+
+	rows, err := repo.DeleteByIDs(ctx, []int64{model.ID})
+	if err != nil {
+		t.Fatalf("DeleteByIDs failed: %v", err)
+	}
+	if rows != 1 {
+		t.Fatalf("expected rows=1, got %d", rows)
+	}
+
+	_, err = repo.GetByName(ctx, model.Name)
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("expected not found after DeleteByIDs, got err=%v", err)
+	}
+}
+
 func TestAIModelRepo_Create_TransactionCommitInvalidatesCache(t *testing.T) {
 	repo, _ := newAIModelRepoForTest(t)
 	ctx := context.Background()

@@ -6,23 +6,21 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-	"gorm.io/plugin/soft_delete"
 )
 
 // AIModel AI模型定义
 type AIModel struct {
-	ID           int64                 `gorm:"primaryKey;column:id;type:bigint;autoIncrement:false" json:"id,string"`
-	Name         string                `gorm:"column:name;type:varchar(128);not null;uniqueIndex:idx_model_name" json:"name"`
-	Type         ModelType             `gorm:"column:type;type:varchar(32);default:'chat';index:idx_model_type" json:"type"`
-	Description  string                `gorm:"column:description;type:text" json:"description"`
-	Pricing      ModelPricing          `gorm:"column:pricing;type:json" json:"pricing"`
-	Capabilities ModelCapabilities     `gorm:"column:capabilities;type:json" json:"capabilities"`
-	PricingType  ModelPricingType      `gorm:"column:pricing_type;type:varchar(32);default:'tokens';index:idx_model_pricing_type" json:"pricingType"`
-	IsEnabled    bool                  `gorm:"column:is_enabled;type:boolean;default:true;index:idx_model_enabled" json:"isEnabled"` // 未来扩展
-	Extra        AIModelExtra          `gorm:"column:extra;type:json" json:"extra"`
-	CreatedAt    time.Time             `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt    time.Time             `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
-	DeletedAt    soft_delete.DeletedAt `gorm:"column:deleted_at;type:bigint;index:idx_model_deleted_at;uniqueIndex:idx_model_name" json:"-"`
+	ID           int64             `gorm:"primaryKey;column:id;type:bigint;autoIncrement:false" json:"id,string"`
+	Name         string            `gorm:"column:name;type:varchar(128);not null;uniqueIndex:idx_model_name" json:"name"`
+	Type         ModelType         `gorm:"column:type;type:varchar(32);default:'chat';index:idx_model_type" json:"type"`
+	Description  string            `gorm:"column:description;type:text" json:"description"`
+	Pricing      ModelPricing      `gorm:"column:pricing;type:json" json:"pricing"`
+	Capabilities ModelCapabilities `gorm:"column:capabilities;type:json" json:"capabilities"`
+	PricingType  ModelPricingType  `gorm:"column:pricing_type;type:varchar(32);default:'tokens';index:idx_model_pricing_type" json:"pricingType"`
+	IsEnabled    bool              `gorm:"column:is_enabled;type:boolean;default:true;index:idx_model_enabled" json:"isEnabled"` // 未来扩展
+	Extra        AIModelExtra      `gorm:"column:extra;type:json" json:"extra"`
+	CreatedAt    time.Time         `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt    time.Time         `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 const defaultLongContextTokens int64 = 256_000

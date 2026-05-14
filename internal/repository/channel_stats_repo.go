@@ -16,6 +16,7 @@ type ChannelStatsRepo interface {
 	GetByChannelID(ctx context.Context, channelID int64) (*models.ChannelStats, error)
 	ListAll(ctx context.Context) ([]*models.ChannelStats, error)
 	ListByChannelIDs(ctx context.Context, channelIDs []int64) ([]*models.ChannelStats, error)
+	DeleteByChannelIDs(ctx context.Context, channelIDs []int64) (int64, error)
 	ListRequestLogsByChannelIDsAndRange(ctx context.Context, channelIDs []int64, start, end time.Time) ([]*models.RequestLog, error)
 	ListRequestLogsByRange(ctx context.Context, start, end time.Time) ([]*models.RequestLog, error)
 }
@@ -78,6 +79,18 @@ func (r *channelStatsRepo) ListByChannelIDs(ctx context.Context, channelIDs []in
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *channelStatsRepo) DeleteByChannelIDs(ctx context.Context, channelIDs []int64) (int64, error) {
+	channelIDs = uniqueInt64(channelIDs)
+	if len(channelIDs) == 0 {
+		return 0, nil
+	}
+	tx := r.DB(ctx).Where("channel_id IN ?", channelIDs).Delete(&models.ChannelStats{})
+	if tx.Error != nil {
+		return 0, tx.Error
+	}
+	return tx.RowsAffected, nil
 }
 
 func (r *channelStatsRepo) ListRequestLogsByChannelIDsAndRange(ctx context.Context, channelIDs []int64, start, end time.Time) ([]*models.RequestLog, error) {

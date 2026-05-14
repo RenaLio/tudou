@@ -37,6 +37,7 @@ type RequestLogRepo interface {
 	GetByID(ctx context.Context, id int64) (*models.RequestLog, error)
 	List(ctx context.Context, opt RequestLogListOption) ([]*models.RequestLog, int64, error)
 	Delete(ctx context.Context, id int64) error
+	DeleteBefore(ctx context.Context, before time.Time) (int64, error)
 	Exists(ctx context.Context, id int64) (bool, error)
 }
 
@@ -143,6 +144,14 @@ func (r *requestLogRepo) List(ctx context.Context, opt RequestLogListOption) ([]
 
 func (r *requestLogRepo) Delete(ctx context.Context, id int64) error {
 	return Delete[models.RequestLog](ctx, id, r.DB(ctx))
+}
+
+func (r *requestLogRepo) DeleteBefore(ctx context.Context, before time.Time) (int64, error) {
+	tx := r.DB(ctx).Where("created_at < ?", before).Delete(&models.RequestLog{})
+	if tx.Error != nil {
+		return 0, tx.Error
+	}
+	return tx.RowsAffected, nil
 }
 
 func (r *requestLogRepo) Exists(ctx context.Context, id int64) (bool, error) {

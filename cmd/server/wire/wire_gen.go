@@ -101,7 +101,13 @@ func BuildApp(configConfig *config.Config, logger *log.Logger) (*app.App, func()
 	channelModelSyncChannelService := provideChannelModelSyncChannelService(channelService)
 	channelModelSyncFetcher := provideChannelModelSyncFetcher(relayService)
 	channelModelSyncTask := tasks.NewChannelModelSyncTask(logger, channelModelSyncChannelService, channelModelSyncFetcher)
-	taskServer := NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask, channelModelSyncTask)
+	statsCleanupChannelRepo := provideStatsCleanupChannelRepo(channelRepo)
+	statsCleanupChannelStatsRepo := provideStatsCleanupChannelStatsRepo(channelStatsRepo)
+	statsCleanupChannelModelStatsRepo := provideStatsCleanupChannelModelStatsRepo(channelModelStatsRepo)
+	statsCleanupAIModelRepo := provideStatsCleanupAIModelRepo(aiModelRepo)
+	statsCleanupRequestLogRepo := provideStatsCleanupRequestLogRepo(requestLogRepo)
+	statsCleanupTask := tasks.NewStatsCleanupTask(logger, statsCleanupChannelRepo, statsCleanupChannelStatsRepo, statsCleanupChannelModelStatsRepo, statsCleanupAIModelRepo, statsCleanupRequestLogRepo)
+	taskServer := NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask, channelModelSyncTask, statsCleanupTask)
 	appApp := newApp(httpServer, taskServer)
 	return appApp, func() {
 	}, nil
@@ -135,8 +141,13 @@ var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handle
 
 var serverSet = wire.NewSet(server.NewHttpServer, server.NewMigrate)
 
-var taskSet = wire.NewSet(tasks.NewMockTask, tasks.NewStatsAggregationTask, tasks.NewPriceSyncTask, tasks.NewChannelModelSyncTask, provideChannelModelSyncChannelService,
+var taskSet = wire.NewSet(tasks.NewMockTask, tasks.NewStatsAggregationTask, tasks.NewPriceSyncTask, tasks.NewChannelModelSyncTask, tasks.NewStatsCleanupTask, provideChannelModelSyncChannelService,
 	provideChannelModelSyncFetcher,
+	provideStatsCleanupChannelRepo,
+	provideStatsCleanupChannelStatsRepo,
+	provideStatsCleanupChannelModelStatsRepo,
+	provideStatsCleanupAIModelRepo,
+	provideStatsCleanupRequestLogRepo,
 )
 
 func provideChannelModelSyncChannelService(svc service.ChannelService) tasks.ChannelModelSyncChannelService {
@@ -147,18 +158,42 @@ func provideChannelModelSyncFetcher(svc *service.RelayService) tasks.ChannelMode
 	return svc
 }
 
+func provideStatsCleanupChannelRepo(repo repository.ChannelRepo) tasks.StatsCleanupChannelRepo {
+	return repo
+}
+
+func provideStatsCleanupChannelStatsRepo(repo repository.ChannelStatsRepo) tasks.StatsCleanupChannelStatsRepo {
+	return repo
+}
+
+func provideStatsCleanupChannelModelStatsRepo(repo repository.ChannelModelStatsRepo) tasks.StatsCleanupChannelModelStatsRepo {
+	return repo
+}
+
+func provideStatsCleanupAIModelRepo(repo repository.AIModelRepo) tasks.StatsCleanupAIModelRepo {
+	return repo
+}
+
+func provideStatsCleanupRequestLogRepo(repo repository.RequestLogRepo) tasks.StatsCleanupRequestLogRepo {
+	return repo
+}
+
 func NewTaskServer(
 	logger *log.Logger,
 	mockTask *tasks.MockTask,
 	statsAggregationTask *tasks.StatsAggregationTask,
 	priceSyncTask *tasks.PriceSyncTask,
 	channelModelSyncTask *tasks.ChannelModelSyncTask,
+	statsCleanupTask *tasks.StatsCleanupTask,
 ) *task.TaskServer {
-	taskServer := task.NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask, channelModelSyncTask)
+	taskServer := task.NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask, channelModelSyncTask, statsCleanupTask)
 	if err := taskServer.SetTaskInterval(tasks.PriceSyncTaskName, 12*time.Hour); err != nil {
 		panic(err)
 	}
 	if err := taskServer.SetTaskInterval(tasks.ChannelModelSyncTaskName, 60*time.Minute); err != nil {
+		panic(err)
+	}
+	if err := taskServer.SetTaskInterval(tasks.StatsCleanupTaskName, 6*time.Hour); err != nil {
 		panic(err)
 	}
 	return taskServer

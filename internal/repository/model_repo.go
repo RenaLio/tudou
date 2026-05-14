@@ -27,6 +27,7 @@ type AIModelRepo interface {
 	Update(ctx context.Context, model *models.AIModel) error
 	SetEnabled(ctx context.Context, id int64, enabled bool) error
 	Delete(ctx context.Context, id int64) error
+	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 	Exists(ctx context.Context, id int64) (bool, error)
 }
 
@@ -175,6 +176,54 @@ func (r *aiModelRepo) Delete(ctx context.Context, id int64) error {
 	}
 	r.invalidateModelCacheOnCommit(ctx, id, oldName)
 	return nil
+}
+
+func (r *aiModelRepo) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
+	ids = uniqueInt64(ids)
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	// Query names from DB to avoid stale name-cache leak when id-cache is missing.
+	type aiModelNameRow struct {
+		ID   int64
+		Name string
+	}
+	rows := make([]aiModelNameRow, 0, len(ids))
+	if err := r.DB(ctx).Model(&models.AIModel{}).Select("id", "name").Where("id IN ?", ids).Find(&rows).Error; err != nil {
+		return 0, err
+	}
+
+	nameSet := make(map[string]struct{}, len(rows))
+	for _, row := range rows {
+		row.Name = strings.TrimSpace(row.Name)
+		if row.Name == "" {
+			continue
+		}
+		nameSet[row.Name] = struct{}{}
+	}
+
+	names := make([]string, 0, len(nameSet))
+	for n := range nameSet {
+		names = append(names, n)
+	}
+	for _, id := range ids {
+		r.invalidateModelCache(ctx, id, names...)
+	}
+
+	tx := r.DB(ctx).Where("id IN ?", ids).Delete(&models.AIModel{})
+	if tx.Error != nil {
+		return 0, tx.Error
+	}
+
+	namesCopy := append([]string(nil), names...)
+	idsCopy := append([]int64(nil), ids...)
+	r.onCommitted(ctx, func() {
+		for _, id := range idsCopy {
+			r.invalidateModelCache(context.Background(), id, namesCopy...)
+		}
+	})
+	return tx.RowsAffected, nil
 }
 
 func (r *aiModelRepo) Exists(ctx context.Context, id int64) (bool, error) {

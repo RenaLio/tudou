@@ -252,6 +252,10 @@ func (r *testPriceSyncModelRepo) Delete(ctx context.Context, id int64) error {
 	panic("unexpected call to Delete")
 }
 
+func (r *testPriceSyncModelRepo) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
+	panic("unexpected call to DeleteByIDs")
+}
+
 func (r *testPriceSyncModelRepo) Exists(ctx context.Context, id int64) (bool, error) {
 	panic("unexpected call to Exists")
 }

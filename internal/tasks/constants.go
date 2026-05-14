@@ -5,4 +5,5 @@ const (
 	StatsAggregationTaskName = "stats_aggregation_task"
 	PriceSyncTaskName        = "price_sync_task"
 	ChannelModelSyncTaskName = "channel_model_sync_task"
+	StatsCleanupTaskName     = "stats_cleanup_task"
 )

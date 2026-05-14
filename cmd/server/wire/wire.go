@@ -104,8 +104,14 @@ var taskSet = wire.NewSet(
 	tasks.NewStatsAggregationTask,
 	tasks.NewPriceSyncTask,
 	tasks.NewChannelModelSyncTask,
+	tasks.NewStatsCleanupTask,
 	provideChannelModelSyncChannelService,
 	provideChannelModelSyncFetcher,
+	provideStatsCleanupChannelRepo,
+	provideStatsCleanupChannelStatsRepo,
+	provideStatsCleanupChannelModelStatsRepo,
+	provideStatsCleanupAIModelRepo,
+	provideStatsCleanupRequestLogRepo,
 )
 
 func provideChannelModelSyncChannelService(svc service.ChannelService) tasks.ChannelModelSyncChannelService {
@@ -116,18 +122,42 @@ func provideChannelModelSyncFetcher(svc *service.RelayService) tasks.ChannelMode
 	return svc
 }
 
+func provideStatsCleanupChannelRepo(repo repository.ChannelRepo) tasks.StatsCleanupChannelRepo {
+	return repo
+}
+
+func provideStatsCleanupChannelStatsRepo(repo repository.ChannelStatsRepo) tasks.StatsCleanupChannelStatsRepo {
+	return repo
+}
+
+func provideStatsCleanupChannelModelStatsRepo(repo repository.ChannelModelStatsRepo) tasks.StatsCleanupChannelModelStatsRepo {
+	return repo
+}
+
+func provideStatsCleanupAIModelRepo(repo repository.AIModelRepo) tasks.StatsCleanupAIModelRepo {
+	return repo
+}
+
+func provideStatsCleanupRequestLogRepo(repo repository.RequestLogRepo) tasks.StatsCleanupRequestLogRepo {
+	return repo
+}
+
 func NewTaskServer(
 	logger *log.Logger,
 	mockTask *tasks.MockTask,
 	statsAggregationTask *tasks.StatsAggregationTask,
 	priceSyncTask *tasks.PriceSyncTask,
 	channelModelSyncTask *tasks.ChannelModelSyncTask,
+	statsCleanupTask *tasks.StatsCleanupTask,
 ) *task.TaskServer {
-	taskServer := task.NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask, channelModelSyncTask)
+	taskServer := task.NewTaskServer(logger, mockTask, statsAggregationTask, priceSyncTask, channelModelSyncTask, statsCleanupTask)
 	if err := taskServer.SetTaskInterval(tasks.PriceSyncTaskName, 12*time.Hour); err != nil {
 		panic(err)
 	}
 	if err := taskServer.SetTaskInterval(tasks.ChannelModelSyncTaskName, 60*time.Minute); err != nil {
+		panic(err)
+	}
+	if err := taskServer.SetTaskInterval(tasks.StatsCleanupTaskName, 6*time.Hour); err != nil {
 		panic(err)
 	}
 	return taskServer
