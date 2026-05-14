@@ -161,7 +161,7 @@ func (s *aiModelService) buildModelByCreateReq(req v1.CreateAIModelRequest) (*mo
 		Name:        name,
 		Type:        models.ModelTypeChat,
 		Description: strings.TrimSpace(req.Description),
-		Pricing:     req.Pricing,
+		Pricing:     normalizeModelPricing(req.Pricing),
 		PricingType: req.PricingType,
 		Extra:       req.Extra,
 		IsEnabled:   true,
@@ -183,7 +183,7 @@ func patchModelByUpdateReq(model *models.AIModel, req v1.UpdateAIModelRequest) {
 		model.Description = strings.TrimSpace(*req.Description)
 	}
 	if req.Pricing != nil {
-		model.Pricing = *req.Pricing
+		model.Pricing = normalizeModelPricing(*req.Pricing)
 	}
 	if req.PricingType != nil {
 		model.PricingType = *req.PricingType
@@ -210,4 +210,11 @@ func toAIModelResponse(model *models.AIModel) v1.AIModelResponse {
 		CreatedAt:    model.CreatedAt,
 		UpdatedAt:    model.UpdatedAt,
 	}
+}
+
+func normalizeModelPricing(pricing models.ModelPricing) models.ModelPricing {
+	if pricing.LongContextTokens <= 0 {
+		pricing.LongContextTokens = 256_000
+	}
+	return pricing
 }

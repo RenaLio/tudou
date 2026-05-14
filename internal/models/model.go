@@ -25,7 +25,7 @@ type AIModel struct {
 	DeletedAt    soft_delete.DeletedAt `gorm:"column:deleted_at;type:bigint;index:idx_model_deleted_at;uniqueIndex:idx_model_name" json:"-"`
 }
 
-const contextOver200KThreshold int64 = 200_000
+const defaultLongContextTokens int64 = 256_000
 
 // TableName 指定表名
 func (*AIModel) TableName() string {
@@ -54,7 +54,7 @@ func (m *AIModel) CalculateByTokensWithCacheMicros(inputTokens, outputTokens, ca
 
 // CalculateByTokensWithCacheAndContextMicros 按量计费（含缓存与上下文阈值，返回 micros）
 func (m *AIModel) CalculateByTokensWithCacheAndContextMicros(inputTokens, outputTokens, cacheCreateTokens, cacheReadTokens, contextTokens int64) int64 {
-	useOver200k := contextTokens > contextOver200KThreshold
+	useOver200k := contextTokens > m.Pricing.longContextTokens()
 	inputPrice := choosePrice(m.Pricing.InputPrice, m.Pricing.Over200KInputPrice, useOver200k)
 	outputPrice := choosePrice(m.Pricing.OutputPrice, m.Pricing.Over200KOutputPrice, useOver200k)
 	cacheCreatePrice := choosePrice(m.Pricing.CacheCreatePrice, m.Pricing.Over200KCacheCreatePrice, useOver200k)
@@ -91,7 +91,7 @@ func (m *AIModel) CalculateByRequestMicros() int64 {
 
 // CalculateByRequestWithContextMicros 按次计费（按上下文阈值选择价格，返回 micros）
 func (m *AIModel) CalculateByRequestWithContextMicros(contextTokens int64) int64 {
-	useOver200k := contextTokens > contextOver200KThreshold
+	useOver200k := contextTokens > m.Pricing.longContextTokens()
 	price := choosePrice(m.Pricing.PerRequestPrice, m.Pricing.Over200KPerRequestPrice, useOver200k)
 	return MoneyFloatToMicros(price)
 }
@@ -136,6 +136,7 @@ const (
 
 // ModelPricing 模型定价信息
 type ModelPricing struct {
+	LongContextTokens        int64   `json:"longContextTokens"`        // 长上下文档位 token 数，默认 256K
 	InputPrice               float64 `json:"inputPrice"`               // 输入价格 (per 1M tokens)
 	OutputPrice              float64 `json:"outputPrice"`              // 输出价格 (per 1M tokens)
 	CacheCreatePrice         float64 `json:"cacheCreatePrice"`         // 缓存创建价格 (per 1M tokens)
@@ -150,16 +151,25 @@ type ModelPricing struct {
 
 // Value 实现 driver.Valuer 接口
 func (p ModelPricing) Value() (driver.Value, error) {
+	if p.LongContextTokens <= 0 {
+		p.LongContextTokens = defaultLongContextTokens
+	}
 	return json.Marshal(p)
 }
 
 // Scan 实现 sql.Scanner 接口
 func (p *ModelPricing) Scan(value interface{}) error {
 	if value == nil {
-		*p = ModelPricing{}
+		*p = ModelPricing{LongContextTokens: defaultLongContextTokens}
 		return nil
 	}
-	return unmarshalJSONValue(value, p)
+	if err := unmarshalJSONValue(value, p); err != nil {
+		return err
+	}
+	if p.LongContextTokens <= 0 {
+		p.LongContextTokens = defaultLongContextTokens
+	}
+	return nil
 }
 
 // ModelCapabilities 模型能力配置
@@ -207,4 +217,11 @@ func choosePrice(normal float64, over200k float64, useOver200k bool) float64 {
 		return over200k
 	}
 	return normal
+}
+
+func (p ModelPricing) longContextTokens() int64 {
+	if p.LongContextTokens > 0 {
+		return p.LongContextTokens
+	}
+	return defaultLongContextTokens
 }

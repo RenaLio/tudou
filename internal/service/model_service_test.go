@@ -41,6 +41,9 @@ func TestBuildModelByCreateReq_PopulatesExtra(t *testing.T) {
 	if model.Extra != req.Extra {
 		t.Fatalf("unexpected extra: %+v", model.Extra)
 	}
+	if model.Pricing.LongContextTokens != 256_000 {
+		t.Fatalf("unexpected long context tokens: got=%d want=256000", model.Pricing.LongContextTokens)
+	}
 }
 
 func TestPatchModelByUpdateReq_PopulatesExtra(t *testing.T) {
@@ -63,5 +66,44 @@ func TestPatchModelByUpdateReq_PopulatesExtra(t *testing.T) {
 	patchModelByUpdateReq(model, req)
 	if model.Extra != *nextExtra {
 		t.Fatalf("unexpected extra after patch: %+v", model.Extra)
+	}
+}
+
+func TestBuildModelByCreateReq_DefaultsLongContextTokens(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Security.Sid.Id = 1
+	svc := &aiModelService{
+		Service: &Service{
+			sid: sid.NewSid(cfg),
+		},
+	}
+
+	model, err := svc.buildModelByCreateReq(v1.CreateAIModelRequest{
+		Name: "gpt-4o",
+	})
+	if err != nil {
+		t.Fatalf("buildModelByCreateReq failed: %v", err)
+	}
+	if model.Pricing.LongContextTokens != 256_000 {
+		t.Fatalf("unexpected long context tokens: got=%d want=256000", model.Pricing.LongContextTokens)
+	}
+}
+
+func TestPatchModelByUpdateReq_DefaultsLongContextTokens(t *testing.T) {
+	model := &models.AIModel{
+		Name: "gpt-4o",
+		Pricing: models.ModelPricing{
+			LongContextTokens: 256_000,
+		},
+	}
+
+	nextPricing := &models.ModelPricing{}
+	req := v1.UpdateAIModelRequest{
+		Pricing: nextPricing,
+	}
+
+	patchModelByUpdateReq(model, req)
+	if model.Pricing.LongContextTokens != 256_000 {
+		t.Fatalf("unexpected long context tokens after patch: got=%d want=256000", model.Pricing.LongContextTokens)
 	}
 }
