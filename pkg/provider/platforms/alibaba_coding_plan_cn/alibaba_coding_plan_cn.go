@@ -3,6 +3,7 @@ package alibabacodingplancn
 import (
 	"net/http"
 
+	"github.com/RenaLio/tudou/pkg/provider/modelcatalog"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	"github.com/RenaLio/tudou/pkg/provider/types"
 )
@@ -11,17 +12,7 @@ const PlatformId = "alibaba-coding-plan-cn"
 
 const DefaultBaseURL = "https://coding.dashscope.aliyuncs.com"
 
-var SupportedModelList = []string{
-	"qwen3.6-plus",
-	"qwen3.5-plus",
-	"kimi-k2.5",
-	"qwen3-max-2026-01-23",
-	"glm-5",
-	"glm-4.7",
-	"MiniMax-M2.5",
-	"qwen3-coder-next",
-	"qwen3-coder-plus",
-}
+var SupportedModelList = modelcatalog.MustLoad(PlatformId)
 
 var DefaultFormatPathMap = map[types.Format]string{
 	types.FormatClaudeMessages: "/apps/anthropic/v1/messages",

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/RenaLio/tudou/pkg/provider/modelcatalog"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	"github.com/RenaLio/tudou/pkg/provider/types"
@@ -23,10 +24,7 @@ var DefaultFormatPathMap = map[types.Format]string{
 }
 
 // LocalModelList is the fixed set of models available under the Coding Plan.
-var LocalModelList = []string{
-	"MiniMax-M2.5",
-	"Qwen3-235B-A22B",
-}
+var LocalModelList = modelcatalog.MustLoad(PlatformId)
 
 type Client struct {
 	*base.Client

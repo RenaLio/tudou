@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/RenaLio/tudou/pkg/provider/modelcatalog"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	"github.com/RenaLio/tudou/pkg/provider/types"
 )
@@ -12,14 +13,7 @@ const PlatformId = "baidu_coding"
 
 const DefaultBaseURL = "https://qianfan.baidubce.com"
 
-var SupportedModelList = []string{
-	"kimi-k2.5",
-	"deepseek-v3.2",
-	"glm-5",
-	"minimax-m2.5",
-	"ernie-4.5-turbo-20260402",
-	"qianfan-code-latest",
-}
+var SupportedModelList = modelcatalog.MustLoad(PlatformId)
 
 var DefaultFormatPathMap = map[types.Format]string{
 	types.FormatChatCompletion: "/v2/coding/chat/completions",

@@ -3,6 +3,7 @@ package ctyuncoding
 import (
 	"net/http"
 
+	"github.com/RenaLio/tudou/pkg/provider/modelcatalog"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	"github.com/RenaLio/tudou/pkg/provider/types"
 )
@@ -16,15 +17,7 @@ var DefaultFormatPathMap = map[types.Format]string{
 	types.FormatClaudeMessages: "/coding/v1/messages",
 }
 
-var ModelList = []string{
-	"GLM-5.1",
-	"GLM-5",
-	"GLM-5-Turbo",
-	"GLM-4.7",
-	"GLM-4.6",
-	"GLM-4.5",
-	"GLM-4.5-Air",
-}
+var ModelList = modelcatalog.MustLoad(PlatformId)
 
 type Client struct {
 	*base.Client

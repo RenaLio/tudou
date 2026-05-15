@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/RenaLio/tudou/pkg/provider/modelcatalog"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
 	"github.com/RenaLio/tudou/pkg/provider/types"
@@ -18,15 +19,7 @@ var DefaultFormatPathMap = map[types.Format]string{
 	types.FormatClaudeMessages: "/v1/messages",
 }
 
-var LocalModelList = []string{
-	"minimax-m2.7",
-	"minimax-m2.5",
-	"glm-5.1",
-	"glm-4.7",
-	"deepseek-v3.2",
-	"kimi-k2.6",
-	"kimi-k2.5",
-}
+var LocalModelList = modelcatalog.MustLoad(PlatformId)
 
 type Client struct {
 	*base.Client

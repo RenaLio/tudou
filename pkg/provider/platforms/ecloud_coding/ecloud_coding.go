@@ -3,6 +3,7 @@ package ecloudcoding
 import (
 	"net/http"
 
+	"github.com/RenaLio/tudou/pkg/provider/modelcatalog"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	"github.com/RenaLio/tudou/pkg/provider/types"
 )
@@ -16,7 +17,7 @@ var DefaultFormatPathMap = map[types.Format]string{
 	types.FormatChatCompletion: "/api/coding/v1/chat/completions",
 }
 
-var ModelList = []string{"cm-code-latest", "minimax-m2.5", "glm-5.1"}
+var ModelList = modelcatalog.MustLoad(PlatformId)
 
 type Client struct {
 	*base.Client
@@ -39,5 +40,5 @@ func NewClient(httpC *http.Client, baseURL string, apiKey string) *Client {
 }
 
 func (c *Client) Models() ([]string, error) {
-	return ModelList, nil
+	return append([]string(nil), ModelList...), nil
 }

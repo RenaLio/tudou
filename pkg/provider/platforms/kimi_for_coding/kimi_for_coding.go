@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/RenaLio/tudou/pkg/provider/common"
+	"github.com/RenaLio/tudou/pkg/provider/modelcatalog"
 	"github.com/RenaLio/tudou/pkg/provider/platforms/base"
 	"github.com/RenaLio/tudou/pkg/provider/types"
 
@@ -19,12 +20,7 @@ const defaultCLIUserAgent = "claude-code/2.1.116 (cli)"
 
 const DefaultBaseURL = "https://api.kimi.com/coding"
 
-var SupportedModelList = []string{
-	"kimi-k2.6",
-	"kimi-for-coding",
-	"kimi-k2.5",
-	"kimi-k2-thinking",
-}
+var SupportedModelList = modelcatalog.MustLoad(PlatformId)
 
 var DefaultFormatPathMap = map[types.Format]string{
 	types.FormatChatCompletion: "/v1/chat/completions",
