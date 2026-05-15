@@ -2,11 +2,12 @@ package repository
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/RenaLio/tudou/internal/models"
 	jsoncache "github.com/RenaLio/tudou/pkg/cache"
+	"gorm.io/gorm"
 )
 
 type AIModelListOption struct {
@@ -14,21 +15,18 @@ type AIModelListOption struct {
 	PageSize int
 	OrderBy  string
 	Keyword  string
-	IDs      []int64
 }
 
 type AIModelRepo interface {
 	Create(ctx context.Context, model *models.AIModel) error
 	BatchCreate(ctx context.Context, modelsList []*models.AIModel) error
-	GetByID(ctx context.Context, id int64) (*models.AIModel, error)
 	GetByName(ctx context.Context, name string) (*models.AIModel, error)
 	GetExistingNames(ctx context.Context, names []string) ([]string, error)
 	List(ctx context.Context, opt AIModelListOption) ([]*models.AIModel, int64, error)
 	Update(ctx context.Context, model *models.AIModel) error
-	SetEnabled(ctx context.Context, id int64, enabled bool) error
-	Delete(ctx context.Context, id int64) error
-	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
-	Exists(ctx context.Context, id int64) (bool, error)
+	DeleteByName(ctx context.Context, name string) error
+	DeleteByNames(ctx context.Context, names []string) (int64, error)
+	ExistsByName(ctx context.Context, name string) (bool, error)
 }
 
 type aiModelRepo struct {
@@ -43,13 +41,13 @@ func NewAIModelRepo(r *Repository) AIModelRepo {
 
 func (r *aiModelRepo) Create(ctx context.Context, model *models.AIModel) error {
 	if model != nil {
-		r.invalidateModelCache(ctx, model.ID, model.Name)
+		r.invalidateModelCache(ctx, model.Name)
 	}
 	if err := Create[models.AIModel](ctx, model, r.DB(ctx)); err != nil {
 		return err
 	}
 	if model != nil {
-		r.invalidateModelCacheOnCommit(ctx, model.ID, model.Name)
+		r.invalidateModelCacheOnCommit(ctx, model.Name)
 	}
 	return nil
 }
@@ -59,7 +57,7 @@ func (r *aiModelRepo) BatchCreate(ctx context.Context, modelsList []*models.AIMo
 		if item == nil {
 			continue
 		}
-		r.invalidateModelCache(ctx, item.ID, item.Name)
+		r.invalidateModelCache(ctx, item.Name)
 	}
 	if err := BatchCreate[*models.AIModel](ctx, modelsList, r.DB(ctx)); err != nil {
 		return err
@@ -68,26 +66,9 @@ func (r *aiModelRepo) BatchCreate(ctx context.Context, modelsList []*models.AIMo
 		if item == nil {
 			continue
 		}
-		r.invalidateModelCacheOnCommit(ctx, item.ID, item.Name)
+		r.invalidateModelCacheOnCommit(ctx, item.Name)
 	}
 	return nil
-}
-
-func (r *aiModelRepo) GetByID(ctx context.Context, id int64) (*models.AIModel, error) {
-	if r.cacheEnabled(ctx) {
-		cached, err := jsoncache.Get[models.AIModel](r.cache, aiModelByIDCacheKey(id))
-		if err == nil {
-			return &cached, nil
-		}
-	}
-
-	item, err := GetByID[models.AIModel](ctx, id, r.DB(ctx))
-	if err != nil {
-		return nil, err
-	}
-	r.setModelCache(ctx, item)
-	return item, nil
-
 }
 
 func (r *aiModelRepo) GetByName(ctx context.Context, name string) (*models.AIModel, error) {
@@ -126,10 +107,6 @@ func (r *aiModelRepo) List(ctx context.Context, opt AIModelListOption) ([]*model
 		db = db.Where("name LIKE ? OR description LIKE ?", like, like)
 	}
 
-	if len(opt.IDs) > 0 {
-		db = db.Where("id IN ?", uniqueInt64(opt.IDs))
-	}
-
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -146,115 +123,113 @@ func (r *aiModelRepo) List(ctx context.Context, opt AIModelListOption) ([]*model
 }
 
 func (r *aiModelRepo) Update(ctx context.Context, model *models.AIModel) error {
-	oldName := r.cachedModelNameByID(ctx, model.ID)
-	r.invalidateModelCache(ctx, model.ID, model.Name, oldName)
-
-	if err := Update[models.AIModel](ctx, model, model.ID, []string{"ID", "CreatedAt", "UpdatedAt"}, r.DB(ctx)); err != nil {
-		return err
+	if model == nil {
+		return errors.New("model is required")
+	}
+	name := strings.TrimSpace(model.Name)
+	if name == "" {
+		return errors.New("name is required")
 	}
 
-	r.invalidateModelCacheOnCommit(ctx, model.ID, model.Name, oldName)
+	r.invalidateModelCache(ctx, name)
+
+	tx := r.DB(ctx).
+		Model(&models.AIModel{}).
+		Where("name = ?", name).
+		Select("*").
+		Omit("ID", "Name", "CreatedAt", "UpdatedAt").
+		Updates(model)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if tx.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	r.invalidateModelCacheOnCommit(ctx, name)
 	return nil
 }
 
-func (r *aiModelRepo) SetEnabled(ctx context.Context, id int64, enabled bool) error {
-	oldName := r.cachedModelNameByID(ctx, id)
-	r.invalidateModelCache(ctx, id, oldName)
-
-	if err := SetField[models.AIModel](ctx, "is_enabled", enabled, id, r.DB(ctx)); err != nil {
-		return err
+func (r *aiModelRepo) DeleteByName(ctx context.Context, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("name is required")
 	}
-	r.invalidateModelCacheOnCommit(ctx, id, oldName)
+	r.invalidateModelCache(ctx, name)
+
+	tx := r.DB(ctx).Where("name = ?", name).Delete(&models.AIModel{})
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if tx.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	r.invalidateModelCacheOnCommit(ctx, name)
 	return nil
 }
 
-func (r *aiModelRepo) Delete(ctx context.Context, id int64) error {
-	oldName := r.cachedModelNameByID(ctx, id)
-	r.invalidateModelCache(ctx, id, oldName)
-	if err := Delete[models.AIModel](ctx, id, r.DB(ctx)); err != nil {
-		return err
-	}
-	r.invalidateModelCacheOnCommit(ctx, id, oldName)
-	return nil
-}
-
-func (r *aiModelRepo) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
-	ids = uniqueInt64(ids)
-	if len(ids) == 0 {
+func (r *aiModelRepo) DeleteByNames(ctx context.Context, names []string) (int64, error) {
+	if len(names) == 0 {
 		return 0, nil
 	}
 
-	// Query names from DB to avoid stale name-cache leak when id-cache is missing.
-	type aiModelNameRow struct {
-		ID   int64
-		Name string
-	}
-	rows := make([]aiModelNameRow, 0, len(ids))
-	if err := r.DB(ctx).Model(&models.AIModel{}).Select("id", "name").Where("id IN ?", ids).Find(&rows).Error; err != nil {
-		return 0, err
-	}
-
-	nameSet := make(map[string]struct{}, len(rows))
-	for _, row := range rows {
-		row.Name = strings.TrimSpace(row.Name)
-		if row.Name == "" {
+	nameSet := make(map[string]struct{}, len(names))
+	normalizedNames := make([]string, 0, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
 			continue
 		}
-		nameSet[row.Name] = struct{}{}
+		if _, ok := nameSet[name]; ok {
+			continue
+		}
+		nameSet[name] = struct{}{}
+		normalizedNames = append(normalizedNames, name)
+	}
+	if len(normalizedNames) == 0 {
+		return 0, nil
 	}
 
-	names := make([]string, 0, len(nameSet))
-	for n := range nameSet {
-		names = append(names, n)
-	}
-	for _, id := range ids {
-		r.invalidateModelCache(ctx, id, names...)
-	}
+	r.invalidateModelCache(ctx, normalizedNames...)
 
-	tx := r.DB(ctx).Where("id IN ?", ids).Delete(&models.AIModel{})
+	tx := r.DB(ctx).Where("name IN ?", normalizedNames).Delete(&models.AIModel{})
 	if tx.Error != nil {
 		return 0, tx.Error
 	}
 
-	namesCopy := append([]string(nil), names...)
-	idsCopy := append([]int64(nil), ids...)
+	namesCopy := append([]string(nil), normalizedNames...)
 	r.onCommitted(ctx, func() {
-		for _, id := range idsCopy {
-			r.invalidateModelCache(context.Background(), id, namesCopy...)
-		}
+		r.invalidateModelCache(context.Background(), namesCopy...)
 	})
 	return tx.RowsAffected, nil
 }
 
-func (r *aiModelRepo) Exists(ctx context.Context, id int64) (bool, error) {
-	return Exists[models.AIModel](ctx, id, r.DB(ctx))
+func (r *aiModelRepo) ExistsByName(ctx context.Context, name string) (bool, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false, nil
+	}
+	count, err := gorm.G[models.AIModel](r.DB(ctx)).Where("name = ?", name).Count(ctx, "id")
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *aiModelRepo) cacheEnabled(ctx context.Context) bool {
 	return r != nil && r.cache != nil && ctx != nil && ctx.Value(ctxTxKey) == nil
 }
 
-func aiModelByIDCacheKey(id int64) string {
-	return fmt.Sprintf("%s:id:%d", aiModelCacheKeyPrefix, id)
-}
-
 func aiModelByNameCacheKey(name string) string {
-	return fmt.Sprintf("%s:name:%s", aiModelCacheKeyPrefix, name)
+	return aiModelCacheKeyPrefix + ":name:" + name
 }
 
 func (r *aiModelRepo) setModelCache(ctx context.Context, model *models.AIModel) {
 	if !r.cacheEnabled(ctx) || model == nil {
 		return
 	}
-	_ = jsoncache.Set(r.cache, aiModelByIDCacheKey(model.ID), *model)
 	_ = jsoncache.Set(r.cache, aiModelByNameCacheKey(model.Name), *model)
-}
-
-func (r *aiModelRepo) delModelCacheByID(ctx context.Context, id int64) {
-	if r == nil || r.cache == nil {
-		return
-	}
-	_ = r.cache.Delete(aiModelByIDCacheKey(id))
 }
 
 func (r *aiModelRepo) delModelCacheByName(ctx context.Context, name string) {
@@ -264,19 +239,7 @@ func (r *aiModelRepo) delModelCacheByName(ctx context.Context, name string) {
 	_ = r.cache.Delete(aiModelByNameCacheKey(name))
 }
 
-func (r *aiModelRepo) cachedModelNameByID(ctx context.Context, id int64) string {
-	if r == nil || r.cache == nil {
-		return ""
-	}
-	cached, err := jsoncache.Get[models.AIModel](r.cache, aiModelByIDCacheKey(id))
-	if err != nil {
-		return ""
-	}
-	return cached.Name
-}
-
-func (r *aiModelRepo) invalidateModelCache(ctx context.Context, id int64, names ...string) {
-	r.delModelCacheByID(ctx, id)
+func (r *aiModelRepo) invalidateModelCache(ctx context.Context, names ...string) {
 	seen := make(map[string]struct{}, len(names))
 	for _, name := range names {
 		if name == "" {
@@ -290,12 +253,12 @@ func (r *aiModelRepo) invalidateModelCache(ctx context.Context, id int64, names 
 	}
 }
 
-func (r *aiModelRepo) invalidateModelCacheOnCommit(ctx context.Context, id int64, names ...string) {
+func (r *aiModelRepo) invalidateModelCacheOnCommit(ctx context.Context, names ...string) {
 	namesCopy := append([]string(nil), names...)
 	r.onCommitted(ctx, func() {
 		// Second delete is delayed to commit when inside a transaction to avoid
 		// leaving stale cache after commit.
 		// 在事务内将第二次删除延后到提交后执行，避免提交成功后仍残留旧缓存。
-		r.invalidateModelCache(context.Background(), id, namesCopy...)
+		r.invalidateModelCache(context.Background(), namesCopy...)
 	})
 }

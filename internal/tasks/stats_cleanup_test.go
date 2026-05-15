@@ -61,8 +61,8 @@ func TestStatsCleanupTask_Run_ByConfirmedBoundaries(t *testing.T) {
 	if !slices.Equal(channelModelStatsRepo.deletedByChannelIDs, []int64{3}) {
 		t.Fatalf("unexpected deleted channel model stats ids: %+v", channelModelStatsRepo.deletedByChannelIDs)
 	}
-	if !slices.Equal(aiModelRepo.deletedIDs, []int64{13}) {
-		t.Fatalf("unexpected deleted ai model ids: %+v", aiModelRepo.deletedIDs)
+	if !slices.Equal(aiModelRepo.deletedNames, []string{"unused-model"}) {
+		t.Fatalf("unexpected deleted ai model names: %+v", aiModelRepo.deletedNames)
 	}
 	if requestLogRepo.before.IsZero() {
 		t.Fatalf("expected request log cutoff to be passed")
@@ -194,8 +194,8 @@ func (r *testStatsCleanupChannelModelStatsRepo) DeleteByChannelIDs(_ context.Con
 }
 
 type testStatsCleanupAIModelRepo struct {
-	items      []*models.AIModel
-	deletedIDs []int64
+	items        []*models.AIModel
+	deletedNames []string
 }
 
 func (r *testStatsCleanupAIModelRepo) List(_ context.Context, _ repository.AIModelListOption) ([]*models.AIModel, int64, error) {
@@ -207,10 +207,10 @@ func (r *testStatsCleanupAIModelRepo) List(_ context.Context, _ repository.AIMod
 	return out, int64(len(out)), nil
 }
 
-func (r *testStatsCleanupAIModelRepo) DeleteByIDs(_ context.Context, ids []int64) (int64, error) {
-	cp := append([]int64(nil), ids...)
+func (r *testStatsCleanupAIModelRepo) DeleteByNames(_ context.Context, names []string) (int64, error) {
+	cp := append([]string(nil), names...)
 	slices.Sort(cp)
-	r.deletedIDs = cp
+	r.deletedNames = cp
 	return int64(len(cp)), nil
 }
 

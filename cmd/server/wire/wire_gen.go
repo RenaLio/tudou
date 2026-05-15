@@ -135,7 +135,7 @@ func newAsyncMetricsCollector(reg *loadbalancer.Registry) *loadbalancer.AsyncMet
 	return loadbalancer.NewAsyncMetricsCollector(reg, 1024)
 }
 
-var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService, wire.Bind(new(handler.RelayService), new(*service.RelayService)), service.NewStatsService, wire.Bind(new(handler.StatsService), new(*service.StatsService)), service.NewRequestLogService, wire.Bind(new(service.RequestLogService), new(*service.RequestLogServiceImpl)), wire.Bind(new(service.RequestLogCreator), new(*service.RequestLogServiceImpl)))
+var serviceSet = wire.NewSet(service.NewService, service.NewAIModelService, wire.Bind(new(handler.ModelService), new(*service.AIModelService)), service.NewChannelService, service.NewChannelGroupService, service.NewTokenService, service.NewUserService, service.NewSystemConfigService, service.NewRelayService, wire.Bind(new(handler.RelayService), new(*service.RelayService)), service.NewStatsService, wire.Bind(new(handler.StatsService), new(*service.StatsService)), service.NewRequestLogService, wire.Bind(new(service.RequestLogService), new(*service.RequestLogServiceImpl)), wire.Bind(new(service.RequestLogCreator), new(*service.RequestLogServiceImpl)))
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewModelHandler, handler.NewChannelHandler, handler.NewChannelGroupHandler, handler.NewTokenHandler, handler.NewUserHandler, handler.NewSystemConfigHandler, handler.NewStatsHandler, handler.NewRelayHandler, handler.NewRequestLogHandler, handler.NewDebugHelperHandler, handler.NewSelectOptionHandler)
 
@@ -190,7 +190,7 @@ func NewTaskServer(
 	if err := taskServer.SetTaskInterval(tasks.PriceSyncTaskName, 12*time.Hour); err != nil {
 		panic(err)
 	}
-	if err := taskServer.SetTaskInterval(tasks.ChannelModelSyncTaskName, 60*time.Minute); err != nil {
+	if err := taskServer.SetTaskInterval(tasks.ChannelModelSyncTaskName, 3*time.Hour); err != nil {
 		panic(err)
 	}
 	if err := taskServer.SetTaskInterval(tasks.StatsCleanupTaskName, 6*time.Hour); err != nil {

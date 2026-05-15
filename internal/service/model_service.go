@@ -10,31 +10,19 @@ import (
 	"github.com/RenaLio/tudou/internal/repository"
 )
 
-type AIModelService interface {
-	Create(ctx context.Context, req v1.CreateAIModelRequest) (*v1.AIModelResponse, error)
-	BatchCreate(ctx context.Context, reqs []v1.CreateAIModelRequest) ([]v1.AIModelResponse, error)
-	GetByID(ctx context.Context, id int64) (*v1.AIModelResponse, error)
-	GetByName(ctx context.Context, name string) (*v1.AIModelResponse, error)
-	List(ctx context.Context, req v1.ListAIModelsRequest) (*v1.ListResponse[v1.AIModelResponse], error)
-	Update(ctx context.Context, id int64, req v1.UpdateAIModelRequest) (*v1.AIModelResponse, error)
-	SetEnabled(ctx context.Context, id int64, req v1.SetAIModelEnabledRequest) (*v1.AIModelResponse, error)
-	Delete(ctx context.Context, id int64) error
-	Exists(ctx context.Context, id int64) (bool, error)
-}
-
-type aiModelService struct {
+type AIModelService struct {
 	*Service
 	repo repository.AIModelRepo
 }
 
-func NewAIModelService(base *Service, repo repository.AIModelRepo) AIModelService {
-	return &aiModelService{
+func NewAIModelService(base *Service, repo repository.AIModelRepo) *AIModelService {
+	return &AIModelService{
 		Service: base,
 		repo:    repo,
 	}
 }
 
-func (s *aiModelService) Create(ctx context.Context, req v1.CreateAIModelRequest) (*v1.AIModelResponse, error) {
+func (s *AIModelService) Create(ctx context.Context, req v1.CreateAIModelRequest) (*v1.AIModelResponse, error) {
 	model, err := s.buildModelByCreateReq(req)
 	if err != nil {
 		return nil, err
@@ -46,7 +34,7 @@ func (s *aiModelService) Create(ctx context.Context, req v1.CreateAIModelRequest
 	return &resp, nil
 }
 
-func (s *aiModelService) BatchCreate(ctx context.Context, reqs []v1.CreateAIModelRequest) ([]v1.AIModelResponse, error) {
+func (s *AIModelService) BatchCreate(ctx context.Context, reqs []v1.CreateAIModelRequest) ([]v1.AIModelResponse, error) {
 	if len(reqs) == 0 {
 		return []v1.AIModelResponse{}, nil
 	}
@@ -69,16 +57,11 @@ func (s *aiModelService) BatchCreate(ctx context.Context, reqs []v1.CreateAIMode
 	return respItems, nil
 }
 
-func (s *aiModelService) GetByID(ctx context.Context, id int64) (*v1.AIModelResponse, error) {
-	model, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		return nil, err
+func (s *AIModelService) GetByName(ctx context.Context, name string) (*v1.AIModelResponse, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("name is required")
 	}
-	resp := toAIModelResponse(model)
-	return &resp, nil
-}
-
-func (s *aiModelService) GetByName(ctx context.Context, name string) (*v1.AIModelResponse, error) {
 	model, err := s.repo.GetByName(ctx, name)
 	if err != nil {
 		return nil, err
@@ -87,7 +70,7 @@ func (s *aiModelService) GetByName(ctx context.Context, name string) (*v1.AIMode
 	return &resp, nil
 }
 
-func (s *aiModelService) List(ctx context.Context, req v1.ListAIModelsRequest) (*v1.ListResponse[v1.AIModelResponse], error) {
+func (s *AIModelService) List(ctx context.Context, req v1.ListAIModelsRequest) (*v1.ListResponse[v1.AIModelResponse], error) {
 	opt := repository.AIModelListOption{
 		Page:     req.Page,
 		PageSize: req.PageSize,
@@ -116,10 +99,17 @@ func (s *aiModelService) List(ctx context.Context, req v1.ListAIModelsRequest) (
 	}, nil
 }
 
-func (s *aiModelService) Update(ctx context.Context, id int64, req v1.UpdateAIModelRequest) (*v1.AIModelResponse, error) {
-	model, err := s.repo.GetByID(ctx, id)
+func (s *AIModelService) Update(ctx context.Context, name string, req v1.UpdateAIModelRequest) (*v1.AIModelResponse, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	model, err := s.repo.GetByName(ctx, name)
 	if err != nil {
 		return nil, err
+	}
+	if req.Name != nil && strings.TrimSpace(*req.Name) != model.Name {
+		return nil, errors.New("model name is immutable")
 	}
 	patchModelByUpdateReq(model, req)
 	if strings.TrimSpace(model.Name) == "" {
@@ -132,22 +122,23 @@ func (s *aiModelService) Update(ctx context.Context, id int64, req v1.UpdateAIMo
 	return &resp, nil
 }
 
-func (s *aiModelService) SetEnabled(ctx context.Context, id int64, req v1.SetAIModelEnabledRequest) (*v1.AIModelResponse, error) {
-	if err := s.repo.SetEnabled(ctx, id, req.Enabled); err != nil {
-		return nil, err
+func (s *AIModelService) Delete(ctx context.Context, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("name is required")
 	}
-	return s.GetByID(ctx, id)
+	return s.repo.DeleteByName(ctx, name)
 }
 
-func (s *aiModelService) Delete(ctx context.Context, id int64) error {
-	return s.repo.Delete(ctx, id)
+func (s *AIModelService) Exists(ctx context.Context, name string) (bool, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false, nil
+	}
+	return s.repo.ExistsByName(ctx, name)
 }
 
-func (s *aiModelService) Exists(ctx context.Context, id int64) (bool, error) {
-	return s.repo.Exists(ctx, id)
-}
-
-func (s *aiModelService) buildModelByCreateReq(req v1.CreateAIModelRequest) (*models.AIModel, error) {
+func (s *AIModelService) buildModelByCreateReq(req v1.CreateAIModelRequest) (*models.AIModel, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return nil, errors.New("name is required")

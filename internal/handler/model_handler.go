@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/service"
@@ -10,12 +12,22 @@ import (
 	"gorm.io/gorm"
 )
 
-type ModelHandler struct {
-	*Handler
-	ModelService service.AIModelService
+type ModelService interface {
+	Create(ctx context.Context, req v1.CreateAIModelRequest) (*v1.AIModelResponse, error)
+	GetByName(ctx context.Context, name string) (*v1.AIModelResponse, error)
+	List(ctx context.Context, req v1.ListAIModelsRequest) (*v1.ListResponse[v1.AIModelResponse], error)
+	Update(ctx context.Context, name string, req v1.UpdateAIModelRequest) (*v1.AIModelResponse, error)
+	Delete(ctx context.Context, name string) error
 }
 
-func NewModelHandler(base *Handler, modelService service.AIModelService) *ModelHandler {
+var _ ModelService = (*service.AIModelService)(nil)
+
+type ModelHandler struct {
+	*Handler
+	ModelService ModelService
+}
+
+func NewModelHandler(base *Handler, modelService ModelService) *ModelHandler {
 	return &ModelHandler{
 		Handler:      base,
 		ModelService: modelService,
@@ -26,10 +38,9 @@ func (h *ModelHandler) RegisterRoutes(r gin.IRouter) {
 	models := r.Group("/model")
 	models.POST("", h.CreateAIModel)
 	models.GET("", h.ListAIModels)
-	models.GET("/:id", h.GetAIModelByID)
-	models.PUT("/:id", h.UpdateAIModel)
-	// models.PATCH("/:id/enabled", h.SetAIModelEnabled)
-	models.DELETE("/:id", h.DeleteAIModel)
+	models.GET("/:name", h.GetAIModelByName)
+	models.PUT("/:name", h.UpdateAIModel)
+	models.DELETE("/:name", h.DeleteAIModel)
 }
 
 func (h *ModelHandler) CreateAIModel(ctx *gin.Context) {
@@ -58,13 +69,14 @@ func (h *ModelHandler) ListAIModels(ctx *gin.Context) {
 	v1.Success(ctx, resp)
 }
 
-func (h *ModelHandler) GetAIModelByID(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
+func (h *ModelHandler) GetAIModelByName(ctx *gin.Context) {
+	name := strings.TrimSpace(ctx.Param("name"))
+	if name == "" {
+		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("name is required"), nil)
 		return
 	}
 
-	resp, err := h.ModelService.GetByID(ctx.Request.Context(), id)
+	resp, err := h.ModelService.GetByName(ctx.Request.Context(), name)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			HandleNotFound(ctx)
@@ -77,8 +89,9 @@ func (h *ModelHandler) GetAIModelByID(ctx *gin.Context) {
 }
 
 func (h *ModelHandler) UpdateAIModel(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
+	name := strings.TrimSpace(ctx.Param("name"))
+	if name == "" {
+		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("name is required"), nil)
 		return
 	}
 
@@ -86,30 +99,10 @@ func (h *ModelHandler) UpdateAIModel(ctx *gin.Context) {
 	if !h.BindJSON(ctx, &req) {
 		return
 	}
+	// Model name is immutable via API updates.
+	req.Name = nil
 
-	resp, err := h.ModelService.Update(ctx.Request.Context(), id, req)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			HandleNotFound(ctx)
-			return
-		}
-		HandleServiceError(ctx, err)
-		return
-	}
-	v1.Success(ctx, resp)
-}
-
-func (h *ModelHandler) SetAIModelEnabled(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
-		return
-	}
-	var req v1.SetAIModelEnabledRequest
-	if !h.BindJSON(ctx, &req) {
-		return
-	}
-
-	resp, err := h.ModelService.SetEnabled(ctx.Request.Context(), id, req)
+	resp, err := h.ModelService.Update(ctx.Request.Context(), name, req)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			HandleNotFound(ctx)
@@ -122,11 +115,12 @@ func (h *ModelHandler) SetAIModelEnabled(ctx *gin.Context) {
 }
 
 func (h *ModelHandler) DeleteAIModel(ctx *gin.Context) {
-	id, ok := h.ParseIDParam(ctx, "id")
-	if !ok {
+	name := strings.TrimSpace(ctx.Param("name"))
+	if name == "" {
+		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("name is required"), nil)
 		return
 	}
-	if err := h.ModelService.Delete(ctx.Request.Context(), id); err != nil {
+	if err := h.ModelService.Delete(ctx.Request.Context(), name); err != nil {
 		HandleServiceError(ctx, err)
 		return
 	}

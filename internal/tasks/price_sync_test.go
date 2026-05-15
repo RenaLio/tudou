@@ -192,10 +192,6 @@ func (r *testPriceSyncModelRepo) BatchCreate(ctx context.Context, modelsList []*
 	panic("unexpected call to BatchCreate")
 }
 
-func (r *testPriceSyncModelRepo) GetByID(ctx context.Context, id int64) (*models.AIModel, error) {
-	panic("unexpected call to GetByID")
-}
-
 func (r *testPriceSyncModelRepo) GetByName(ctx context.Context, name string) (*models.AIModel, error) {
 	panic("unexpected call to GetByName")
 }
@@ -244,20 +240,16 @@ func (r *testPriceSyncModelRepo) Update(ctx context.Context, model *models.AIMod
 	return nil
 }
 
-func (r *testPriceSyncModelRepo) SetEnabled(ctx context.Context, id int64, enabled bool) error {
-	panic("unexpected call to SetEnabled")
+func (r *testPriceSyncModelRepo) DeleteByName(ctx context.Context, name string) error {
+	panic("unexpected call to DeleteByName")
 }
 
-func (r *testPriceSyncModelRepo) Delete(ctx context.Context, id int64) error {
-	panic("unexpected call to Delete")
+func (r *testPriceSyncModelRepo) DeleteByNames(ctx context.Context, names []string) (int64, error) {
+	panic("unexpected call to DeleteByNames")
 }
 
-func (r *testPriceSyncModelRepo) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
-	panic("unexpected call to DeleteByIDs")
-}
-
-func (r *testPriceSyncModelRepo) Exists(ctx context.Context, id int64) (bool, error) {
-	panic("unexpected call to Exists")
+func (r *testPriceSyncModelRepo) ExistsByName(ctx context.Context, name string) (bool, error) {
+	panic("unexpected call to ExistsByName")
 }
 
 func newTestPriceStore() *store.ModelPriceStore {

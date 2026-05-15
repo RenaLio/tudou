@@ -22,10 +22,6 @@ type UpdateAIModelRequest struct {
 	Extra       *models.AIModelExtra     `json:"extra,omitempty"`
 }
 
-type SetAIModelEnabledRequest struct {
-	Enabled bool `json:"enabled"`
-}
-
 type ListAIModelsRequest struct {
 	Page     int    `form:"page"`
 	PageSize int    `form:"pageSize"`

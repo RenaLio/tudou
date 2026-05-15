@@ -1,18 +1,21 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
 	"github.com/RenaLio/tudou/internal/config"
 	"github.com/RenaLio/tudou/internal/models"
 	"github.com/RenaLio/tudou/internal/pkg/sid"
+	"github.com/RenaLio/tudou/internal/repository"
 )
 
 func TestBuildModelByCreateReq_PopulatesExtra(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Security.Sid.Id = 1
-	svc := &aiModelService{
+	svc := &AIModelService{
 		Service: &Service{
 			sid: sid.NewSid(cfg),
 		},
@@ -72,7 +75,7 @@ func TestPatchModelByUpdateReq_PopulatesExtra(t *testing.T) {
 func TestBuildModelByCreateReq_DefaultsLongContextTokens(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Security.Sid.Id = 1
-	svc := &aiModelService{
+	svc := &AIModelService{
 		Service: &Service{
 			sid: sid.NewSid(cfg),
 		},
@@ -105,5 +108,118 @@ func TestPatchModelByUpdateReq_DefaultsLongContextTokens(t *testing.T) {
 	patchModelByUpdateReq(model, req)
 	if model.Pricing.LongContextTokens != 256_000 {
 		t.Fatalf("unexpected long context tokens after patch: got=%d want=256000", model.Pricing.LongContextTokens)
+	}
+}
+
+type testModelRepoForNameFlow struct {
+	getByNameFn    func(ctx context.Context, name string) (*models.AIModel, error)
+	updateFn       func(ctx context.Context, model *models.AIModel) error
+	existsByNameFn func(ctx context.Context, name string) (bool, error)
+	deleteByNameFn func(ctx context.Context, name string) error
+}
+
+var _ repository.AIModelRepo = (*testModelRepoForNameFlow)(nil)
+
+func (r *testModelRepoForNameFlow) Create(context.Context, *models.AIModel) error {
+	panic("not implemented")
+}
+
+func (r *testModelRepoForNameFlow) BatchCreate(context.Context, []*models.AIModel) error {
+	panic("not implemented")
+}
+
+func (r *testModelRepoForNameFlow) GetByName(ctx context.Context, name string) (*models.AIModel, error) {
+	if r.getByNameFn == nil {
+		panic("not implemented")
+	}
+	return r.getByNameFn(ctx, name)
+}
+
+func (r *testModelRepoForNameFlow) GetExistingNames(context.Context, []string) ([]string, error) {
+	panic("not implemented")
+}
+
+func (r *testModelRepoForNameFlow) List(context.Context, repository.AIModelListOption) ([]*models.AIModel, int64, error) {
+	panic("not implemented")
+}
+
+func (r *testModelRepoForNameFlow) Update(ctx context.Context, model *models.AIModel) error {
+	if r.updateFn == nil {
+		return nil
+	}
+	return r.updateFn(ctx, model)
+}
+
+func (r *testModelRepoForNameFlow) DeleteByName(ctx context.Context, name string) error {
+	if r.deleteByNameFn == nil {
+		panic("not implemented")
+	}
+	return r.deleteByNameFn(ctx, name)
+}
+
+func (r *testModelRepoForNameFlow) DeleteByNames(context.Context, []string) (int64, error) {
+	panic("not implemented")
+}
+
+func (r *testModelRepoForNameFlow) ExistsByName(ctx context.Context, name string) (bool, error) {
+	if r.existsByNameFn == nil {
+		panic("not implemented")
+	}
+	return r.existsByNameFn(ctx, name)
+}
+
+func TestAIModelService_Update_NameImmutable(t *testing.T) {
+	model := &models.AIModel{
+		ID:   1,
+		Name: "gpt-4o",
+	}
+	repo := &testModelRepoForNameFlow{
+		getByNameFn: func(ctx context.Context, name string) (*models.AIModel, error) {
+			return model, nil
+		},
+	}
+	svc := &AIModelService{repo: repo}
+
+	nextName := "gpt-4.1"
+	_, err := svc.Update(context.Background(), "gpt-4o", v1.UpdateAIModelRequest{
+		Name: &nextName,
+	})
+	if err == nil || err.Error() != "model name is immutable" {
+		t.Fatalf("expected immutable-name error, got: %v", err)
+	}
+}
+
+func TestAIModelService_Exists_NotFound(t *testing.T) {
+	repo := &testModelRepoForNameFlow{
+		existsByNameFn: func(ctx context.Context, name string) (bool, error) {
+			return false, nil
+		},
+	}
+	svc := &AIModelService{repo: repo}
+
+	ok, err := svc.Exists(context.Background(), "gpt-4o")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Fatal("expected exists=false when record not found")
+	}
+}
+
+func TestAIModelService_Exists_UnexpectedError(t *testing.T) {
+	wantErr := errors.New("db timeout")
+	repo := &testModelRepoForNameFlow{
+		existsByNameFn: func(ctx context.Context, name string) (bool, error) {
+			return false, wantErr
+		},
+	}
+	svc := &AIModelService{repo: repo}
+
+	ok, err := svc.Exists(context.Background(), "gpt-4o")
+	if ok {
+		t.Fatal("expected exists=false on error")
+	}
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

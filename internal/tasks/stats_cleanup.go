@@ -61,7 +61,7 @@ type StatsCleanupChannelModelStatsRepo interface {
 
 type StatsCleanupAIModelRepo interface {
 	List(ctx context.Context, opt repository.AIModelListOption) ([]*models.AIModel, int64, error)
-	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
+	DeleteByNames(ctx context.Context, names []string) (int64, error)
 }
 
 type StatsCleanupRequestLogRepo interface {
@@ -202,9 +202,9 @@ func (t *StatsCleanupTask) Run(ctx context.Context) error {
 		}
 	}
 
-	deleteAIModelIDs := make([]int64, 0, len(aiModels))
+	deleteAIModelNames := make([]string, 0, len(aiModels))
 	for _, item := range aiModels {
-		if item == nil || item.ID <= 0 {
+		if item == nil {
 			continue
 		}
 		name := strings.TrimSpace(item.Name)
@@ -214,12 +214,12 @@ func (t *StatsCleanupTask) Run(ctx context.Context) error {
 		if _, ok := channelModelNameSet[name]; ok {
 			continue
 		}
-		deleteAIModelIDs = append(deleteAIModelIDs, item.ID)
+		deleteAIModelNames = append(deleteAIModelNames, name)
 	}
 
 	var deletedAIModels int64
-	if len(deleteAIModelIDs) > 0 {
-		deletedAIModels, err = t.aiModelRepo.DeleteByIDs(ctx, deleteAIModelIDs)
+	if len(deleteAIModelNames) > 0 {
+		deletedAIModels, err = t.aiModelRepo.DeleteByNames(ctx, deleteAIModelNames)
 		if err != nil {
 			t.updateRuntimeState(startedAt, StatsCleanupTaskStats{}, err)
 			return err

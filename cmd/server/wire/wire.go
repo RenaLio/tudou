@@ -68,6 +68,7 @@ func newAsyncMetricsCollector(reg *loadbalancer.Registry) *loadbalancer.AsyncMet
 var serviceSet = wire.NewSet(
 	service.NewService,
 	service.NewAIModelService,
+	wire.Bind(new(handler.ModelService), new(*service.AIModelService)),
 	service.NewChannelService,
 	service.NewChannelGroupService,
 	service.NewTokenService,
@@ -154,7 +155,7 @@ func NewTaskServer(
 	if err := taskServer.SetTaskInterval(tasks.PriceSyncTaskName, 12*time.Hour); err != nil {
 		panic(err)
 	}
-	if err := taskServer.SetTaskInterval(tasks.ChannelModelSyncTaskName, 60*time.Minute); err != nil {
+	if err := taskServer.SetTaskInterval(tasks.ChannelModelSyncTaskName, 3*time.Hour); err != nil {
 		panic(err)
 	}
 	if err := taskServer.SetTaskInterval(tasks.StatsCleanupTaskName, 6*time.Hour); err != nil {
