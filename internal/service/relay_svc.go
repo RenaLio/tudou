@@ -30,6 +30,7 @@ import (
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	relaystation "github.com/RenaLio/tudou/pkg/provider/platforms/relay_station"
 	scnetcoding "github.com/RenaLio/tudou/pkg/provider/platforms/scnet_coding"
+	siliconflow "github.com/RenaLio/tudou/pkg/provider/platforms/siliconflow"
 	tencentcodingplan "github.com/RenaLio/tudou/pkg/provider/platforms/tencent_coding_plan"
 	volcenginecoding "github.com/RenaLio/tudou/pkg/provider/platforms/volcengine_coding"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
@@ -488,6 +489,8 @@ func buildProvider(platform string, baseURL string, apiKey string, httpc *http.C
 		return tencentcodingplan.NewClient(httpc, baseURL, apiKey)
 	case volcenginecoding.PlatformId:
 		return volcenginecoding.NewClient(httpc, baseURL, apiKey)
+	case siliconflow.PlatformId:
+		return siliconflow.NewClient(httpc, baseURL, apiKey)
 	case "coding-plan-adapter":
 		return codingplan.NewClient(httpc, baseURL, apiKey)
 	case "chat-completion":

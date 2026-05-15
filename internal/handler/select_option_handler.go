@@ -15,6 +15,7 @@ import (
 	"github.com/RenaLio/tudou/pkg/provider/platforms/openai"
 	relaystation "github.com/RenaLio/tudou/pkg/provider/platforms/relay_station"
 	scnetcoding "github.com/RenaLio/tudou/pkg/provider/platforms/scnet_coding"
+	siliconflow "github.com/RenaLio/tudou/pkg/provider/platforms/siliconflow"
 	tencentcodingplan "github.com/RenaLio/tudou/pkg/provider/platforms/tencent_coding_plan"
 	volcenginecoding "github.com/RenaLio/tudou/pkg/provider/platforms/volcengine_coding"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
@@ -167,6 +168,14 @@ func (h *Handler) PlatformOptions(c *gin.Context) {
 				Extra: map[string]any{
 					"exampleBaseUrl": minimaxcoding.DefaultBaseURL,
 					"paths":          minimaxcoding.DefaultFormatPathMap,
+				},
+			},
+			{
+				Key:   "SiliconFlow 硅基流动",
+				Value: siliconflow.PlatformId,
+				Extra: map[string]any{
+					"exampleBaseUrl": siliconflow.DefaultBaseURL,
+					"paths":          siliconflow.DefaultFormatPathMap,
 				},
 			},
 		},
