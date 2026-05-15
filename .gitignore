@@ -28,6 +28,7 @@ go.work.sum
 
 web/node_modules/
 web/dist/
+web/.git/
 
 
 ### dev tools

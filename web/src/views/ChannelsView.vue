@@ -993,6 +993,26 @@ onMounted(() => {
                       class="w-full px-3 py-2.5 bg-bg-secondary text-text-primary placeholder:text-text-muted border border-border rounded-lg text-sm font-mono transition-all duration-200 focus:outline-none focus:border-border-focus focus:shadow-[0_0_12px_rgba(139,195,74,0.08)] focus:ring-1 focus:ring-primary/20 resize-y min-h-[68px]"
                     ></textarea>
                   </AppFormField>
+                  <AppFormField label="自动同步上游模型" class="col-span-2" hint="开启后将自动同步上游平台的模型列表">
+                    <label class="flex items-center gap-2.5 cursor-pointer py-2">
+                      <input
+                        type="checkbox"
+                        :checked="formData.settings?.autoSyncUpstreamModels"
+                        @change="formData.settings!.autoSyncUpstreamModels = ($event.target as HTMLInputElement).checked"
+                        class="sr-only"
+                      />
+                      <span
+                        class="w-9 h-5 rounded-full transition-colors duration-200 relative"
+                        :class="formData.settings?.autoSyncUpstreamModels ? 'bg-primary' : 'bg-text-muted/30'"
+                      >
+                        <span
+                          class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200"
+                          :class="formData.settings?.autoSyncUpstreamModels ? 'translate-x-4' : 'translate-x-0'"
+                        ></span>
+                      </span>
+                      <span class="text-sm text-text-secondary">自动同步上游模型列表</span>
+                    </label>
+                  </AppFormField>
                 </div>
               </div>
 

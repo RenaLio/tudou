@@ -35,8 +35,8 @@ export async function listAIModels(params: ListAIModelsParams = {},) {
   return response.data.data;
 }
 
-export async function getAIModel(id: string,) {
-  const response = await client.get<ApiResponse<AIModel>>(`/model/${id}`,);
+export async function getAIModel(name: string,) {
+  const response = await client.get<ApiResponse<AIModel>>('/model/by-name', { params: { name } },);
   return response.data.data;
 }
 
@@ -45,13 +45,13 @@ export async function createAIModel(data: CreateAIModelRequest,) {
   return response.data.data;
 }
 
-export async function updateAIModel(id: string, data: UpdateAIModelRequest,) {
-  const response = await client.put<ApiResponse<AIModel>>(`/model/${id}`, data,);
+export async function updateAIModel(name: string, data: UpdateAIModelRequest,) {
+  const response = await client.put<ApiResponse<AIModel>>('/model/by-name', data, { params: { name } },);
   return response.data.data;
 }
 
-export async function deleteAIModel(id: string,) {
-  await client.delete(`/model/${id}`,);
+export async function deleteAIModel(name: string,) {
+  await client.delete('/model/by-name', { params: { name } },);
 }
 
 // Pricing type labels

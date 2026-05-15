@@ -102,6 +102,7 @@ export interface ChannelSettings {
   disableHttp2?: boolean;
   maxConcurrent?: number;
   customHeaders?: Record<string, string>;
+  autoSyncUpstreamModels?: boolean;
 }
 
 export interface ChannelExtra {
@@ -201,6 +202,7 @@ export type ModelType = 'chat' | 'embedding' | 'image' | 'audio' | 'multi';
 export type ModelPricingType = 'tokens' | 'request';
 
 export interface ModelPricing {
+  longContextTokens?: number;
   inputPrice?: number;
   outputPrice?: number;
   cacheCreatePrice?: number;

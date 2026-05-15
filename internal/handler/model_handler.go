@@ -38,9 +38,9 @@ func (h *ModelHandler) RegisterRoutes(r gin.IRouter) {
 	models := r.Group("/model")
 	models.POST("", h.CreateAIModel)
 	models.GET("", h.ListAIModels)
-	models.GET("/:name", h.GetAIModelByName)
-	models.PUT("/:name", h.UpdateAIModel)
-	models.DELETE("/:name", h.DeleteAIModel)
+	models.GET("/by-name", h.GetAIModelByName)
+	models.PUT("/by-name", h.UpdateAIModel)
+	models.DELETE("/by-name", h.DeleteAIModel)
 }
 
 func (h *ModelHandler) CreateAIModel(ctx *gin.Context) {
@@ -70,7 +70,7 @@ func (h *ModelHandler) ListAIModels(ctx *gin.Context) {
 }
 
 func (h *ModelHandler) GetAIModelByName(ctx *gin.Context) {
-	name := strings.TrimSpace(ctx.Param("name"))
+	name := parseModelNameQuery(ctx)
 	if name == "" {
 		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("name is required"), nil)
 		return
@@ -89,7 +89,7 @@ func (h *ModelHandler) GetAIModelByName(ctx *gin.Context) {
 }
 
 func (h *ModelHandler) UpdateAIModel(ctx *gin.Context) {
-	name := strings.TrimSpace(ctx.Param("name"))
+	name := parseModelNameQuery(ctx)
 	if name == "" {
 		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("name is required"), nil)
 		return
@@ -115,7 +115,7 @@ func (h *ModelHandler) UpdateAIModel(ctx *gin.Context) {
 }
 
 func (h *ModelHandler) DeleteAIModel(ctx *gin.Context) {
-	name := strings.TrimSpace(ctx.Param("name"))
+	name := parseModelNameQuery(ctx)
 	if name == "" {
 		v1.Fail(ctx, v1.ErrBadRequest.WithMessage("name is required"), nil)
 		return
@@ -125,4 +125,15 @@ func (h *ModelHandler) DeleteAIModel(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+func parseModelNameParam(raw string) string {
+	return strings.TrimSpace(raw)
+}
+
+func parseModelNameQuery(ctx *gin.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	return parseModelNameParam(ctx.Query("name"))
 }

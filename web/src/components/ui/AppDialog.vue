@@ -34,7 +34,7 @@ const emit = defineEmits<{
         class="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out"
       />
       <DialogContent
-        class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[400] bg-bg-card border border-border rounded-xl shadow-lg backdrop-blur-xl data-[state=open]:animate-in data-[state=open]:zoom-in-95 data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=closed]:fade-out"
+        class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[400] bg-bg-card border border-border rounded-xl shadow-lg backdrop-blur-xl max-h-[85vh] flex flex-col data-[state=open]:animate-in data-[state=open]:zoom-in-95 data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=closed]:fade-out"
         :class="[
           size === 'sm' && 'w-full max-w-sm',
           size === 'md' && 'w-full max-w-md',
@@ -42,7 +42,7 @@ const emit = defineEmits<{
           size === 'xl' && 'w-full max-w-xl',
         ]"
       >
-        <div class="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <div class="flex flex-col gap-0.5">
             <DialogTitle class="text-base font-semibold text-text-primary">{{ title }}</DialogTitle>
             <DialogDescription v-if="description" class="text-xs text-text-muted">
@@ -56,10 +56,10 @@ const emit = defineEmits<{
             </svg>
           </DialogClose>
         </div>
-        <div class="px-5 py-4">
+        <div class="px-5 py-4 overflow-y-auto flex-1 min-h-0">
           <slot />
         </div>
-        <div v-if="$slots.footer" class="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
+        <div v-if="$slots.footer" class="flex items-center justify-end gap-2 px-5 py-3 border-t border-border shrink-0">
           <slot name="footer" />
         </div>
       </DialogContent>

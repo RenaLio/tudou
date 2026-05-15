@@ -49,6 +49,7 @@ const formData = ref<CreateAIModelRequest>({
 
 // Pricing form (separate for easier manipulation)
 const pricingForm = ref<ModelPricing>({
+  longContextTokens: undefined,
   inputPrice: undefined,
   outputPrice: undefined,
   cacheCreatePrice: undefined,
@@ -96,6 +97,7 @@ function openCreateDialog() {
     extra: {},
   }
   pricingForm.value = {
+    longContextTokens: undefined,
     inputPrice: undefined,
     outputPrice: undefined,
     cacheCreatePrice: undefined,
@@ -121,6 +123,7 @@ function openEditDialog(model: AIModel) {
     extra: { ...model.extra },
   }
   pricingForm.value = {
+    longContextTokens: model.pricing.longContextTokens,
     inputPrice: model.pricing.inputPrice,
     outputPrice: model.pricing.outputPrice,
     cacheCreatePrice: model.pricing.cacheCreatePrice,
@@ -138,6 +141,7 @@ function openEditDialog(model: AIModel) {
 
 function updatePricingFromForm() {
   formData.value.pricing = {
+    longContextTokens: pricingForm.value.longContextTokens ?? undefined,
     inputPrice: pricingForm.value.inputPrice || undefined,
     outputPrice: pricingForm.value.outputPrice || undefined,
     cacheCreatePrice: pricingForm.value.cacheCreatePrice || undefined,
@@ -165,13 +169,12 @@ async function handleFormSubmit() {
   try {
     if (editingModel.value) {
       const updateData: UpdateAIModelRequest = {
-        name: formData.value.name,
         description: formData.value.description || undefined,
         pricing: formData.value.pricing,
         pricingType: formData.value.pricingType,
         extra: formData.value.extra,
       }
-      await updateAIModel(editingModel.value.id, updateData)
+      await updateAIModel(editingModel.value.name, updateData)
     } else {
       await createAIModel(formData.value)
     }
@@ -192,7 +195,7 @@ async function handleDelete() {
 
   deleteLoading.value = true
   try {
-    await deleteAIModel(deletingModel.value.id)
+    await deleteAIModel(deletingModel.value.name)
     deletingModel.value = null
     await loadModels()
   } catch {
@@ -362,7 +365,7 @@ onMounted(() => {
 
         <div class="grid grid-cols-2 gap-4">
           <AppFormField label="模型名称" required class="col-span-2">
-            <AppInput v-model="formData.name" type="text" placeholder="如: gpt-4o, claude-3-opus" />
+            <AppInput v-model="formData.name" type="text" placeholder="如: gpt-4o, claude-3-opus" :disabled="!!editingModel" />
           </AppFormField>
           <AppFormField label="描述" class="col-span-2">
             <textarea v-model="formData.description" rows="2" placeholder="模型描述（可选）" class="w-full px-3 py-2 bg-bg-secondary text-text-primary placeholder:text-text-muted border border-border rounded-md text-sm transition-all duration-200 focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-primary/30 resize-y min-h-[60px]"></textarea>
@@ -376,11 +379,9 @@ onMounted(() => {
 
           <!-- Token-based pricing -->
           <template v-if="formData.pricingType === 'tokens'">
-            <AppFormField class="col-span-2">
-              <template #label>
-                <span class="text-sm font-semibold text-text-primary mt-2">Token 定价 <span class="font-normal text-xs text-text-muted ml-1">(每百万 Token)</span></span>
-              </template>
-            </AppFormField>
+            <div class="col-span-2">
+              <span class="text-sm font-semibold text-text-primary mt-2">Token 定价 <span class="font-normal text-xs text-text-muted ml-1">(每百万 Token)</span></span>
+            </div>
             <AppFormField label="输入价格">
               <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30">
                 <span class="pl-3 pr-0 py-2 text-sm text-text-muted font-medium">$</span>
@@ -407,10 +408,14 @@ onMounted(() => {
             </AppFormField>
 
             <!-- Over 200K pricing -->
-            <AppFormField class="col-span-2">
-              <template #label>
-                <span class="text-sm font-semibold text-text-primary mt-2">长上下文定价 <span class="font-normal text-xs text-text-muted ml-1">(&gt;200K tokens，每百万 Token)</span></span>
-              </template>
+            <div class="col-span-2">
+              <span class="text-sm font-semibold text-text-primary mt-2">长上下文定价 <span class="font-normal text-xs text-text-muted ml-1">(&gt;{{ (pricingForm.longContextTokens ?? 256000) / 1000 }}K tokens，每百万 Token)</span></span>
+            </div>
+            <AppFormField label="长上下文阈值" class="col-span-2" hint="超过此 token 数将使用长上下文价格，默认 256K">
+              <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30 max-w-[200px]">
+                <input v-model.number="pricingForm.longContextTokens" type="number" step="1000" min="0" placeholder="256000" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
+                <span class="pr-3 pl-0 py-2 text-sm text-text-muted font-medium">tokens</span>
+              </div>
             </AppFormField>
             <AppFormField label="输入价格">
               <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30">
@@ -446,10 +451,8 @@ onMounted(() => {
                 <input v-model.number="pricingForm.perRequestPrice" type="number" step="0.0001" min="0" placeholder="0.0000" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
               </div>
             </AppFormField>
-            <AppFormField label="长上下文请求价格" class="col-span-2">
-              <template #label>
-                <span class="text-sm font-medium text-text-primary">长上下文请求价格 <span class="font-normal text-xs text-text-muted ml-1">(&gt;200K tokens)</span></span>
-              </template>
+            <AppFormField class="col-span-2">
+              <label class="text-sm font-medium text-text-secondary flex items-center gap-1">长上下文请求价格 <span class="font-normal text-xs text-text-muted ml-1">(&gt;200K tokens)</span></label>
               <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30 max-w-[200px]">
                 <span class="pl-3 pr-0 py-2 text-sm text-text-muted font-medium">$</span>
                 <input v-model.number="pricingForm.over200KPerRequestPrice" type="number" step="0.0001" min="0" placeholder="0.0000" class="flex-1 bg-transparent border-none px-3 py-2 text-[13px] font-mono text-text-primary focus:outline-none" />
@@ -458,11 +461,9 @@ onMounted(() => {
           </template>
 
           <!-- Extra section -->
-          <AppFormField class="col-span-2">
-            <template #label>
-              <span class="text-sm font-semibold text-text-primary mt-2">同步配置</span>
-            </template>
-          </AppFormField>
+          <div class="col-span-2">
+            <span class="text-sm font-semibold text-text-primary mt-2">同步配置</span>
+          </div>
           <AppFormField label="启用同步" class="col-span-2">
             <label class="flex items-center gap-2.5 cursor-pointer select-none">
               <button
