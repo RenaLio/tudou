@@ -450,6 +450,7 @@ const retryMax = 8
 
 func calcRetryLimit(n int) int {
 	limit := n / 3
+	limit += 2
 	if limit < retryMin {
 		limit = retryMin
 	}

@@ -20,5 +20,5 @@ func getMinBackoffInterval() int64 {
 } // ms	6min
 
 func getMaxBackoffInterval() int64 {
-	return int64(1000 * 60 * 60 * 60 * 1.5) // ms
-} // ms	1.5hr
+	return int64(1000 * 60 * 60 * 3) // ms
+} // ms	3hr  ((5h plan/2) ++)
