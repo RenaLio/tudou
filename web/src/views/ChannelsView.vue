@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { RE2JS } from 're2js'
 import dayjs from 'dayjs'
 import {
   DialogRoot,
@@ -113,6 +114,16 @@ const editingChannel = ref<Channel | null>(null)
 const formLoading = ref(false)
 const formError = ref('')
 const fetchingModels = ref(false)
+
+function isValidRegex(pattern: string): boolean {
+  if (!pattern) return true
+  try {
+    RE2JS.compile(pattern)
+    return true
+  } catch {
+    return false
+  }
+}
 
 // Form data
 const formData = ref<CreateChannelRequest>({
@@ -379,6 +390,14 @@ async function handleFormSubmit() {
   }
   if (!editingChannel.value && !formData.value.apiKey) {
     formError.value = '请填写 API Key'
+    return
+  }
+  if (!isValidRegex(formData.value.settings?.syncModelWhitelistRegex || '')) {
+    formError.value = '模型白名单正则表达式无效（需符合 Go RE2 语法）'
+    return
+  }
+  if (!isValidRegex(formData.value.settings?.syncModelBlacklistRegex || '')) {
+    formError.value = '模型黑名单正则表达式无效（需符合 Go RE2 语法）'
     return
   }
 
@@ -1013,6 +1032,32 @@ onMounted(() => {
                       <span class="text-sm text-text-secondary">自动同步上游模型列表</span>
                     </label>
                   </AppFormField>
+                  <template v-if="formData.settings?.autoSyncUpstreamModels">
+                    <AppFormField
+                      label="模型白名单正则"
+                      :hint="isValidRegex(formData.settings?.syncModelWhitelistRegex || '') ? '仅匹配的模型会被同步，留空表示不限制（需符合 Go RE2 语法）' : ''"
+                      :error="!isValidRegex(formData.settings?.syncModelWhitelistRegex || '') ? '无效的正则表达式' : ''"
+                    >
+                      <AppInput
+                        v-model="formData.settings!.syncModelWhitelistRegex"
+                        type="text"
+                        placeholder="如: ^gpt-.*|^claude-.*"
+                        :class="!isValidRegex(formData.settings?.syncModelWhitelistRegex || '') && 'border-danger focus:border-danger'"
+                      />
+                    </AppFormField>
+                    <AppFormField
+                      label="模型黑名单正则"
+                      :hint="isValidRegex(formData.settings?.syncModelBlacklistRegex || '') ? '匹配的模型将被排除，留空表示不限制（需符合 Go RE2 语法）' : ''"
+                      :error="!isValidRegex(formData.settings?.syncModelBlacklistRegex || '') ? '无效的正则表达式' : ''"
+                    >
+                      <AppInput
+                        v-model="formData.settings!.syncModelBlacklistRegex"
+                        type="text"
+                        placeholder="如: .*test.*|.*deprecated.*"
+                        :class="!isValidRegex(formData.settings?.syncModelBlacklistRegex || '') && 'border-danger focus:border-danger'"
+                      />
+                    </AppFormField>
+                  </template>
                 </div>
               </div>
 

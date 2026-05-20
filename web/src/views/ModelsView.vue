@@ -141,7 +141,7 @@ function openEditDialog(model: AIModel) {
 
 function updatePricingFromForm() {
   formData.value.pricing = {
-    longContextTokens: pricingForm.value.longContextTokens ?? undefined,
+    longContextTokens: pricingForm.value.longContextTokens || undefined,
     inputPrice: pricingForm.value.inputPrice || undefined,
     outputPrice: pricingForm.value.outputPrice || undefined,
     cacheCreatePrice: pricingForm.value.cacheCreatePrice || undefined,
@@ -409,7 +409,7 @@ onMounted(() => {
 
             <!-- Over 200K pricing -->
             <div class="col-span-2">
-              <span class="text-sm font-semibold text-text-primary mt-2">长上下文定价 <span class="font-normal text-xs text-text-muted ml-1">(&gt;{{ (pricingForm.longContextTokens ?? 256000) / 1000 }}K tokens，每百万 Token)</span></span>
+              <span class="text-sm font-semibold text-text-primary mt-2">长上下文定价 <span class="font-normal text-xs text-text-muted ml-1">(&gt;{{ (pricingForm.longContextTokens || 256000) / 1000 }}K tokens，每百万 Token)</span></span>
             </div>
             <AppFormField label="长上下文阈值" class="col-span-2" hint="超过此 token 数将使用长上下文价格，默认 256K">
               <div class="flex items-center bg-bg-secondary border border-border rounded-md overflow-hidden transition-colors duration-150 focus-within:border-border-focus focus-within:ring-1 focus-within:ring-primary/30 max-w-[200px]">

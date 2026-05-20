@@ -103,6 +103,8 @@ export interface ChannelSettings {
   maxConcurrent?: number;
   customHeaders?: Record<string, string>;
   autoSyncUpstreamModels?: boolean;
+  syncModelWhitelistRegex?: string;
+  syncModelBlacklistRegex?: string;
 }
 
 export interface ChannelExtra {
