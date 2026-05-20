@@ -24,7 +24,9 @@ func TestBuildChannelByCreateReq_PopulatesAutoSyncUpstreamModels(t *testing.T) {
 		BaseURL: "https://example.com",
 		APIKey:  "sk-test",
 		Settings: &models.ChannelSettings{
-			AutoSyncUpstreamModels: true,
+			AutoSyncUpstreamModels:  true,
+			SyncModelWhitelistRegex: "^gpt-",
+			SyncModelBlacklistRegex: "audio",
 		},
 	}
 
@@ -35,23 +37,39 @@ func TestBuildChannelByCreateReq_PopulatesAutoSyncUpstreamModels(t *testing.T) {
 	if !channel.Settings.AutoSyncUpstreamModels {
 		t.Fatalf("expected autoSyncUpstreamModels=true, got=false")
 	}
+	if channel.Settings.SyncModelWhitelistRegex != "^gpt-" {
+		t.Fatalf("unexpected syncModelWhitelistRegex: %q", channel.Settings.SyncModelWhitelistRegex)
+	}
+	if channel.Settings.SyncModelBlacklistRegex != "audio" {
+		t.Fatalf("unexpected syncModelBlacklistRegex: %q", channel.Settings.SyncModelBlacklistRegex)
+	}
 }
 
 func TestPatchChannelByUpdateReq_PopulatesAutoSyncUpstreamModels(t *testing.T) {
 	channel := &models.Channel{
 		Settings: models.ChannelSettings{
-			AutoSyncUpstreamModels: false,
+			AutoSyncUpstreamModels:  false,
+			SyncModelWhitelistRegex: "",
+			SyncModelBlacklistRegex: "",
 		},
 	}
 
 	req := v1.UpdateChannelRequest{
 		Settings: &models.ChannelSettings{
-			AutoSyncUpstreamModels: true,
+			AutoSyncUpstreamModels:  true,
+			SyncModelWhitelistRegex: "^gpt-",
+			SyncModelBlacklistRegex: "mini$",
 		},
 	}
 
 	patchChannelByUpdateReq(channel, req)
 	if !channel.Settings.AutoSyncUpstreamModels {
 		t.Fatalf("expected autoSyncUpstreamModels=true, got=false")
+	}
+	if channel.Settings.SyncModelWhitelistRegex != "^gpt-" {
+		t.Fatalf("unexpected syncModelWhitelistRegex: %q", channel.Settings.SyncModelWhitelistRegex)
+	}
+	if channel.Settings.SyncModelBlacklistRegex != "mini$" {
+		t.Fatalf("unexpected syncModelBlacklistRegex: %q", channel.Settings.SyncModelBlacklistRegex)
 	}
 }

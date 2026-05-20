@@ -3,12 +3,15 @@ package tasks
 import (
 	"context"
 	"errors"
+	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	v1 "github.com/RenaLio/tudou/api/v1"
+	"github.com/RenaLio/tudou/internal/models"
 	"github.com/RenaLio/tudou/internal/pkg/log"
 	"go.uber.org/zap"
 )
@@ -133,8 +136,22 @@ func (t *ChannelModelSyncTask) Run(ctx context.Context) error {
 				continue
 			}
 
+			modelsList, err = filterSyncModelList(modelsList, ch.Settings)
+			if err != nil {
+				failed++
+				if t.logger != nil {
+					t.logger.Warn(
+						"channel model sync filter failed",
+						zap.Int64("channel_id", ch.ID),
+						zap.String("channel_name", ch.Name),
+						zap.Error(err),
+					)
+				}
+				continue
+			}
+
 			nextModel := normalizeModelList(modelsList)
-			if nextModel == "" || nextModel == strings.TrimSpace(ch.Model) {
+			if nextModel == strings.TrimSpace(ch.Model) {
 				skipped++
 				continue
 			}
@@ -159,6 +176,55 @@ func (t *ChannelModelSyncTask) Run(ctx context.Context) error {
 
 	t.updateRuntimeState(startedAt, total, enabled, updated, skipped, failed, nil)
 	return nil
+}
+
+// filterSyncModelList 仅用于渠道模型定时自动同步。
+// 行为顺序：
+// 1. 如果配置了白名单，则只保留匹配白名单的模型
+// 2. 如果配置了黑名单，则再剔除匹配黑名单的模型
+// 3. 任一正则编译失败，视为该渠道本次自动同步失败
+// 4. 不在 RelayService.FetchModel 中复用，避免影响手动测试渠道并拉模型列表
+func filterSyncModelList(modelsList []string, settings models.ChannelSettings) ([]string, error) {
+	whitelistPattern := strings.TrimSpace(settings.SyncModelWhitelistRegex)
+	blacklistPattern := strings.TrimSpace(settings.SyncModelBlacklistRegex)
+
+	if whitelistPattern == "" && blacklistPattern == "" {
+		return modelsList, nil
+	}
+
+	var (
+		whitelist *regexp.Regexp
+		blacklist *regexp.Regexp
+		err       error
+	)
+	if whitelistPattern != "" {
+		whitelist, err = regexp.Compile(whitelistPattern)
+		if err != nil {
+			return nil, fmt.Errorf("compile sync model whitelist regex: %w", err)
+		}
+	}
+	if blacklistPattern != "" {
+		blacklist, err = regexp.Compile(blacklistPattern)
+		if err != nil {
+			return nil, fmt.Errorf("compile sync model blacklist regex: %w", err)
+		}
+	}
+
+	filtered := make([]string, 0, len(modelsList))
+	for _, name := range modelsList {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" {
+			continue
+		}
+		if whitelist != nil && !whitelist.MatchString(trimmed) {
+			continue
+		}
+		if blacklist != nil && blacklist.MatchString(trimmed) {
+			continue
+		}
+		filtered = append(filtered, name)
+	}
+	return filtered, nil
 }
 
 func normalizeModelList(modelsList []string) string {

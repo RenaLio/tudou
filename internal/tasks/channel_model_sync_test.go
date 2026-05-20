@@ -146,6 +146,158 @@ func TestNormalizeModelList(t *testing.T) {
 	}
 }
 
+func TestFilterSyncModelList_WhitelistOnly(t *testing.T) {
+	got, err := filterSyncModelList(
+		[]string{"gpt-4o", "claude-3-5-sonnet", "gpt-4.1-mini"},
+		models.ChannelSettings{SyncModelWhitelistRegex: "^gpt-"},
+	)
+	if err != nil {
+		t.Fatalf("filterSyncModelList failed: %v", err)
+	}
+	if !slices.Equal(got, []string{"gpt-4o", "gpt-4.1-mini"}) {
+		t.Fatalf("unexpected filtered models: %#v", got)
+	}
+}
+
+func TestFilterSyncModelList_BlacklistOnly(t *testing.T) {
+	got, err := filterSyncModelList(
+		[]string{"gpt-4o", "claude-3-5-sonnet", "gpt-4.1-mini"},
+		models.ChannelSettings{SyncModelBlacklistRegex: "claude"},
+	)
+	if err != nil {
+		t.Fatalf("filterSyncModelList failed: %v", err)
+	}
+	if !slices.Equal(got, []string{"gpt-4o", "gpt-4.1-mini"}) {
+		t.Fatalf("unexpected filtered models: %#v", got)
+	}
+}
+
+func TestFilterSyncModelList_WhitelistThenBlacklist(t *testing.T) {
+	got, err := filterSyncModelList(
+		[]string{"gpt-4o", "gpt-4.1", "gpt-4.1-mini", "claude-3-5-sonnet"},
+		models.ChannelSettings{
+			SyncModelWhitelistRegex: "^gpt-",
+			SyncModelBlacklistRegex: "mini$",
+		},
+	)
+	if err != nil {
+		t.Fatalf("filterSyncModelList failed: %v", err)
+	}
+	if !slices.Equal(got, []string{"gpt-4o", "gpt-4.1"}) {
+		t.Fatalf("unexpected filtered models: %#v", got)
+	}
+}
+
+func TestFilterSyncModelList_InvalidRegex(t *testing.T) {
+	_, err := filterSyncModelList(
+		[]string{"gpt-4o"},
+		models.ChannelSettings{SyncModelWhitelistRegex: "["},
+	)
+	if err == nil {
+		t.Fatal("expected invalid regex error")
+	}
+}
+
+func TestChannelModelSyncTask_Run_InvalidRegexCountsAsFailure(t *testing.T) {
+	channelSvc := &testChannelSyncChannelService{
+		pages: [][]v1.ChannelResponse{
+			{
+				{
+					ID:      1,
+					Type:    models.ChannelTypeOpenAI,
+					Name:    "ch-1",
+					BaseURL: "https://example.com",
+					APIKey:  "k1",
+					Model:   "old",
+					Settings: models.ChannelSettings{
+						AutoSyncUpstreamModels:  true,
+						SyncModelWhitelistRegex: "[",
+					},
+				},
+				{
+					ID:      2,
+					Type:    models.ChannelTypeOpenAI,
+					Name:    "ch-2",
+					BaseURL: "https://example.com",
+					APIKey:  "k2",
+					Model:   "old",
+					Settings: models.ChannelSettings{
+						AutoSyncUpstreamModels: true,
+					},
+				},
+			},
+		},
+	}
+	fetcher := &testChannelModelFetcher{
+		resp: map[int64][]string{
+			1: {"gpt-4o"},
+			2: {"gpt-4.1-mini"},
+		},
+	}
+	task := NewChannelModelSyncTask(
+		&log.Logger{Logger: zap.NewNop()},
+		channelSvc,
+		fetcher,
+	)
+
+	if err := task.Run(context.Background()); err != nil {
+		t.Fatalf("Run should not fail on per-channel regex error, got=%v", err)
+	}
+	if len(channelSvc.updated) != 1 || channelSvc.updated[0].id != 2 {
+		t.Fatalf("unexpected updates: %+v", channelSvc.updated)
+	}
+
+	statsAny, err := task.CurrentStats()
+	if err != nil {
+		t.Fatalf("CurrentStats failed: %v", err)
+	}
+	stats := statsAny.(ChannelModelSyncTaskStats)
+	if stats.FailedChannels != 1 || stats.UpdatedChannels != 1 {
+		t.Fatalf("unexpected stats: %+v", stats)
+	}
+}
+
+func TestChannelModelSyncTask_Run_FilterCanClearModelList(t *testing.T) {
+	channelSvc := &testChannelSyncChannelService{
+		pages: [][]v1.ChannelResponse{
+			{
+				{
+					ID:      1,
+					Type:    models.ChannelTypeOpenAI,
+					Name:    "ch-1",
+					BaseURL: "https://example.com",
+					APIKey:  "k1",
+					Model:   "legacy-model",
+					Settings: models.ChannelSettings{
+						AutoSyncUpstreamModels:  true,
+						SyncModelWhitelistRegex: "^gpt-",
+					},
+				},
+			},
+		},
+	}
+	fetcher := &testChannelModelFetcher{
+		resp: map[int64][]string{
+			1: {"claude-3-5-sonnet"},
+		},
+	}
+	task := NewChannelModelSyncTask(
+		&log.Logger{Logger: zap.NewNop()},
+		channelSvc,
+		fetcher,
+	)
+
+	if err := task.Run(context.Background()); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if len(channelSvc.updated) != 1 {
+		t.Fatalf("expected 1 updated channel, got=%d", len(channelSvc.updated))
+	}
+	if channelSvc.updated[0].model != "" {
+		t.Fatalf("expected model list to be cleared, got=%q", channelSvc.updated[0].model)
+	}
+}
+
 type testChannelSyncChannelService struct {
 	pages     [][]v1.ChannelResponse
 	listCalls int

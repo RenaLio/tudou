@@ -120,7 +120,9 @@ type ChannelSettings struct {
 	MaxConcurrent int               `json:"maxConcurrent,omitempty"` // 最大并发数
 	CustomHeaders map[string]string `json:"customHeaders,omitempty"` // 自定义请求头
 
-	AutoSyncUpstreamModels bool `json:"autoSyncUpstreamModels,omitempty"` // 是否自动同步上游模型列表
+	AutoSyncUpstreamModels  bool   `json:"autoSyncUpstreamModels,omitempty"`  // 是否自动同步上游模型列表
+	SyncModelWhitelistRegex string `json:"syncModelWhitelistRegex,omitempty"` // 自动同步模型时的白名单正则，仅对定时自动同步任务生效，不影响手动测试渠道并拉模型列表
+	SyncModelBlacklistRegex string `json:"syncModelBlacklistRegex,omitempty"` // 自动同步模型时的黑名单正则，仅对定时自动同步任务生效，不影响手动测试渠道并拉模型列表
 }
 
 // Value 实现 driver.Valuer 接口
