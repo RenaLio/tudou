@@ -27,7 +27,7 @@ type ChannelRepo interface {
 	Create(ctx context.Context, channel *models.Channel) error
 	BatchCreate(ctx context.Context, channels []*models.Channel) error
 	GetByID(ctx context.Context, id int64) (*models.Channel, error)
-	GetByIDWithGroups(ctx context.Context, id int64) (*models.Channel, error)
+	GetByIDWithPreloads(ctx context.Context, id int64, PreloadGroups bool, PreloadStats bool) (*models.Channel, error)
 	GetByIDs(ctx context.Context, ids []int64) ([]*models.Channel, error)
 	GetByName(ctx context.Context, name string) (*models.Channel, error)
 	List(ctx context.Context, opt ChannelListOption) ([]*models.Channel, int64, error)
@@ -60,8 +60,15 @@ func (r *channelRepo) GetByID(ctx context.Context, id int64) (*models.Channel, e
 	return GetByID[models.Channel](ctx, id, r.DB(ctx))
 }
 
-func (r *channelRepo) GetByIDWithGroups(ctx context.Context, id int64) (*models.Channel, error) {
-	return GetByIDWithPreload[models.Channel](ctx, id, r.DB(ctx), "Groups", nil)
+func (r *channelRepo) GetByIDWithPreloads(ctx context.Context, id int64, PreloadGroups bool, PreloadStats bool) (*models.Channel, error) {
+	preloads := make([]string, 0)
+	if PreloadGroups {
+		preloads = append(preloads, "Groups")
+	}
+	if PreloadStats {
+		preloads = append(preloads, "Stats")
+	}
+	return GetByIDWithPreloads[models.Channel](ctx, id, r.DB(ctx), preloads...)
 }
 
 func (r *channelRepo) GetByIDs(ctx context.Context, ids []int64) ([]*models.Channel, error) {

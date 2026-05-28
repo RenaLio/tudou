@@ -149,7 +149,7 @@ func (s *channelService) GetByID(ctx context.Context, id int64, withGroups bool)
 		err     error
 	)
 	if withGroups {
-		channel, err = s.repo.GetByIDWithGroups(ctx, id)
+		channel, err = s.repo.GetByIDWithPreloads(ctx, id, true, true)
 	} else {
 		channel, err = s.repo.GetByID(ctx, id)
 	}
@@ -221,7 +221,7 @@ func (s *channelService) List(ctx context.Context, req v1.ListChannelsRequest) (
 }
 
 func (s *channelService) Update(ctx context.Context, id int64, req v1.UpdateChannelRequest) (*v1.ChannelResponse, error) {
-	channel, err := s.repo.GetByIDWithGroups(ctx, id)
+	channel, err := s.repo.GetByIDWithPreloads(ctx, id, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (s *channelService) ReplaceGroups(ctx context.Context, channelID int64, req
 	if err := s.repo.ReplaceGroups(ctx, channelID, req.GroupIDs); err != nil {
 		return nil, err
 	}
-	ch, err := s.repo.GetByIDWithGroups(ctx, channelID)
+	ch, err := s.repo.GetByIDWithPreloads(ctx, channelID, true, true)
 	if err != nil {
 		return nil, err
 	}

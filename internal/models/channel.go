@@ -91,8 +91,6 @@ type ChannelType string
 const (
 	ChannelTypeOpenAI ChannelType = "openai" // OpenAI
 	ChannelTypeClaude ChannelType = "claude" // Anthropic Claude
-	ChannelTypeAzure  ChannelType = "azure"  // Azure OpenAI
-	ChannelTypeCustom ChannelType = "custom" // 自定义
 )
 
 // ChannelStatus 渠道状态
