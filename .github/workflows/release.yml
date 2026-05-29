@@ -45,6 +45,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Build frontend assets
+        working-directory: web
+        run: bun run build-only
+
       - name: Build package
         env:
           GOOS: ${{ matrix.goos }}
