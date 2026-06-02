@@ -38,6 +38,7 @@ web/.git/
 .gocache/
 ai_docs/
 storage/*
+cmd/temp_*
 
 .DS_Store
 bin/

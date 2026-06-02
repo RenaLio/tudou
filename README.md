@@ -31,10 +31,10 @@
 docker compose up -d
 ```
 
-如果需要本地重新构建镜像：
+更新到最新镜像：
 
 ```bash
-docker compose up -d --build
+docker compose pull && docker compose up -d
 ```
 
 查看日志：
