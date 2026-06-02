@@ -26,7 +26,8 @@ type Config struct {
 	} `mapstructure:"http"`
 	Security struct {
 		JWT struct {
-			Secret string `mapstructure:"secret"`
+			Secret     string `mapstructure:"secret"`
+			SecretFile string `mapstructure:"secret_file"`
 		} `mapstructure:"jwt"`
 		Sid struct {
 			Id int64 `mapstructure:"id"`

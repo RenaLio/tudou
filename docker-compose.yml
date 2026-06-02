@@ -6,7 +6,7 @@ services:
 
     environment:
       TZ: Asia/Shanghai
-      APP_ENV: prod
+      TUDOU_ENV: prod
 
     ports:
       - "8080:8080"

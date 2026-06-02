@@ -289,3 +289,12 @@ func (c *Client) HasAbility(ability types.Ability) bool {
 	_, ok := c.abMap[ability]
 	return ok
 }
+
+func (c *Client) Forward(ctx context.Context, req *types.ForwardRequest) (*http.Response, error) {
+	if req.Headers == nil {
+		req.Headers = make(map[string]string)
+	}
+	req.Headers["Authorization"] = "Bearer " + c.ApiKey
+	req.Headers["X-API-Key"] = c.ApiKey
+	return types.ForwardHTTP(ctx, c.httpC, c.BaseURL, req)
+}
