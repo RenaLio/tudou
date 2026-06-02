@@ -39,6 +39,7 @@ web/.git/
 ai_docs/
 storage/*
 cmd/temp_*
+
 .DS_Store
 bin/
 *.tar
