@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/RenaLio/tudou/pkg/provider/types"
 )
@@ -12,4 +13,5 @@ type Provider interface {
 	Models() ([]string, error)
 	Abilities() []types.Ability
 	HasAbility(ability types.Ability) bool
+	Forward(ctx context.Context, req *types.ForwardRequest) (*http.Response, error)
 }

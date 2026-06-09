@@ -34,6 +34,7 @@ import (
 	tencentcodingplan "github.com/RenaLio/tudou/pkg/provider/platforms/tencent_coding_plan"
 	volcenginecoding "github.com/RenaLio/tudou/pkg/provider/platforms/volcengine_coding"
 	"github.com/RenaLio/tudou/pkg/provider/plog"
+	"github.com/RenaLio/tudou/pkg/provider/plugins"
 	ptypes "github.com/RenaLio/tudou/pkg/provider/types"
 )
 
@@ -196,7 +197,13 @@ func (s *RelayService) Forward(ctx context.Context, meta types.RelayMeta, body [
 		var execErr error
 		var attemptRequestPath string
 
-		resp, execErr = prov.Execute(ctx, req, func(metrics *ptypes.ResponseMetrics) {
+		// Apply plugins
+		invoker := plugins.ApplyPlugins(
+			prov.Execute,
+			plugins.ForceIncludeUsage,
+		)
+
+		resp, execErr = invoker(ctx, req, func(metrics *ptypes.ResponseMetrics) {
 			plog.Debug("metrics:", metrics)
 			attemptRequestPath = metrics.RequestPath
 
