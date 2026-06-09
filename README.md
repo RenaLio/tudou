@@ -23,6 +23,32 @@
 
 ## Quick Start
 
+### 3-Minute Trial
+
+```bash
+git clone https://github.com/RenaLio/tudou.git
+cd tudou
+docker compose up -d
+```
+
+然后访问：
+
+```text
+http://localhost:8080
+```
+
+默认登录：
+
+- Username: `admin`
+- Password: `admin`
+
+首次登录后，建议按下面顺序完成最小可用配置：
+
+1. 添加一个上游 Channel
+2. 创建或选择一个 Channel Group
+3. 创建一个 Token
+4. 用 OpenAI 兼容客户端把 Base URL 指向 Tudou
+
 ### Docker Compose
 
 推荐使用 Docker Compose 启动：
@@ -137,7 +163,8 @@ config/config.yaml
 | `http.port` | HTTP 监听端口 | `8080` |
 | `data.db.user.driver` | 数据库类型 | `sqlite` |
 | `data.db.user.dsn` | 数据库连接字符串 | `storage/tudou.db...` |
-| `security.jwt.secret` | JWT 密钥 | 请在生产环境修改 |
+| `security.jwt.secret` | JWT 密钥 | 留空时自动生成并持久化 |
+| `security.jwt.secret_file` | JWT 密钥文件路径 | `storage/runtime/jwt_secret` |
 | `log.log_level` | 日志级别 | `debug` |
 | `log.log_path` | 日志目录 | `./storage/logs` |
 
@@ -152,10 +179,53 @@ config/config.yaml
 生产环境建议：
 
 - 修改默认管理员密码。
-- 修改 `security.jwt.secret`。
+- 单机或单实例部署时，可以让 `security.jwt.secret` 留空，由服务自动生成并持久化。
+- 多实例部署时，显式配置统一的 `security.jwt.secret` 或 `security.jwt.secret_file`。
 - 使用挂载的 `config/` 覆盖镜像内置配置。
 - 持久化 `/app/storage`，避免数据库和日志随容器删除。
 - 不要把真实密钥提交到仓库。
+
+## Client Examples
+
+### OpenAI-Compatible Base URL
+
+将 OpenAI 客户端的 Base URL 指向 Tudou：
+
+```text
+http://localhost:8080/v1
+```
+
+### cURL
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-token>" \
+  -d '{
+    "model": "your-model",
+    "messages": [
+      {"role": "user", "content": "hello"}
+    ]
+  }'
+```
+
+### Python OpenAI SDK
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="your-token",
+    base_url="http://localhost:8080/v1",
+)
+
+resp = client.chat.completions.create(
+    model="your-model",
+    messages=[{"role": "user", "content": "hello"}],
+)
+
+print(resp)
+```
 
 ## Documentation
 
